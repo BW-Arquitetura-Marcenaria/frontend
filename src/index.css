@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Poppins:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+@import 'tailwindcss';
+
+@theme inline {
+  /* ── BW Brand Palette ── */
+  --color-bw-white:      #FAF8F4;
+  --color-bw-areia:      #E8E1D5;
+  --color-bw-dourado:    #B08D57;
+  --color-bw-madeira:    #6F4E37;
+  --color-bw-preto:      #16130F;
+  --color-bw-border:     #C9BBA8;
+  --color-bw-border-sub: #E0D6C8;
+  --color-bw-muted:      #9C8B76;
+  --color-bw-ph:         #B5A898;
+  --color-bw-hover:      #F0EBE3;
+  --color-bw-sidebar:    #1A1510;
+  --color-bw-sidebar-b:  #2C2218;
+
+  /* ── BW Typography ── */
+  /* The Seasons → Cormorant Garamond (elegância serifada, alto contraste) */
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  /* Poppins — textos, corpo e descritivos */
+  --font-body:    'Poppins', system-ui, sans-serif;
+  --font-mono:    'DM Mono', monospace;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font-body);
+  font-weight: 400;
+  background-color: #FAF8F4;
+  color: #16130F;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #C9BBA8; border-radius: 2px; }
+
+.font-display { font-family: var(--font-display); }
+.font-mono    { font-family: var(--font-mono); }
+.fg-inline-italic { font-style: italic; }
+
+::selection {
+  background: #B08D57;
+  color: #FAF8F4;
+}
+
+:focus-visible {
+  outline: 2px solid #B08D57;
+  outline-offset: 3px;
+}
+
+button, a, input, select, textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled), a {
+  cursor: pointer;
+}
+
+/* Mobile safeguards: preserve readable, tappable controls without forcing a
+   horizontal page scroll. Data-dense views keep their own explicit scrollers. */
+@media (max-width: 639px) {
+  html, body, #root {
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  input, select, textarea, button {
+    max-width: 100%;
+  }
+
+  input, select, textarea {
+    font-size: 16px;
+  }
+
+  button, [role="button"] {
+    min-height: 2.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+.bw-admin-ground {
+  background-color: #E8E1D5;
+  background-image:
+    radial-gradient(circle at 8% 6%, rgba(176, 141, 87, .18), transparent 20rem),
+    radial-gradient(circle at 92% 100%, rgba(111, 78, 55, .12), transparent 28rem),
+    linear-gradient(135deg, rgba(250,248,244,.76), rgba(232,225,213,.42));
+}
+
+.bw-panel {
+  box-shadow: 0 18px 45px rgba(56, 38, 20, .08), 0 2px 6px rgba(56, 38, 20, .04);
+}
