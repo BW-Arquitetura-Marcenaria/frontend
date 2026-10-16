@@ -2354,6 +2354,17 @@ function Rastreabilidade() {
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
+                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Fornecedor</label>
+                  <input type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="Ex: Pinheiro Madeiras Ltda." />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Origem</label>
+                  <input type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="Ex: Paraná, BR" />
+                </div>
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Volume Utilizado</label>
                   <input type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="Ex: 5 chapas" />
                 </div>
