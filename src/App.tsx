@@ -2223,12 +2223,18 @@ function Rastreabilidade() {
   const [isRegistrarModalOpen, setIsRegistrarModalOpen] = useState(false);
 
   // Simulando banco de dados com relação ao ID do Lead (Projeto)
-  const lotes = [
+  const [lotes, setLotes] = useState([
     {id:"LOT-2024-089", leadId:11, material:"MDF Branco 15mm", origem:"Reflorestamento certificado — Paraná, BR", forn:"Pinheiro Madeiras Ltda.", cert:"FSC® COC-004321", volume:"24 chapas (83m²)", data:"02 ago 2024", status:"Em uso"},
     {id:"LOT-2024-076", leadId:12, material:"Painel Freijó 18mm", origem:"Manejo sustentável — Mato Grosso, BR", forn:"Madeireira Nobre", cert:"IBAMA 2024-MG-4412", volume:"12 chapas (40m²)", data:"15 jul 2024", status:"Em uso"},
     {id:"LOT-2024-061", leadId:11, material:"Pinus Tratado 25mm", origem:"Reflorestamento — Santa Catarina, BR", forn:"Pinheiro Madeiras Ltda.", cert:"FSC® COC-004321", volume:"8 chapas (28m²)", data:"01 jul 2024", status:"Utilizado"},
     {id:"LOT-2024-099", leadId:7, material:"Compensado Naval 18mm", origem:"Manejo Sustentável — Pará, BR", forn:"EcoMadeiras", cert:"IBAMA 2024-PA-1234", volume:"15 chapas (45m²)", data:"20 ago 2024", status:"Estoque"},
-  ];
+  ]);
+
+  const excluirLote = (id: string) => {
+    if (!window.confirm("Excluir este material?")) return;
+    setLotes(prev => prev.filter(l => l.id !== id));
+    setSelLoteIndex(0);
+  };
 
   const filteredLotes = selectedLeadId === "" ? lotes : lotes.filter(l => l.leadId === selectedLeadId);
   const s = filteredLotes[selLoteIndex] || filteredLotes[0];
@@ -2270,12 +2276,18 @@ function Rastreabilidade() {
               <div className="p-8 text-center text-sm text-bw-muted">Nenhum material registrado para este projeto.</div>
             ) : (
               filteredLotes.map((l,i)=>(
-                <button key={i} onClick={()=>setSelLoteIndex(i)} className={`w-full text-left px-4 py-3 border-b border-bw-border-sub last:border-0 hover:bg-bw-hover transition-colors ${selLoteIndex===i?"border-l-2 border-l-bw-dourado pl-3.5 bg-bw-areia/30":""}`}>
+                <div key={l.id} className="flex items-stretch border-b border-bw-border-sub last:border-0">
+                <button onClick={()=>setSelLoteIndex(i)} className={`flex-1 text-left px-4 py-3 hover:bg-bw-hover transition-colors ${selLoteIndex===i?"border-l-2 border-l-bw-dourado pl-3.5 bg-bw-areia/30":""}`}>
                   <div className="flex items-start justify-between">
                     <div><div className="font-mono text-[10px] text-bw-muted">{l.id}</div><div className="text-xs font-medium text-bw-preto mt-0.5">{l.material}</div><div className="text-[10px] text-bw-muted">{l.forn}</div></div>
                     <WireTag status={l.status==="Em uso"?"info":l.status==="Estoque"?"warn":"ok"}>{l.status}</WireTag>
                   </div>
                 </button>
+                <button onClick={()=>excluirLote(l.id)} title="Excluir material" aria-label={`Excluir ${l.id}`} className="px-3 text-bw-muted hover:text-red-600 hover:bg-bw-hover transition-colors">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
+                </button>
+                </div>
+
               ))
             )}
           </div>
