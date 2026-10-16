@@ -2016,6 +2016,16 @@ function TabelaPrecos() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<{desc:string, unit:string, material:string, price:number, cat:string} | null>(null);
+  const [secoes, setSecoes] = useState<{cat:string, items:(string|number)[][]}[]>([
+    {cat:"Marcenaria Planejada",items:[["Módulo base cozinha 60cm","un","MDF 15mm",480],["Módulo aéreo cozinha 60cm","un","MDF 15mm",320],["Módulo torre forno 60cm","un","MDF 15mm",780],["Gaveta com corrediça telescópica","un","MDF + metal",180]]},
+    {cat:"Dormitório & Closet",items:[["Roupeiro planejado (por módulo)","un","MDF 15mm",650],["Cabeceira estofada 1,80m","un","Linho + MDF",1200]]},
+    {cat:"Mão de Obra",items:[["Montagem e instalação","h","—",120],["Visita técnica","visita","—",200],["Projeto e consultoria","projeto","—",800]]},
+  ]);
+
+  const excluirItem = (cat: string, index: number) => {
+    if (!window.confirm("Excluir este item?")) return;
+    setSecoes(prev => prev.map(sec => sec.cat === cat ? {...sec, items: sec.items.filter((_, i) => i !== index)} : sec));
+  };
 
   return (
     <div className="flex flex-col gap-5 max-w-4xl mx-auto w-full relative">
@@ -2026,12 +2036,12 @@ function TabelaPrecos() {
           <button onClick={() => setIsNewItemModalOpen(true)} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Novo item</button>
         </div>
       </div>
-      {[{cat:"Marcenaria Planejada",items:[["Módulo base cozinha 60cm","un","MDF 15mm",480],["Módulo aéreo cozinha 60cm","un","MDF 15mm",320],["Módulo torre forno 60cm","un","MDF 15mm",780],["Gaveta com corrediça telescópica","un","MDF + metal",180]]},{cat:"Dormitório & Closet",items:[["Roupeiro planejado (por módulo)","un","MDF 15mm",650],["Cabeceira estofada 1,80m","un","Linho + MDF",1200]]},{cat:"Mão de Obra",items:[["Montagem e instalação","h","—",120],["Visita técnica","visita","—",200],["Projeto e consultoria","projeto","—",800]]}].map(s=>(
+      {secoes.map(s=>(
         <div key={s.cat} className="overflow-x-auto rounded-lg border border-bw-border bg-bw-white">
           <div className="px-4 py-3 border-b border-bw-border bg-bw-areia"><span className="text-xs font-semibold text-bw-madeira">{s.cat}</span></div>
           <table className="w-full min-w-[42rem] text-xs">
             <thead className="border-b border-bw-border-sub">
-              <tr>{["Descrição","Unidade","Material base","Preço referência",""].map(h=><th key={h} className="text-left px-4 py-2.5 font-mono text-bw-muted text-[10px] uppercase">{h}</th>)}</tr>
+              <tr>{["Descrição","Unidade","Material base","Preço referência","",""].map((h,hi)=><th key={hi} className="text-left px-4 py-2.5 font-mono text-bw-muted text-[10px] uppercase">{h}</th>)}</tr>
             </thead>
             <tbody>
               {s.items.map(([d,u,m,p],i)=>(
@@ -2041,6 +2051,11 @@ function TabelaPrecos() {
                   <td className="px-4 py-3 text-bw-muted">{m}</td>
                   <td className="px-4 py-3 font-mono font-semibold text-bw-preto">R$ {(p as number).toLocaleString()}</td>
                   <td className="px-4 py-3 text-bw-muted text-[10px] hover:text-bw-madeira cursor-pointer" onClick={() => setEditingItem({desc: d as string, unit: u as string, material: m as string, price: p as number, cat: s.cat})}>Editar</td>
+                  <td className="px-2 py-3 text-bw-muted">
+                    <button onClick={() => excluirItem(s.cat, i)} title="Excluir item" aria-label={`Excluir ${d}`} className="p-1 hover:text-red-600 transition-colors">
+                      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
