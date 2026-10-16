@@ -1678,54 +1678,165 @@ function Financeiro() {
 }
 
 // ─── SCREEN: Calendário ───────────────────────────────────────────────────────
+type CalEvento = { id: number; date: string; title: string; time: string; tipo: string; leadId: number | ""; };
+type CalForm = { id: number | null; date: string; title: string; time: string; tipo: string; leadId: number | ""; };
+
 function Calendario() {
-  const days = Array.from({ length: 31 }, (_, i) => i + 1);
-  const events: Record<number, string[]> = { 16:["Oliveira — Montagem"],19:["Silva — Entrega"],21:["Visita Costa"],23:["Carvalho — Instalação"],26:["Reunião fornecedor"],28:["Entrega Lima"],14:["Hoje"] };
-  const [isAgendarModalOpen, setIsAgendarModalOpen] = useState(false);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const toISO = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
+  const now = new Date();
+  const hojeISO = toISO(now.getFullYear(), now.getMonth(), now.getDate());
+  const meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  const tipos: Record<string, string> = { reuniao: "Reunião / Apresentação", visita: "Visita Técnica", entrega: "Montagem / Entrega", outro: "Outro" };
+
+  const [viewYear, setViewYear] = useState(now.getFullYear());
+  const [viewMonth, setViewMonth] = useState(now.getMonth());
+  const seed = (offset: number, title: string, time: string, tipo: string): Omit<CalEvento, "id"> => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+    return { date: toISO(d.getFullYear(), d.getMonth(), d.getDate()), title, time, tipo, leadId: "" };
+  };
+  const [events, setEvents] = useState<CalEvento[]>([
+    seed(0, "Oliveira — Montagem", "09:00", "entrega"),
+    seed(3, "Silva — Entrega", "14:00", "entrega"),
+    seed(5, "Visita Costa", "10:30", "visita"),
+    seed(7, "Carvalho — Instalação", "08:00", "entrega"),
+    seed(10, "Reunião fornecedor", "15:00", "reuniao"),
+    seed(12, "Entrega Lima", "11:00", "entrega"),
+  ].map((e, i) => ({ id: i + 1, ...e })));
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [form, setForm] = useState<CalForm | null>(null);
+  const [nextId, setNextId] = useState(100);
+
+  const selected = events.find(e => e.id === selectedId) || null;
+  const inputCls = "bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors";
+
+  const firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const trailing = (7 - ((firstWeekday + daysInMonth) % 7)) % 7;
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  const changeMonth = (delta: number) => {
+    const d = new Date(viewYear, viewMonth + delta, 1);
+    setViewYear(d.getFullYear());
+    setViewMonth(d.getMonth());
+  };
+  const goToday = () => { setViewYear(now.getFullYear()); setViewMonth(now.getMonth()); };
+  const fmtLong = (iso: string) => { const [y, m, d] = iso.split("-").map(Number); return `${d} de ${meses[m - 1].toLowerCase()} de ${y}`; };
+
+  const openNew = (date: string) => { setSelectedId(null); setForm({ id: null, date, title: "", time: "", tipo: "", leadId: "" }); };
+  const openEdit = (ev: CalEvento) => { setSelectedId(null); setForm({ ...ev }); };
+  const excluir = (id: number) => {
+    if (!window.confirm("Excluir este evento?")) return;
+    setEvents(prev => prev.filter(e => e.id !== id));
+    setSelectedId(null);
+  };
+  const salvar = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form) return;
+    if (form.id === null) {
+      setEvents(prev => [...prev, { id: nextId, date: form.date, title: form.title, time: form.time, tipo: form.tipo, leadId: form.leadId }]);
+      setNextId(n => n + 1);
+    } else {
+      setEvents(prev => prev.map(ev => ev.id === form.id ? { ...ev, date: form.date, title: form.title, time: form.time, tipo: form.tipo, leadId: form.leadId } : ev));
+    }
+    // Navega para o mês do evento salvo
+    const [y, m] = form.date.split("-").map(Number);
+    setViewYear(y); setViewMonth(m - 1);
+    setForm(null);
+  };
+
+  const svgProps = { viewBox: "0 0 24 24", className: "w-4 h-4", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
 
   return (
     <div className="flex flex-col gap-5 max-w-4xl mx-auto w-full">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div><h1 className="text-2xl font-semibold text-bw-preto font-display">Calendário de Entregas</h1><p className="text-[10px] font-mono text-bw-muted">Agosto 2024 — Compartilhado com a equipe</p></div>
-        <button onClick={() => setIsAgendarModalOpen(true)} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Agendar</button>
+        <div><h1 className="text-2xl font-semibold text-bw-preto font-display">Calendário de Entregas</h1><p className="text-[10px] font-mono text-bw-muted">Compartilhado com a equipe — clique em um dia para agendar ou em um evento para editar/excluir</p></div>
+        <button onClick={() => openNew(hojeISO)} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Agendar</button>
       </div>
+
+      <div className="flex items-center gap-2">
+        <button onClick={goToday} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors">Hoje</button>
+        <button onClick={() => changeMonth(-1)} aria-label="Mês anterior" className="p-1.5 rounded-md border border-bw-border text-bw-madeira hover:bg-bw-hover transition-colors">
+          <svg {...svgProps}><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <button onClick={() => changeMonth(1)} aria-label="Próximo mês" className="p-1.5 rounded-md border border-bw-border text-bw-madeira hover:bg-bw-hover transition-colors">
+          <svg {...svgProps}><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <select value={viewMonth} onChange={e => setViewMonth(Number(e.target.value))} aria-label="Mês" className="bg-transparent border-b border-bw-border-sub text-bw-preto text-sm font-semibold py-1 outline-none focus:border-bw-dourado">
+          {meses.map((m, i) => <option key={m} value={i}>{m}</option>)}
+        </select>
+        <input type="number" value={viewYear} onChange={e => setViewYear(Number(e.target.value) || now.getFullYear())} aria-label="Ano" className="w-20 bg-transparent border-b border-bw-border-sub text-bw-preto text-sm font-semibold py-1 outline-none focus:border-bw-dourado" />
+      </div>
+
       <div className="overflow-x-auto rounded-lg border border-bw-border bg-bw-white">
         <div className="min-w-[42rem]">
         <div className="grid grid-cols-7 border-b border-bw-border bg-bw-areia">
           {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map(d=><div key={d} className="py-2 text-center text-[10px] font-mono text-bw-muted uppercase">{d}</div>)}
         </div>
         <div className="grid grid-cols-7">
-          {[...Array(3)].map((_,i)=><div key={`e${i}`} className="h-16 border-r border-b border-bw-border-sub" />)}
-          {days.map(d=>(
-            <div key={d} className={`h-16 p-1.5 border-r border-b border-bw-border-sub ${d===14?"bg-bw-areia":""}`}>
-              <div className={`text-[10px] font-mono mb-1 ${d===14?"font-bold text-bw-preto":"text-bw-muted"}`}>{d}</div>
-              {events[d]?.map((e,i)=><div key={i} className={`text-[9px] rounded px-1 py-0.5 truncate font-mono mb-0.5 ${d===14?"bg-bw-dourado text-white":"bg-bw-areia text-bw-madeira border border-bw-border"}`}>{e}</div>)}
+          {[...Array(firstWeekday)].map((_,i)=><div key={`e${i}`} className="h-24 border-r border-b border-bw-border-sub" />)}
+          {days.map(d=>{
+            const iso = toISO(viewYear, viewMonth, d);
+            const isHoje = iso === hojeISO;
+            return (
+            <div key={d} onClick={() => openNew(iso)} className={`h-24 p-1.5 border-r border-b border-bw-border-sub overflow-hidden cursor-pointer hover:bg-bw-hover transition-colors ${isHoje?"bg-bw-areia":""}`}>
+              <div className={`text-[10px] font-mono mb-1 ${isHoje?"font-bold text-bw-preto":"text-bw-muted"}`}>{d}{isHoje && " · Hoje"}</div>
+              {events.filter(ev => ev.date === iso).sort((a,b)=>a.time.localeCompare(b.time)).map(ev => (
+                <button key={ev.id} onClick={(e) => { e.stopPropagation(); setSelectedId(ev.id); }} className="block w-full text-left text-[9px] rounded px-1 py-0.5 truncate font-mono mb-0.5 border border-bw-border border-l-2 border-l-bw-dourado bg-bw-areia text-bw-madeira hover:bg-bw-dourado hover:text-white transition-colors">
+                  {ev.time} {ev.title}
+                </button>
+              ))}
             </div>
-          ))}
-          {[...Array(4)].map((_,i)=><div key={`f${i}`} className="h-16 border-r border-b border-bw-border-sub" />)}
+            );
+          })}
+          {[...Array(trailing)].map((_,i)=><div key={`f${i}`} className="h-24 border-r border-b border-bw-border-sub" />)}
         </div>
         </div>
       </div>
 
-      {isAgendarModalOpen && (
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/40 p-4" onClick={() => setSelectedId(null)}>
+          <div className="w-full max-w-sm rounded-lg border border-bw-border bg-bw-white shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-bw-border bg-bw-areia px-4 py-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-bw-madeira">Detalhes do evento</span>
+              <div className="flex items-center gap-1 text-bw-muted">
+                <button onClick={() => openEdit(selected)} title="Editar" aria-label="Editar evento" className="p-1.5 rounded hover:bg-bw-hover hover:text-bw-madeira transition-colors">
+                  <svg {...svgProps}><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                </button>
+                <button onClick={() => excluir(selected.id)} title="Excluir" aria-label="Excluir evento" className="p-1.5 rounded hover:bg-bw-hover hover:text-red-600 transition-colors">
+                  <svg {...svgProps}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
+                </button>
+                <button onClick={() => setSelectedId(null)} title="Fechar" aria-label="Fechar" className="p-1.5 rounded hover:bg-bw-hover transition-colors">
+                  <svg {...svgProps}><path d="M6 6l12 12M18 6L6 18"/></svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 p-4">
+              <div className="text-lg font-semibold text-bw-preto font-display">{selected.title}</div>
+              <div className="text-xs text-bw-madeira font-mono">{fmtLong(selected.date)} · {selected.time}</div>
+              <div className="text-xs text-bw-preto">{tipos[selected.tipo] || "—"}</div>
+              <div className="text-xs text-bw-muted">Lead: {leadsData.find(l => l.id === selected.leadId)?.nome || "Evento interno"}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {form && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8">
-            <button 
-              onClick={() => setIsAgendarModalOpen(false)}
-              className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors"
-            >
+            <button onClick={() => setForm(null)} className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors">
               <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
             </button>
 
             <div className="mb-8">
-              <h2 className="font-display text-2xl text-bw-white">Novo Agendamento</h2>
-              <p className="font-mono text-[10px] text-bw-dourado uppercase tracking-widest mt-1">Marcar evento ou visita</p>
+              <h2 className="font-display text-2xl text-bw-white">{form.id === null ? "Novo Agendamento" : "Editar Evento"}</h2>
+              <p className="font-mono text-[10px] text-bw-dourado uppercase tracking-widest mt-1">{form.id === null ? "Marcar evento ou visita" : "Alterar dados do evento"}</p>
             </div>
 
-            <form className="flex flex-col gap-5" onSubmit={e => { e.preventDefault(); setIsAgendarModalOpen(false); }}>
+            <form className="flex flex-col gap-5" onSubmit={salvar}>
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Título do Evento</label>
-                <input type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="Ex: Visita técnica" />
+                <input type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className={inputCls} required placeholder="Ex: Visita técnica" />
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -1733,7 +1844,7 @@ function Calendario() {
                   <span>Vincular a um Lead (Opcional)</span>
                   <span className="text-bw-dourado/60 text-[8px]">Funil de vendas</span>
                 </label>
-                <select className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none">
+                <select value={form.leadId} onChange={e => setForm({ ...form, leadId: e.target.value ? Number(e.target.value) : "" })} className={`${inputCls} appearance-none rounded-none`}>
                   <option value="" className="bg-bw-preto text-bw-white">Nenhum (Evento interno)</option>
                   {leadsData.map(lead => (
                     <option key={lead.id} value={lead.id} className="bg-bw-preto text-bw-white">
@@ -1746,28 +1857,30 @@ function Calendario() {
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Data</label>
-                  <input type="date" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors [color-scheme:dark]" required />
+                  <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className={`${inputCls} [color-scheme:dark]`} required />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Horário</label>
-                  <input type="time" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors [color-scheme:dark]" required />
+                  <input type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} className={`${inputCls} [color-scheme:dark]`} required />
                 </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Tipo de Evento</label>
-                <select className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
-                  <option value="" disabled selected hidden className="bg-bw-preto text-bw-white">Selecione...</option>
-                  <option value="reuniao" className="bg-bw-preto text-bw-white">Reunião / Apresentação</option>
-                  <option value="visita" className="bg-bw-preto text-bw-white">Visita Técnica</option>
-                  <option value="entrega" className="bg-bw-preto text-bw-white">Montagem / Entrega</option>
-                  <option value="outro" className="bg-bw-preto text-bw-white">Outro</option>
+                <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })} className={`${inputCls} appearance-none rounded-none`} required>
+                  <option value="" disabled hidden className="bg-bw-preto text-bw-white">Selecione...</option>
+                  {Object.entries(tipos).map(([k, v]) => <option key={k} value={k} className="bg-bw-preto text-bw-white">{v}</option>)}
                 </select>
               </div>
 
-              <div className="mt-4">
-                <button type="submit" className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors">
-                  Agendar Evento
+              <div className="mt-4 flex gap-3">
+                {form.id !== null && (
+                  <button type="button" onClick={() => { const id = form.id as number; setForm(null); excluir(id); }} className="px-4 border border-red-500/60 text-red-400 py-3 text-xs uppercase tracking-wider hover:bg-red-500/10 transition-colors">
+                    Excluir
+                  </button>
+                )}
+                <button type="submit" className="flex-1 bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors">
+                  {form.id === null ? "Agendar Evento" : "Salvar Alterações"}
                 </button>
               </div>
             </form>
