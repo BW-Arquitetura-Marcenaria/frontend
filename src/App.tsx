@@ -6,6 +6,7 @@ import bwProject2 from "@/assets/portfolio/apartamento-jardins-estante-adega.png
 import bwProject3 from "@/assets/portfolio/estudio-oliva-estante-comercial.png";
 import bwLoginBg from "@/assets/backgrounds/login-estante-plantas.png";
 import RastreabilidadeView from "@/views/rastreabilidade/RastreabilidadeView";
+import { useMinhaContaViewModel } from "@/viewmodels/minhaConta/useMinhaContaViewModel";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Screen =
@@ -888,12 +889,102 @@ function ClienteChatbot({ tipo }: { tipo: ClienteTipo }) {
 }
 
 function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
+  // estilos reutilizados
   const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors";
   const glassLabel = "block text-[10px] font-mono uppercase tracking-[.18em] text-white/40 mb-1.5";
   const readOnly = "w-full bg-transparent border-0 border-b border-white/10 py-3 text-[13px] text-white/40 font-mono cursor-not-allowed select-none";
-  const [comoConheceu, setComoConheceu] = useState("instagram");
-  const [instagramUser, setInstagramUser] = useState("juliana.costa");
+
+  // viewmodel / integração com backend
+  const vm = useMinhaContaViewModel();
+
+  const [loadingLocal, setLoadingLocal] = useState(true);
   const [saved, setSaved] = useState(false);
+
+  // campos do formulário (controlados)
+  const [nome, setNome] = useState("");
+  const [sobrenome, setSobrenome] = useState("");
+  const [cpf] = useState("");
+  const [dataNascimento, setDataNascimento] = useState<string | undefined>(undefined);
+  const [email, setEmail] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [origemContato, setOrigemContato] = useState("");
+  const [instagramUsername, setInstagramUsername] = useState("");
+
+  // empresa / pj
+  const [cnpj, setCnpj] = useState("");
+  const [razaoSocial, setRazaoSocial] = useState("");
+  const [nomeFantasia, setNomeFantasia] = useState("");
+
+  // responsável legal (pj)
+  const [responsavelNome, setResponsavelNome] = useState("");
+
+  // senhas
+  const [senhaAtual, setSenhaAtual] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmarNovaSenha, setConfirmarNovaSenha] = useState("");
+
+  // origem select helper
+  const [comoConheceu, setComoConheceu] = useState("");
+
+  // inicializa campos quando dados chegam do backend
+  useEffect(() => {
+    if (vm.data) {
+      const d = vm.data;
+      setNome(d.nome ?? "");
+      setSobrenome(d.sobrenome ?? "");
+      if (d.cpf) {
+        // manter CPF como leitura — não sobrescrever
+      }
+      setDataNascimento(d.dataNascimento ?? undefined);
+      setEmail(d.email ?? "");
+      setTelefone(d.telefone ?? "");
+      setOrigemContato(d.origemContato ?? "");
+      setInstagramUsername(d.instagramUsername ?? "");
+      setComoConheceu(d.origemContato ?? "");
+
+      if (d.empresa) {
+        setCnpj(d.empresa.cnpj ?? "");
+        setRazaoSocial(d.empresa.razaoSocial ?? "");
+        setNomeFantasia(d.empresa.nomeFantasia ?? "");
+      }
+
+      // responsável legal: usar nome/sobrenome do usuário como fallback
+      setResponsavelNome(`${d.nome ?? ""} ${d.sobrenome ?? ""}`.trim());
+      setLoadingLocal(false);
+    }
+  }, [vm.data]);
+
+  // salvar alterações
+  const salvar = async () => {
+    const payload: any = {
+      nome: nome.trim(),
+      sobrenome: sobrenome.trim(),
+      dataNascimento: dataNascimento ?? null,
+      email: email.trim(),
+      telefone: telefone.trim(),
+      origemContato: origemContato || null,
+      instagramUsername: instagramUsername || null,
+      razaoSocial: razaoSocial || null,
+      nomeFantasia: nomeFantasia || null,
+      senhaAtual: senhaAtual || null,
+      novaSenha: novaSenha || null,
+      confirmarNovaSenha: confirmarNovaSenha || null,
+    };
+
+    try {
+      await vm.salvar(payload);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+      // limpar campos de senha
+      setSenhaAtual("");
+      setNovaSenha("");
+      setConfirmarNovaSenha("");
+    } catch (err) {
+      // erro será exposto via vm.error; pode mostrar toast aqui se desejado
+      console.error(err);
+      alert((err as any)?.response?.data?.message || String(err));
+    }
+  };
 
   return (
     <div className="w-full h-full overflow-y-auto rounded-sm" style={{ background: "rgba(22,19,15,0.45)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}>
@@ -907,53 +998,51 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
       <div className="flex flex-col gap-10 px-5 py-6 sm:px-8 sm:py-8">
         {tipo === "pf" ? (
           <>
-            {/* Dados pessoais */}
             <section className="flex flex-col gap-5">
               <div className="text-[9px] font-mono uppercase tracking-[.2em] text-white/25">Dados pessoais</div>
               <div className="grid sm:grid-cols-2 gap-x-5 gap-y-5">
                 <div>
                   <label className={glassLabel}>Nome</label>
-                  <input type="text" defaultValue="Juliana" className={glassInput} />
+                  <input type="text" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} />
                 </div>
                 <div>
                   <label className={glassLabel}>Sobrenome</label>
-                  <input type="text" defaultValue="Costa" className={glassInput} />
+                  <input type="text" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} />
                 </div>
                 <div>
                   <label className={glassLabel}>CPF</label>
-                  <input type="text" value="***.***.***-05" readOnly className={readOnly} />
+                  <input type="text" value={vm.data?.cpf ? vm.data.cpf : ""} readOnly className={readOnly} />
                   <div className="text-[9px] font-mono text-white/20 mt-1">Não editável</div>
                 </div>
                 <div>
                   <label className={glassLabel}>Data de nascimento</label>
-                  <input type="date" defaultValue="1988-07-14" className={glassInput} />
+                  <input type="date" value={dataNascimento ?? ""} onChange={e => setDataNascimento(e.target.value)} className={glassInput} />
                 </div>
                 <div className="col-span-2">
                   <label className={glassLabel}>E-mail</label>
-                  <input type="email" defaultValue="juliana.costa@email.com" className={glassInput} />
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
                 </div>
                 <div className="col-span-2">
                   <label className={glassLabel}>Celular / WhatsApp</label>
-                  <input type="tel" defaultValue="(11) 98765-4321" className={glassInput} />
+                  <input type="tel" value={telefone} onChange={e => setTelefone(e.target.value)} className={glassInput} />
                 </div>
               </div>
             </section>
-            {/* Origem */}
             <section className="flex flex-col gap-4">
               <div className="text-[9px] font-mono uppercase tracking-[.2em] text-white/25">Origem do contato</div>
               <div>
                 <label className={glassLabel}>Como nos conheceu?</label>
-                <select value={comoConheceu} onChange={e => { setComoConheceu(e.target.value); if (e.target.value !== "instagram") setInstagramUser(""); }}
+                <select value={origemContato} onChange={e => { setOrigemContato(e.target.value); if (e.target.value !== "instagram") setInstagramUsername(""); }}
                   className={glassInput + " cursor-pointer appearance-none bg-transparent"} style={{ backgroundImage: "none" }}>
                   {COMO_CONHECEU_OPTIONS.map(o => <option key={o.value} value={o.value} style={{ background: "#16130f", color: "#fff" }}>{o.label}</option>)}
                 </select>
               </div>
-              {comoConheceu === "instagram" && (
+              {origemContato === "instagram" && (
                 <div>
                   <label className={glassLabel}>Perfil no Instagram</label>
                   <div className="relative">
                     <span className="absolute left-0 bottom-2.5 text-white/30 text-sm font-mono select-none">@</span>
-                    <input type="text" value={instagramUser} onChange={e => setInstagramUser(e.target.value.replace(/^@/, "").replace(/\s/g, ""))} className={glassInput + " pl-4"} />
+                    <input type="text" value={instagramUsername} onChange={e => setInstagramUsername(e.target.value.replace(/^@/, "").replace(/\s/g, ""))} className={glassInput + " pl-4"} />
                   </div>
                 </div>
               )}
@@ -961,61 +1050,58 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
           </>
         ) : (
           <>
-            {/* Dados da empresa */}
             <section className="flex flex-col gap-5">
               <div className="text-[9px] font-mono uppercase tracking-[.2em] text-white/25">Dados da empresa</div>
               <div>
                 <label className={glassLabel}>CNPJ</label>
-                <input type="text" value="12.***.***/**00-95" readOnly className={readOnly} />
+                <input type="text" value={cnpj} readOnly className={readOnly} />
                 <div className="text-[9px] font-mono text-white/20 mt-1">Não editável</div>
               </div>
               <div>
                 <label className={glassLabel}>Razão social</label>
-                <input type="text" value="Costa Empreendimentos Ltda." readOnly className={readOnly} />
+                <input type="text" value={razaoSocial} onChange={e => setRazaoSocial(e.target.value)} className={glassInput} />
                 <div className="text-[9px] font-mono text-white/20 mt-1">Validado na Receita Federal</div>
               </div>
               <div>
                 <label className={glassLabel}>Nome fantasia</label>
-                <input type="text" defaultValue="Costa Design" className={glassInput} />
+                <input type="text" value={nomeFantasia} onChange={e => setNomeFantasia(e.target.value)} className={glassInput} />
               </div>
               <div>
                 <label className={glassLabel}>E-mail corporativo</label>
-                <input type="email" defaultValue="contato@costadesign.com.br" className={glassInput} />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
               </div>
               <div>
                 <label className={glassLabel}>Telefone comercial</label>
-                <input type="tel" defaultValue="(11) 3044-8800" className={glassInput} />
+                <input type="tel" value={telefone} onChange={e => setTelefone(e.target.value)} className={glassInput} />
               </div>
             </section>
-            {/* Responsável */}
             <section className="flex flex-col gap-5">
               <div className="text-[9px] font-mono uppercase tracking-[.2em] text-white/25">Responsável legal</div>
               <div>
                 <label className={glassLabel}>Nome completo</label>
-                <input type="text" defaultValue="Priscila Costa" className={glassInput} />
+                <input type="text" value={responsavelNome} onChange={e => setResponsavelNome(e.target.value)} className={glassInput} />
               </div>
               <div>
                 <label className={glassLabel}>CPF do responsável</label>
-                <input type="text" value="***.***.***-22" readOnly className={readOnly} />
+                <input type="text" value={vm.data?.cpf ? vm.data.cpf : ""} readOnly className={readOnly} />
                 <div className="text-[9px] font-mono text-white/20 mt-1">Não editável</div>
               </div>
             </section>
-            {/* Origem */}
             <section className="flex flex-col gap-4">
               <div className="text-[9px] font-mono uppercase tracking-[.2em] text-white/25">Origem do contato</div>
               <div>
                 <label className={glassLabel}>Como nos conheceu?</label>
-                <select value={comoConheceu} onChange={e => { setComoConheceu(e.target.value); if (e.target.value !== "instagram") setInstagramUser(""); }}
+                <select value={origemContato} onChange={e => { setOrigemContato(e.target.value); if (e.target.value !== "instagram") setInstagramUsername(""); }}
                   className={glassInput + " cursor-pointer appearance-none bg-transparent"} style={{ backgroundImage: "none" }}>
                   {COMO_CONHECEU_OPTIONS.map(o => <option key={o.value} value={o.value} style={{ background: "#16130f", color: "#fff" }}>{o.label}</option>)}
                 </select>
               </div>
-              {comoConheceu === "instagram" && (
+              {origemContato === "instagram" && (
                 <div>
                   <label className={glassLabel}>Perfil no Instagram</label>
                   <div className="relative">
                     <span className="absolute left-0 bottom-2.5 text-white/30 text-sm font-mono select-none">@</span>
-                    <input type="text" value={instagramUser} onChange={e => setInstagramUser(e.target.value.replace(/^@/, "").replace(/\s/g, ""))} className={glassInput + " pl-4"} />
+                    <input type="text" value={instagramUsername} onChange={e => setInstagramUsername(e.target.value.replace(/^@/, "").replace(/\s/g, ""))} className={glassInput + " pl-4"} />
                   </div>
                 </div>
               )}
@@ -1023,30 +1109,28 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
           </>
         )}
 
-        {/* Segurança */}
         <section className="flex flex-col gap-4">
           <div className="text-[9px] font-mono uppercase tracking-[.2em] text-white/25">Segurança</div>
           <div>
             <label className={glassLabel}>Senha atual</label>
-            <input type="password" placeholder="••••••••" className={glassInput} />
+            <input type="password" placeholder="••••••••" value={senhaAtual} onChange={e => setSenhaAtual(e.target.value)} className={glassInput} />
           </div>
           <div className="grid sm:grid-cols-2 gap-5">
             <div>
               <label className={glassLabel}>Nova senha</label>
-              <input type="password" placeholder="Mínimo 8 caracteres" className={glassInput} />
+              <input type="password" placeholder="Mínimo 8 caracteres" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} className={glassInput} />
             </div>
             <div>
               <label className={glassLabel}>Confirmar nova senha</label>
-              <input type="password" placeholder="Repita" className={glassInput} />
+              <input type="password" placeholder="Repita" value={confirmarNovaSenha} onChange={e => setConfirmarNovaSenha(e.target.value)} className={glassInput} />
             </div>
           </div>
         </section>
 
-        {/* Save */}
         <div className="pb-4">
-          <button onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }}
+          <button onClick={() => void salvar()}
             className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-2">
-            {saved ? <><Icon.Check /> Salvo</> : "Salvar alterações"}
+            {vm.saving || vm.loading ? 'Salvando...' : saved ? <><Icon.Check /> Salvo</> : 'Salvar alterações'}
           </button>
         </div>
       </div>
