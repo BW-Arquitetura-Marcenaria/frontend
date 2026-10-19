@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "mock:api": "json-server --watch mock/db.json --port 4000",
+    "mock:server": "node mock/server.js",
     "build": "vite build",
     "preview": "vite preview",
     "format": "oxfmt"
