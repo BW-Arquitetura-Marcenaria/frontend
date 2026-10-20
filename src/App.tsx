@@ -7,6 +7,7 @@ import bwProject3 from "@/assets/portfolio/estudio-oliva-estante-comercial.png";
 import bwLoginBg from "@/assets/backgrounds/login-estante-plantas.png";
 import RastreabilidadeView from "@/views/rastreabilidade/RastreabilidadeView";
 import { useMinhaContaViewModel } from "@/viewmodels/minhaConta/useMinhaContaViewModel";
+import { login as apiLogin } from "@/api/auth";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Screen =
@@ -306,19 +307,17 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
 type LoginTab = "pf" | "pj";
 type LoginStep = "form" | "verify";
 
-const BW_PROTOTYPE_LOGIN = {
-  cnpj: "00000000000000",
-  email: "bw.arquiteturaemarcenaria@gmail.com",
-  password: "123",
-};
-
 function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientLogin: (tipo: ClienteTipo) => void }) {
   const [tab, setTab] = useState<LoginTab>("pf");
   const [step, setStep] = useState<LoginStep>("form");
   const [showPass, setShowPass] = useState(false);
   const [cnpj, setCnpj] = useState("");
+  const [pfEmail, setPfEmail] = useState("");
+  const [pfPassword, setPfPassword] = useState("");
   const [pjEmail, setPjEmail] = useState("");
   const [pjPassword, setPjPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   function formatCNPJ(v: string) {
     const d = v.replace(/\D/g, "").slice(0, 14);
@@ -329,18 +328,31 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
             .replace(/^(\d{2})$/, "$1");
   }
 
-  function handleBwLogin() {
-    const credentialsAreValid =
-      cnpj.replace(/\D/g, "") === BW_PROTOTYPE_LOGIN.cnpj &&
-      pjEmail.trim().toLowerCase() === BW_PROTOTYPE_LOGIN.email &&
-      pjPassword === BW_PROTOTYPE_LOGIN.password;
-
-    if (credentialsAreValid) {
-      onNav("funil");
+  async function handleLogin(email: string, senha: string) {
+    setError(null);
+    if (!email.trim() || !senha) {
+      setError("Informe e-mail e senha.");
       return;
     }
-
-    onClientLogin("pj");
+    setLoading(true);
+    try {
+      const { perfil } = await apiLogin(email.trim(), senha);
+      // Rota decidida pela role do backend (claim "perfil" do JWT), não pela aba selecionada.
+      if (perfil === "ADMIN") {
+        onNav("funil");
+      } else {
+        onClientLogin(tab);
+      }
+    } catch (err: any) {
+      const status = err?.response?.status;
+      setError(
+        status === 401 || status === 403
+          ? "E-mail ou senha inválidos."
+          : "Não foi possível entrar. Verifique se o backend está no ar e tente novamente."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors pr-8";
@@ -397,16 +409,22 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
                 ))}
               </div>
 
+              {error && (
+                <p className="mb-5 text-[11px] font-mono text-red-400/90 border border-red-400/30 bg-red-400/10 px-3 py-2">
+                  {error}
+                </p>
+              )}
+
               {tab === "pf" ? (
                 <div key="pf" className="flex flex-col gap-6">
                   <div>
                     <label className={glassLabel}>E-mail</label>
-                    <input type="email" placeholder="seu@email.com" className={glassInput} />
+                    <input type="email" placeholder="seu@email.com" value={pfEmail} onChange={e => setPfEmail(e.target.value)} className={glassInput} />
                   </div>
                   <div>
                     <label className={glassLabel}>Senha</label>
                     <div className="relative">
-                      <input type={showPass ? "text" : "password"} placeholder="••••••••" className={glassInput} />
+                      <input type={showPass ? "text" : "password"} placeholder="••••••••" value={pfPassword} onChange={e => setPfPassword(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleLogin(pfEmail, pfPassword); }} className={glassInput} />
                       <button onClick={() => setShowPass(!showPass)} className="absolute right-0 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60 transition-colors">
                         {showPass ? <Icon.EyeOff /> : <Icon.Eye />}
                       </button>
@@ -415,8 +433,8 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
                       <a href="#" className="text-[10px] font-mono text-white/30 hover:text-bw-dourado transition-colors">Esqueci minha senha</a>
                     </div>
                   </div>
-                  <button onClick={() => onClientLogin("pf")} className="mt-2 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
-                    Entrar <span className="text-base leading-none">›</span>
+                  <button onClick={() => handleLogin(pfEmail, pfPassword)} disabled={loading} className="mt-2 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {loading ? "Entrando…" : <>Entrar <span className="text-base leading-none">›</span></>}
                   </button>
                 </div>
               ) : (
@@ -433,7 +451,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
                   <div>
                     <label className={glassLabel}>Senha</label>
                     <div className="relative">
-                      <input type={showPass ? "text" : "password"} placeholder="••••••••" value={pjPassword} onChange={e => setPjPassword(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleBwLogin(); }} className={glassInput} />
+                      <input type={showPass ? "text" : "password"} placeholder="••••••••" value={pjPassword} onChange={e => setPjPassword(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleLogin(pjEmail, pjPassword); }} className={glassInput} />
                       <button onClick={() => setShowPass(!showPass)} className="absolute right-0 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60 transition-colors">
                         {showPass ? <Icon.EyeOff /> : <Icon.Eye />}
                       </button>
@@ -442,8 +460,8 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
                       <a href="#" className="text-[10px] font-mono text-white/30 hover:text-bw-dourado transition-colors">Esqueci minha senha</a>
                     </div>
                   </div>
-                  <button onClick={handleBwLogin} className="mt-2 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
-                    Entrar <span className="text-base leading-none">›</span>
+                  <button onClick={() => handleLogin(pjEmail, pjPassword)} disabled={loading} className="mt-2 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {loading ? "Entrando…" : <>Entrar <span className="text-base leading-none">›</span></>}
                   </button>
                 </div>
               )}
