@@ -34,6 +34,20 @@
       "totalPages": 1,
       "size": 100,
       "number": 0
+    },
+    "minha-conta": {
+      "nome": "Gabriel",
+      "sobrenome": "Alves",
+      "dataNascimento": "1988-07-14",
+      "email": "juliana.costa@email.com",
+      "telefone": "(11) 98765-4321",
+      "origemContato": "instagram",
+      "instagramUsername": "juliana.costa",
+      "razaoSocial": null,
+      "nomeFantasia": null,
+      "senhaAtual": null,
+      "novaSenha": null,
+      "confirmarNovaSenha": null
     }
   }
 }

@@ -61,4 +61,3 @@ Closes #
 ## Observações
 
 <!-- Adicione aqui informações relevantes para os revisores. -->
-Para usar o backend real: troque para VITE_USE_MOCK=false ou apague o .env.development. Suba o backend e confira se ele libera CORS para localhost:5173. Esse é o outro motivo comum de Network Error.
