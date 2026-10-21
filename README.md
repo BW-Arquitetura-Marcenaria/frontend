@@ -63,7 +63,7 @@ Crie um arquivo `.env` na raiz do frontend a partir de `.env.example`:
 # URL da API própria
 VITE_API_BASE_URL=http://localhost:8080
 
-# Ativa dados e login simulados para desenvolvimento local
+# Ativa dados simulados de rastreabilidade para desenvolvimento local
 VITE_USE_MOCK=false
 
 # Chave do Google Maps para mapa, Places e Geocoding
