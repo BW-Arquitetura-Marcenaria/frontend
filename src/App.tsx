@@ -8,6 +8,7 @@ import bwLoginBg from "@/assets/backgrounds/login-estante-plantas.png";
 import RastreabilidadeView from "@/views/rastreabilidade/RastreabilidadeView";
 import { useMinhaContaViewModel } from "@/viewmodels/minhaConta/useMinhaContaViewModel";
 import { login as apiLogin } from "@/api/auth";
+import { ecopontosPrefeitura } from "@/data/ecopontosPrefeitura";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Screen =
@@ -2454,63 +2455,623 @@ function Rastreabilidade() {
 
 // ─── SCREEN: Mapa de Descarte ─────────────────────────────────────────────────
 function MapaDescarte() {
-  const pontos = [
-    {nome:"Ecoponto Morumbi",end:"R. Princesa Isabel, 150",dist:"2,3 km",horario:"Seg–Sáb 8h–18h",aceita:["MDF","Aglomerado","Aparas"]},
-    {nome:"Cooperativa Madeira Verde",end:"Av. das Nações Unidas, 5.400",dist:"8,1 km",horario:"Seg–Sex 7h–17h",aceita:["Madeira sólida","Paletes","Estruturas"]},
-    {nome:"Aterro Industrial Classe II",end:"Rod. dos Imigrantes, km 22",dist:"24 km",horario:"Ter, Qui, Sáb",aceita:["MDF","Laminado","Resíduos"]},
-    {nome:"Empresa Recicla Móveis",end:"R. Funchal, 418 — Vila Olímpia",dist:"4,7 km",horario:"Seg–Sex 8h–18h",aceita:["Móveis","MDF","Ferragens"]},
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [places, setPlaces] = useState<any[]>([]);
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const markersRef = useRef<any[]>([]);
+  const infoWindowRef = useRef<any>(null);
+
+  // Google Maps API key should be provided via Vite env: VITE_GOOGLE_MAPS_KEY
+  const API_KEY = (import.meta.env.VITE_GOOGLE_MAPS_KEY ?? "").toString();
+  const [mapsAvailable, setMapsAvailable] = useState<boolean>(false);
+
+  // fallback static ecopontos (used when Google API is not configured)
+  const defaultPontos = [
+    { nome: "Ecoponto Morumbi", end: "R. Princesa Isabel, 150", dist: "2,3 km", horario: "Seg–Sáb 8h–18h", aceita: ["MDF", "Aglomerado", "Aparas"] },
+    { nome: "Cooperativa Madeira Verde", end: "Av. das Nações Unidas, 5.400", dist: "8,1 km", horario: "Seg–Sex 7h–17h", aceita: ["Madeira sólida", "Paletes", "Estruturas"] },
+    { nome: "Aterro Industrial Classe II", end: "Rod. dos Imigrantes, km 22", dist: "24 km", horario: "Ter, Qui, Sáb", aceita: ["MDF", "Laminado", "Resíduos"] },
+    { nome: "Empresa Recicla Móveis", end: "R. Funchal, 418 — Vila Olímpia", dist: "4,7 km", horario: "Seg–Sex 8h–18h", aceita: ["Móveis", "MDF", "Ferragens"] },
   ];
+  const [cepInput, setCepInput] = useState<string>((loadAccountData()?.cep ?? "").toString());
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+
+      if (!API_KEY) {
+        // Google API not configured — fallback to static list and decorative map
+        setMapsAvailable(false);
+        const mapped = defaultPontos.map((p, i) => ({ id: `d-${i}`, name: p.nome, address: p.end, distanceKm: parseFloat((p.dist ?? "").toString().replace(',', '.').replace(/[^0-9\.]/g, '')) || null, opening_hours: null, types: p.aceita }));
+        setPlaces(mapped);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        await loadGoogleMapsScript(API_KEY);
+        setMapsAvailable(true);
+      } catch (e) {
+        // fallback to static data
+        setMapsAvailable(false);
+        const mapped = defaultPontos.map((p, i) => ({ id: `d-${i}`, name: p.nome, address: p.end, distanceKm: parseFloat((p.dist ?? "").toString().replace(',', '.').replace(/[^0-9\.]/g, '')) || null, opening_hours: null, types: p.aceita }));
+        setPlaces(mapped);
+        setLoading(false);
+        return;
+      }
+
+      const account = loadAccountData();
+      const cep = (account?.cep ?? "").trim();
+
+      const geocoder = new (window as any).google.maps.Geocoder();
+
+      const fallbackToBrowser = () => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              if (cancelled) return;
+              const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+              setUserLocation(coords);
+              initMap(coords);
+              searchNearbyWithFallback(coords);
+              setLoading(false);
+            },
+            () => {
+              if (cancelled) return;
+              setError("Não foi possível obter sua localização. Informe o CEP em Minha Conta.");
+              setLoading(false);
+            }
+          );
+        } else {
+          setError("Seu navegador não suporta geolocalização. Informe o CEP em Minha Conta.");
+          setLoading(false);
+        }
+      };
+
+      if (cep) {
+        geocoder.geocode({ address: `${cep}, Brasil` }, (results: any, status: string) => {
+          if (cancelled) return;
+          if (status === "OK" && results && results[0] && results[0].geometry && results[0].geometry.location) {
+            const loc = results[0].geometry.location;
+            const coords = { lat: loc.lat(), lng: loc.lng() };
+            setUserLocation(coords);
+            initMap(coords);
+            searchNearbyWithFallback(coords);
+            setLoading(false);
+          } else {
+            // fallback to browser geolocation
+            fallbackToBrowser();
+          }
+        });
+      } else {
+        fallbackToBrowser();
+      }
+
+      return () => {
+        cancelled = true;
+        clearMarkers();
+      };
+    }
+
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function loadGoogleMapsScript(key: string) {
+    const src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
+    return new Promise<void>((resolve, reject) => {
+      // Already loaded
+      if ((window as any).google && (window as any).google.maps) return resolve();
+      // Check existing tag
+      const existing = document.querySelector(`script[src^="https://maps.googleapis.com/maps/api/js"]`);
+      if (existing) {
+        existing.addEventListener("load", () => resolve());
+        existing.addEventListener("error", () => reject(new Error("google-maps-load-error")));
+        return;
+      }
+      const s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      s.defer = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("google-maps-load-error"));
+      document.head.appendChild(s);
+    });
+  }
+
+  // Enhanced search that tries nearbySearch first, then falls back to textSearch
+  // Official data published by Sao Paulo City Hall, bundled to avoid CORS failures
+  // from the public data portal when Google Places does not index an ecoponto.
+  async function fetchOfficialEcopoints(coords: { lat: number; lng: number }) {
+    return ecopontosPrefeitura.map((point, index) => ({
+      id: `prefeitura-${index}`,
+      name: `Ecoponto ${point.nome}`,
+      address: point.endereco,
+      lat: point.lat,
+      lng: point.lng,
+      distanceKm: haversineKm(coords.lat, coords.lng, point.lat, point.lng),
+      opening_hours: null,
+      types: ["Ecoponto municipal", "Resíduos recicláveis"],
+    })).sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
+  }
+
+  // OpenStreetMap fallback for locations outside the official São Paulo dataset.
+  async function fetchOverpass(coords: { lat: number; lng: number }, radius = 30000) {
+    try {
+      const query = `
+        [out:json][timeout:25];
+        (
+          node(around:${radius},${coords.lat},${coords.lng})[amenity=recycling];
+          way(around:${radius},${coords.lat},${coords.lng})[amenity=recycling];
+          relation(around:${radius},${coords.lat},${coords.lng})[amenity=recycling];
+          node(around:${radius},${coords.lat},${coords.lng})[recycling];
+          way(around:${radius},${coords.lat},${coords.lng})[recycling];
+          relation(around:${radius},${coords.lat},${coords.lng})[recycling];
+          node(around:${radius},${coords.lat},${coords.lng})[name~"(?i)ecoponto|ponto de coleta|coleta seletiva|coleta de recicláveis"]; 
+          way(around:${radius},${coords.lat},${coords.lng})[name~"(?i)ecoponto|ponto de coleta|coleta seletiva|coleta de recicláveis"]; 
+          relation(around:${radius},${coords.lat},${coords.lng})[name~"(?i)ecoponto|ponto de coleta|coleta seletiva|coleta de recicláveis"]; 
+        );
+        out center;`;
+
+      const resp = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: query, headers: { "Content-Type": "text/plain" } });
+      if (!resp.ok) return [];
+      const data = await resp.json();
+      if (!data || !Array.isArray(data.elements)) return [];
+
+      const places = data.elements.map((el: any) => {
+        const lat = el.lat ?? el.center?.lat;
+        const lng = el.lon ?? el.center?.lon;
+        const tags = el.tags ?? {};
+        const name = tags.name ?? tags.operator ?? "Ecoponto";
+        const addressParts = [tags["addr:street"], tags["addr:housenumber"], tags["addr:neighbourhood"], tags["addr:city"], tags["addr:state"]].filter(Boolean);
+        const address = addressParts.join(", ") || tags.address || "";
+        const opening = tags.opening_hours ?? null;
+        const types = Object.keys(tags).filter(k => k.startsWith("recycling") || k === "amenity" || k === "operator");
+        const dist = (lat && lng) ? haversineKm(coords.lat, coords.lng, lat, lng) : null;
+        return { id: `osm-${el.type}-${el.id}`, name, address, lat, lng, distanceKm: dist, opening_hours: opening ? { open_now: false } : null, types };
+      }).filter((p: any) => p.lat && p.lng);
+
+      // sort by distance
+      places.sort((a: any, b: any) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
+      return places;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function searchNearbyWithFallback(coords: { lat: number; lng: number }, addressHint?: string) {
+    const map = (mapRef as any).currentMap;
+    if (!map) return;
+    const service = new (window as any).google.maps.places.PlacesService(map);
+
+    const keywords = ["ecoponto", "ponto de coleta", "ponto de reciclagem", "reciclagem", "coleta de recicláveis"];
+    let combined: any[] = [];
+    let done = 0;
+
+    const handleResults = (items: any[]) => {
+      const mapped = items.map(p => {
+        // Official and OSM fallbacks already return normalized coordinates.
+        if (Number.isFinite(p.lat) && Number.isFinite(p.lng)) {
+          return { ...p, types: p.types || [] };
+        }
+        const lat = p.geometry?.location?.lat?.() ?? p.geometry?.location?.lat;
+        const lng = p.geometry?.location?.lng?.() ?? p.geometry?.location?.lng;
+        const dist = haversineKm(coords.lat, coords.lng, lat, lng);
+        return { id: p.place_id, name: p.name, address: p.vicinity ?? p.formatted_address, lat, lng, distanceKm: dist, opening_hours: p.opening_hours, types: p.types || [] };
+      }).sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999));
+
+      clearMarkers();
+      mapped.slice(0, 20).forEach(pl => {
+        const marker = new (window as any).google.maps.Marker({ position: { lat: pl.lat, lng: pl.lng }, map, title: pl.name });
+        marker.addListener("click", () => {
+          if (infoWindowRef.current) {
+            const content = `<div style="min-width:180px"><strong>${escapeHtml(pl.name)}</strong><div style="font-size:13px;margin-top:6px;">${escapeHtml(pl.address || "")}${pl.distanceKm ? `<div style=\\"margin-top:6px;font-size:12px;color:#666\\">${pl.distanceKm} km</div>` : ""}</div></div>`;
+            infoWindowRef.current.setContent(content);
+            infoWindowRef.current.open(map, marker);
+          }
+        });
+        markersRef.current.push(marker);
+      });
+
+      try {
+        const bounds = new (window as any).google.maps.LatLngBounds();
+        markersRef.current.forEach(m => bounds.extend(m.getPosition()));
+        bounds.extend(new (window as any).google.maps.LatLng(coords.lat, coords.lng));
+        map.fitBounds(bounds);
+      } catch (e) {}
+
+      setPlaces(mapped.slice(0, 20));
+      setLoading(false);
+    };
+
+    keywords.forEach(k => {
+      service.nearbySearch({ location: coords, radius: 30000, keyword: k }, (results: any, status: string) => {
+        if (status === (window as any).google.maps.places.PlacesServiceStatus.OK && results && results.length) {
+          combined = combined.concat(results);
+        }
+        done++;
+        if (done === keywords.length) {
+          const uniq = combined.filter((v, i, a) => a.findIndex(t => t.place_id === v.place_id) === i);
+          if (uniq.length > 0) {
+            handleResults(uniq);
+            return;
+          }
+
+          // fallback text search
+          const textQueries = ["ecoponto", "ponto de coleta", "ponto de reciclagem", "reciclagem"];
+          let textDone = 0;
+          let textCombined: any[] = [];
+          textQueries.forEach(q => {
+            service.textSearch({ query: q, location: coords, radius: 30000 }, (tResults: any, tStatus: string) => {
+              if (tStatus === (window as any).google.maps.places.PlacesServiceStatus.OK && tResults && tResults.length) {
+                textCombined = textCombined.concat(tResults);
+              }
+              textDone++;
+              if (textDone === textQueries.length) {
+                const uniq2 = textCombined.filter((v, i, a) => a.findIndex(t => t.place_id === v.place_id) === i);
+                if (uniq2.length > 0) {
+                  handleResults(uniq2);
+                } else {
+                  // If we have an address hint (from ViaCEP), try a targeted textSearch like "ecoponto <street>"
+                  if (addressHint) {
+                    service.textSearch({ query: `ecoponto ${addressHint}`, location: coords, radius: 5000 }, (addrRes: any, addrStatus: string) => {
+                      if (addrStatus === (window as any).google.maps.places.PlacesServiceStatus.OK && addrRes && addrRes.length) {
+                        const uniqAddr = addrRes.filter((v: any, i: number, a: any[]) => a.findIndex(t => t.place_id === v.place_id) === i);
+                        if (uniqAddr.length > 0) {
+                          handleResults(uniqAddr);
+                          return;
+                        }
+                      }
+                      // Use São Paulo City's official layer before the generic OSM fallback.
+                      fetchOfficialEcopoints(coords).then(officialPlaces => {
+                        if (officialPlaces.length > 0) {
+                          handleResults(officialPlaces);
+                          return;
+                        }
+                        fetchOverpass(coords).then(osmPlaces => {
+                          if (osmPlaces.length > 0) handleResults(osmPlaces);
+                          else { setPlaces([]); setLoading(false); }
+                        }).catch(() => { setPlaces([]); setLoading(false); });
+                      }).catch(() => { setPlaces([]); setLoading(false); });
+                    });
+                  } else {
+                    // First use the official city layer, then try Overpass for other cities.
+                    fetchOfficialEcopoints(coords).then(officialPlaces => {
+                      if (officialPlaces.length > 0) {
+                        handleResults(officialPlaces);
+                        return;
+                      }
+                      fetchOverpass(coords).then(osmPlaces => {
+                        if (osmPlaces.length > 0) handleResults(osmPlaces);
+                        else { setPlaces([]); setLoading(false); }
+                      }).catch(() => { setPlaces([]); setLoading(false); });
+                    }).catch(() => { setPlaces([]); setLoading(false); });
+                  }
+                }
+              }
+            });
+          });
+        }
+      });
+    });
+  }
+
+  async function applyCepHandler() {
+    const raw = (cepInput || "").toString();
+    const cepOnly = raw.replace(/\D/g, "");
+    if (!cepOnly) {
+      setError("Informe um CEP válido.");
+      return;
+    }
+    // persist to localStorage so other parts of the app (Minha Conta) can read it
+    try {
+      const acc = loadAccountData();
+      const newAcc = { ...acc, cep: cepOnly };
+      localStorage.setItem("bw-account", JSON.stringify(newAcc));
+    } catch (e) {
+      // ignore
+    }
+
+    setError(null);
+    setLoading(true);
+    setPlaces([]);
+    let addressHint: string | undefined = undefined;
+    try {
+      const viaResp = await fetch(`https://viacep.com.br/ws/${cepOnly}/json/`);
+      if (viaResp.ok) {
+        const viaData = await viaResp.json();
+        if (!viaData.erro) {
+          addressHint = [viaData.logradouro, viaData.bairro, viaData.localidade, viaData.uf].filter(Boolean).join(', ');
+        }
+      }
+    } catch (e) {
+      // ignore viaCEP errors here; we'll still try geocoder
+    }
+    if (!mapsAvailable || !(window as any).google) {
+      // fallback to suggestions
+      const mapped = defaultPontos.map((p, i) => ({ id: `d-${i}`, name: p.nome, address: p.end, lat: 0, lng: 0, distanceKm: null, opening_hours: null, types: p.aceita }));
+      setPlaces(mapped);
+      setLoading(false);
+      return;
+    }
+
+    // BrasilAPI provides coordinates for Brazilian CEPs, avoiding unreliable text geocoding.
+    try {
+      const brasilResponse = await fetch(`https://brasilapi.com.br/api/cep/v2/${cepOnly}`);
+      if (brasilResponse.ok) {
+        const brasilData = await brasilResponse.json();
+        const latitude = Number(brasilData?.location?.coordinates?.latitude);
+        const longitude = Number(brasilData?.location?.coordinates?.longitude);
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          const coords = { lat: latitude, lng: longitude };
+          setUserLocation(coords);
+          initMap(coords);
+          searchNearbyWithFallback(coords, addressHint);
+          return;
+        }
+      }
+    } catch (e) {
+      // Continue to Google/Nominatim fallbacks.
+    }
+
+    const geocoder = new (window as any).google.maps.Geocoder();
+    geocoder.geocode({ address: `${cepOnly}, Brasil` }, async (results: any, status: string) => {
+      if (status === "OK" && results && results[0] && results[0].geometry && results[0].geometry.location) {
+        const loc = results[0].geometry.location;
+        const coords = { lat: loc.lat(), lng: loc.lng() };
+        setUserLocation(coords);
+        initMap(coords);
+        searchNearbyWithFallback(coords, addressHint);
+        return;
+      }
+
+      // Geocoder failed — try ViaCEP -> Nominatim (OpenStreetMap) as fallback to obtain lat/lng from address
+      try {
+        const viaResp = await fetch(`https://viacep.com.br/ws/${cepOnly}/json/`);
+        if (!viaResp.ok) throw new Error("viacep-failed");
+        const viaData = await viaResp.json();
+        if (viaData.erro) throw new Error("viacep-not-found");
+
+        const parts = [viaData.logradouro, viaData.bairro, viaData.localidade, viaData.uf].filter(Boolean).join(", ");
+        const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(parts)}&limit=1&addressdetails=0`;
+        const nomResp = await fetch(nomUrl, { headers: { 'Accept': 'application/json' } });
+        if (!nomResp.ok) throw new Error("nominatim-failed");
+        const nomData = await nomResp.json();
+        if (Array.isArray(nomData) && nomData.length > 0 && nomData[0].lat && nomData[0].lon) {
+          const coords = { lat: parseFloat(nomData[0].lat), lng: parseFloat(nomData[0].lon) };
+          setUserLocation(coords);
+          initMap(coords);
+          searchNearbyWithFallback(coords, addressHint);
+          return;
+        }
+
+        setLoading(false);
+        setError("Não foi possível localizar o CEP informado via Geocoder nem via fallback. Verifique e tente novamente.");
+      } catch (err) {
+        setLoading(false);
+        setError("Não foi possível localizar o CEP informado. Verifique e tente novamente.");
+      }
+    });
+  }
+
+  function initMap(coords: { lat: number; lng: number }) {
+    if (!mapRef.current) return;
+    const map = new (window as any).google.maps.Map(mapRef.current, { center: coords, zoom: 12 });
+    infoWindowRef.current = new (window as any).google.maps.InfoWindow();
+    // user marker
+    new (window as any).google.maps.Marker({
+      position: coords,
+      map,
+      title: "Sua localização",
+      icon: {
+        path: (window as any).google.maps.SymbolPath.CIRCLE,
+        scale: 7,
+        fillColor: "#B08D57",
+        fillOpacity: 1,
+        strokeWeight: 0,
+      },
+    });
+    // store map instance on ref for later
+    (mapRef as any).currentMap = map;
+  }
+
+  function clearMarkers() {
+    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current = [];
+  }
+
+  function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+    if ([lat1, lon1, lat2, lon2].some(v => v == null)) return null;
+    const R = 6371; // km
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c * 10) / 10;
+  }
+  function toRad(n: number) { return (n * Math.PI) / 180; }
+
+  function searchNearby(coords: { lat: number; lng: number }) {
+    const map = (mapRef as any).currentMap;
+    if (!map) return;
+    const service = new (window as any).google.maps.places.PlacesService(map);
+
+    // Try a few keywords commonly used for ecopontos in BR
+    const keywords = ["ecoponto", "ponto de coleta", "ponto de reciclagem", "reciclagem", "coleta de recicláveis"];
+    let combined: any[] = [];
+    let done = 0;
+
+    keywords.forEach(k => {
+      service.nearbySearch({ location: coords, radius: 30000, keyword: k }, (results: any, status: string) => {
+        done++;
+        if (status === (window as any).google.maps.places.PlacesServiceStatus.OK && results && results.length) {
+          combined = combined.concat(results);
+        }
+        if (done === keywords.length) {
+          // dedupe
+          const uniq = combined.filter((v, i, a) => a.findIndex(t => t.place_id === v.place_id) === i);
+          const mapped = uniq.map(p => {
+            const lat = p.geometry?.location?.lat?.() ?? p.geometry?.location?.lat;
+            const lng = p.geometry?.location?.lng?.() ?? p.geometry?.location?.lng;
+            const dist = haversineKm(coords.lat, coords.lng, lat, lng);
+            return { id: p.place_id, name: p.name, address: p.vicinity ?? p.formatted_address, lat, lng, distanceKm: dist, opening_hours: p.opening_hours, types: p.types };
+          }).sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999));
+          clearMarkers();
+          // add markers
+          mapped.slice(0, 20).forEach(pl => {
+            const marker = new (window as any).google.maps.Marker({ position: { lat: pl.lat, lng: pl.lng }, map, title: pl.name });
+            marker.addListener("click", () => {
+              if (infoWindowRef.current) {
+                const content = `<div style="min-width:180px"><strong>${escapeHtml(pl.name)}</strong><div style="font-size:13px;margin-top:6px;">${escapeHtml(pl.address || "")}${pl.distanceKm ? `<div style=\"margin-top:6px;font-size:12px;color:#666\">${pl.distanceKm} km</div>` : ""}</div></div>`;
+                infoWindowRef.current.setContent(content);
+                infoWindowRef.current.open(map, marker);
+              }
+            });
+            markersRef.current.push(marker);
+          });
+
+          // fit map to markers and user location
+          try {
+            const bounds = new (window as any).google.maps.LatLngBounds();
+            markersRef.current.forEach(m => bounds.extend(m.getPosition()));
+            bounds.extend(new (window as any).google.maps.LatLng(coords.lat, coords.lng));
+            map.fitBounds(bounds);
+          } catch (e) {
+            // ignore fitBounds errors
+          }
+
+          setPlaces(mapped.slice(0, 20));
+        }
+      });
+    });
+  }
+
+  function retrySearch() {
+    setError(null);
+    setPlaces([]);
+    setLoading(true);
+    if (!mapsAvailable) {
+      setLoading(false);
+      setError('Chave da API do Google não configurada ou indisponível. Verifique VITE_GOOGLE_MAPS_KEY.');
+      return;
+    }
+    if (userLocation) {
+      searchNearbyWithFallback(userLocation);
+      return;
+    }
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(coords);
+        initMap(coords);
+        searchNearbyWithFallback(coords);
+      }, (err) => {
+        setLoading(false);
+        setError('Não foi possível obter sua localização via navegador. Verifique seu CEP em Minha Conta.');
+      });
+    } else {
+      setLoading(false);
+      setError('Seu navegador não suporta geolocalização. Informe o CEP em Minha Conta.');
+    }
+  }
+
+  function escapeHtml(s: string) { return (s || "").toString().replace(/[&<>\"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' } as any)[c]); }
 
   return (
     <div className="flex flex-col gap-5 max-w-4xl mx-auto w-full relative">
       <div>
-        <div><h1 className="text-2xl font-semibold text-bw-preto font-display">Mapa de Descarte Adequado</h1><p className="text-[10px] font-mono text-bw-muted">Locais e formas corretas de descarte de resíduos</p></div>
+        <div><h1 className="text-2xl font-semibold text-bw-preto font-display">Mapa de Descarte Adequado</h1><p className="text-[10px] font-mono text-bw-muted">Locais e formas corretas de descarte de resíduos (próximos ao CEP cadastrado)</p></div>
       </div>
 
-      {/* Map visualization */}
-      <div className="bg-bw-white border border-bw-border rounded-lg h-64 overflow-hidden relative group">
-        <img 
-          src="https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=2074&auto=format&fit=crop" 
-          alt="Mapa da região" 
-          className="w-full h-full object-cover opacity-60 grayscale contrast-125 mix-blend-multiply transition-opacity duration-500"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-bw-white/80 via-transparent to-transparent pointer-events-none"></div>
-        <div className="absolute top-4 left-4 bg-bw-white/90 backdrop-blur-sm px-3 py-2 border border-bw-border rounded shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-bw-dourado"></span>
-            <span className="text-[10px] font-mono font-semibold text-bw-preto uppercase tracking-wider">Região Ativa (SP)</span>
+      {mapsAvailable ? (
+        <div className="bg-bw-white border border-bw-border rounded-lg h-64 overflow-hidden relative">
+          <div ref={mapRef} className="w-full h-64" />
+        </div>
+      ) : (
+        <div className="bg-bw-white border border-bw-border rounded-lg h-64 overflow-hidden relative group">
+          <img
+            src="https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=2074&auto=format&fit=crop"
+            alt="Mapa da região"
+            className="w-full h-full object-cover opacity-60 grayscale contrast-125 mix-blend-multiply transition-opacity duration-500"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-bw-white/80 via-transparent to-transparent pointer-events-none"></div>
+          <div className="absolute top-4 left-4 bg-bw-white/90 backdrop-blur-sm px-3 py-2 border border-bw-border rounded shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-bw-dourado"></span>
+              <span className="text-[10px] font-mono font-semibold text-bw-preto uppercase tracking-wider">Região Ativa (SP)</span>
+            </div>
           </div>
         </div>
-        
-        {/* Fake Map Pins */}
-        <div className="absolute top-[30%] left-[45%] group-hover:scale-110 transition-transform">
-          <div className="w-4 h-4 bg-bw-preto rounded-full border-2 border-bw-white shadow-md flex items-center justify-center">
-            <div className="w-1.5 h-1.5 bg-bw-dourado rounded-full"></div>
-          </div>
-        </div>
-        <div className="absolute top-[60%] left-[25%] group-hover:scale-110 transition-transform delay-75">
-          <div className="w-4 h-4 bg-bw-preto rounded-full border-2 border-bw-white shadow-md flex items-center justify-center">
-            <div className="w-1.5 h-1.5 bg-bw-dourado rounded-full"></div>
-          </div>
-        </div>
-        <div className="absolute top-[45%] left-[75%] group-hover:scale-110 transition-transform delay-150">
-          <div className="w-4 h-4 bg-bw-preto rounded-full border-2 border-bw-white shadow-md flex items-center justify-center">
-            <div className="w-1.5 h-1.5 bg-bw-dourado rounded-full"></div>
-          </div>
-        </div>
+      )}
+
+      <div className="mt-3 flex items-center gap-3">
+        <input value={cepInput} onChange={e => setCepInput(e.target.value)} placeholder="CEP (ex: 01315-010)" className="w-44 px-3 py-2 border border-bw-border rounded-md bg-white text-sm" />
+        <button onClick={() => applyCepHandler()} className="px-3 py-2 bg-bw-dourado text-bw-preto rounded-md hover:bg-bw-areia transition-colors">Aplicar CEP</button>
+        <button onClick={() => { setPlaces(defaultPontos.map((p, i) => ({ id: `d-${i}`, name: p.nome, address: p.end, lat: 0, lng: 0, distanceKm: null, opening_hours: null, types: p.aceita }))); setError(null); setLoading(false); }} className="px-3 py-2 border border-bw-border rounded-md hover:bg-bw-hover">Mostrar sugestões</button>
+      </div>
+
+      <div className="mt-3">
+        {loading && <div className="text-[13px] font-mono text-bw-muted">Buscando ecopontos próximos…</div>}
+        {error && <div className="text-[13px] font-mono text-red-500">{error}</div>}
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        {pontos.map((p,i)=>(
-          <div key={i} className="bg-bw-white border border-bw-border rounded-lg p-4 transition-all hover:border-bw-dourado hover:shadow-sm">
+        {places.length === 0 && !loading && !error && (
+          <div>
+            <div className="text-[13px] text-bw-muted">Nenhum local encontrado. Verifique seu CEP em Minha Conta ou tente novamente mais tarde.</div>
+            <div className="mt-3 flex gap-3">
+              <button onClick={() => retrySearch()} className="px-3 py-2 text-sm bg-bw-dourado text-bw-preto rounded-md hover:bg-bw-areia transition-colors">Tentar novamente</button>
+              <button onClick={() => setPlaces(defaultPontos.map((p, i) => ({ id: `d-${i}`, name: p.nome, address: p.end, lat: 0, lng: 0, distanceKm: null, opening_hours: null, types: p.aceita })))} className="px-3 py-2 text-sm border border-bw-border rounded-md hover:bg-bw-hover">Mostrar sugestões</button>
+            </div>
+            <div className="mt-6 grid md:grid-cols-2 gap-4">
+              {defaultPontos.map((p, i) => (
+                <div key={`s-${i}`} className="bg-bw-white border border-bw-border rounded-lg p-4 transition-all hover:border-bw-dourado hover:shadow-sm">
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="text-sm font-medium text-bw-preto">{p.nome}</span>
+                    <WireTag status="ok">Sugestão</WireTag>
+                  </div>
+                  <div className="text-[10px] font-mono text-bw-muted mb-1">{p.end} · {p.dist}</div>
+                  <div className="text-[10px] text-bw-muted mb-3">⏰ {p.horario}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {p.aceita.map((a: string) => <WireTag key={a}>{a}</WireTag>)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {places.map((p, i) => (
+          <div key={p.id || i} className="bg-bw-white border border-bw-border rounded-lg p-4 transition-all hover:border-bw-dourado hover:shadow-sm">
             <div className="flex items-start justify-between mb-2">
-              <span className="text-sm font-medium text-bw-preto">{p.nome}</span>
+              <span className="text-sm font-medium text-bw-preto">{p.name}</span>
               <WireTag status="ok">Ativo</WireTag>
             </div>
-            <div className="text-[10px] font-mono text-bw-muted mb-1">{p.end} · {p.dist}</div>
-            <div className="text-[10px] text-bw-muted mb-3">⏰ {p.horario}</div>
+            <div className="text-[10px] font-mono text-bw-muted mb-1">{p.address} {p.distanceKm ? `· ${p.distanceKm} km` : ""}</div>
+            <div className="text-[10px] text-bw-muted mb-3">{p.opening_hours?.open_now ? "Aberto agora" : "Horário não disponível"}</div>
             <div className="flex flex-wrap gap-1">
-              {p.aceita.map(a=><WireTag key={a}>{a}</WireTag>)}
+              {(p.types || []).slice(0, 4).map((t: string) => <WireTag key={t}>{t}</WireTag>)}
+            </div>
+            <div className="mt-3 flex items-center gap-3">
+              <a
+                href={p.lat && p.lng ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ' ' + (p.address || ''))}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] px-3 py-1.5 bg-bw-dourado text-bw-preto font-semibold rounded-md hover:bg-bw-areia transition-colors"
+              >
+                Traçar rota
+              </a>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ' ' + (p.address || ''))}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] px-3 py-1.5 border border-bw-border text-bw-preto rounded-md hover:bg-bw-hover transition-colors"
+              >
+                Ver no Maps
+              </a>
             </div>
           </div>
         ))}

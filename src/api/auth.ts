@@ -42,6 +42,56 @@ export interface LoginResult extends LoginResponse {
 }
 
 export async function login(email: string, senha: string): Promise<LoginResult> {
+  const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
+
+  if (USE_MOCK) {
+    // Return a fake login result for local testing when VITE_USE_MOCK=true
+    const now = Math.floor(Date.now() / 1000);
+    const perfil: Perfil = email?.toLowerCase().includes("admin") ? "ADMIN" : "CLIENTE";
+    const payload = { sub: "mock-user", email, perfil, iat: now, exp: now + 60 * 60 };
+    const header = { alg: "none", typ: "JWT" };
+    const encode = (o: any) => btoa(JSON.stringify(o)).replace(/=+$/g, "");
+    const fakeToken = `${encode(header)}.${encode(payload)}.`; // unsigned
+
+    const data: LoginResponse = {
+      token: fakeToken,
+      tipo: perfil === "ADMIN" ? "ADMIN" : "CLIENTE",
+      expiraEmSegundos: 60 * 60,
+      usuarioId: 1,
+      nome: email.split("@")[0],
+    };
+
+    localStorage.setItem("authToken", data.token);
+    localStorage.setItem("authUsuarioId", String(data.usuarioId));
+    localStorage.setItem("authNome", data.nome);
+
+    // ensure a bw-account exists so features that read CEP (mapa) work in mock mode
+    try {
+      const existing = localStorage.getItem("bw-account");
+      if (!existing) {
+        const mockAccount = {
+          empresa: "BW (Mock)",
+          responsavel: data.nome,
+          email,
+          telefone: "(11) 99999-9999",
+          documento: "12.345.678/0001-95",
+          cep: "01315010",
+          endereco: "Rua (mock via CEP 01315-010)",
+          numero: "1000",
+          complemento: "",
+          bairro: "Bela Vista",
+          cidade: "São Paulo",
+          estado: "SP",
+        };
+        localStorage.setItem("bw-account", JSON.stringify(mockAccount));
+      }
+    } catch (e) {
+      // ignore storage errors in mock
+    }
+
+    return { ...data, perfil, payload };
+  }
+
   const resp = await axios.post<LoginResponse>("/v1/api/auth/login", { email, senha });
   const data = resp.data;
 
