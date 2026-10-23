@@ -9,6 +9,9 @@ import RastreabilidadeView from "@/views/rastreabilidade/RastreabilidadeView";
 import { useMinhaContaViewModel } from "@/viewmodels/minhaConta/useMinhaContaViewModel";
 import { login as apiLogin } from "@/api/auth";
 import { ecopontosPrefeitura } from "@/data/ecopontosPrefeitura";
+import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
+import { useReferenciasViewModel } from "@/viewmodels/referencias/useReferenciasViewModel";
+import type { Referencia } from "@/models/Referencia";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Screen =
@@ -2230,18 +2233,26 @@ function Simulacao() {
 
 // ─── SCREEN: Tabela de Preços ─────────────────────────────────────────────────
 function TabelaPrecos() {
+  const { data, loading, deleting, error, remove } = useReferenciasViewModel({ page: 0, size: 100, sort: "id,desc" });
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<{desc:string, unit:string, material:string, price:number, cat:string} | null>(null);
-  const [secoes, setSecoes] = useState<{cat:string, items:(string|number)[][]}[]>([
-    {cat:"Marcenaria Planejada",items:[["Módulo base cozinha 60cm","un","MDF 15mm",480],["Módulo aéreo cozinha 60cm","un","MDF 15mm",320],["Módulo torre forno 60cm","un","MDF 15mm",780],["Gaveta com corrediça telescópica","un","MDF + metal",180]]},
-    {cat:"Dormitório & Closet",items:[["Roupeiro planejado (por módulo)","un","MDF 15mm",650],["Cabeceira estofada 1,80m","un","Linho + MDF",1200]]},
-    {cat:"Mão de Obra",items:[["Montagem e instalação","h","—",120],["Visita técnica","visita","—",200],["Projeto e consultoria","projeto","—",800]]},
-  ]);
+  const [deleteTarget, setDeleteTarget] = useState<Referencia | null>(null);
+  const secoes = Object.entries((data?.content ?? []).reduce<Record<string, Referencia[]>>((acc, item) => {
+    const categoria = item.categoria || "OUTROS";
+    (acc[categoria] ??= []).push(item);
+    return acc;
+  }, {}));
 
-  const excluirItem = (cat: string, index: number) => {
-    if (!window.confirm("Excluir este item?")) return;
-    setSecoes(prev => prev.map(sec => sec.cat === cat ? {...sec, items: sec.items.filter((_, i) => i !== index)} : sec));
+  const formatCategoria = (categoria: string) => categoria
+    .toLocaleLowerCase("pt-BR")
+    .replaceAll("_", " ")
+    .replace(/(^|\s)\S/g, letra => letra.toLocaleUpperCase("pt-BR"));
+
+  const excluirItem = async () => {
+    if (!deleteTarget) return;
+    const deleted = await remove(deleteTarget.id);
+    if (deleted) setDeleteTarget(null);
   };
 
   return (
@@ -2253,23 +2264,26 @@ function TabelaPrecos() {
           <button onClick={() => setIsNewItemModalOpen(true)} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Novo item</button>
         </div>
       </div>
-      {secoes.map(s=>(
-        <div key={s.cat} className="overflow-x-auto rounded-lg border border-bw-border bg-bw-white">
-          <div className="px-4 py-3 border-b border-bw-border bg-bw-areia"><span className="text-xs font-semibold text-bw-madeira">{s.cat}</span></div>
+      {error && !deleteTarget && <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">Erro: {error.message}</div>}
+      {loading && <div className="rounded-lg border border-bw-border bg-bw-white p-8 text-center text-sm text-bw-muted">Carregando referências...</div>}
+      {!loading && secoes.length === 0 && <div className="rounded-lg border border-bw-border bg-bw-white p-8 text-center text-sm text-bw-muted">Nenhuma referência encontrada.</div>}
+      {secoes.map(([categoria, items])=>(
+        <div key={categoria} className="overflow-x-auto rounded-lg border border-bw-border bg-bw-white">
+          <div className="px-4 py-3 border-b border-bw-border bg-bw-areia"><span className="text-xs font-semibold text-bw-madeira">{formatCategoria(categoria)}</span></div>
           <table className="w-full min-w-[42rem] text-xs">
             <thead className="border-b border-bw-border-sub">
               <tr>{["Descrição","Unidade","Material base","Preço referência","",""].map((h,hi)=><th key={hi} className="text-left px-4 py-2.5 font-mono text-bw-muted text-[10px] uppercase">{h}</th>)}</tr>
             </thead>
             <tbody>
-              {s.items.map(([d,u,m,p],i)=>(
-                <tr key={i} className="border-b border-bw-border-sub last:border-0 hover:bg-bw-hover">
-                  <td className="px-4 py-3 text-bw-preto">{d}</td>
-                  <td className="px-4 py-3 font-mono text-bw-muted">{u}</td>
-                  <td className="px-4 py-3 text-bw-muted">{m}</td>
-                  <td className="px-4 py-3 font-mono font-semibold text-bw-preto">R$ {(p as number).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-bw-muted text-[10px] hover:text-bw-madeira cursor-pointer" onClick={() => setEditingItem({desc: d as string, unit: u as string, material: m as string, price: p as number, cat: s.cat})}>Editar</td>
+              {items.map(item=>(
+                <tr key={item.id} className="border-b border-bw-border-sub last:border-0 hover:bg-bw-hover">
+                  <td className="px-4 py-3 text-bw-preto">{item.descricao}</td>
+                  <td className="px-4 py-3 font-mono text-bw-muted">{item.unidade}</td>
+                  <td className="px-4 py-3 text-bw-muted">{item.materialBase}</td>
+                  <td className="px-4 py-3 font-mono font-semibold text-bw-preto">R$ {Number(item.precoReferencia).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                  <td className="px-4 py-3 text-bw-muted text-[10px] hover:text-bw-madeira cursor-pointer" onClick={() => setEditingItem({desc: item.descricao, unit: item.unidade, material: item.materialBase, price: Number(item.precoReferencia), cat: item.categoria})}>Editar</td>
                   <td className="px-2 py-3 text-bw-muted">
-                    <button onClick={() => excluirItem(s.cat, i)} title="Excluir item" aria-label={`Excluir ${d}`} className="p-1 hover:text-red-600 transition-colors">
+                    <button onClick={() => setDeleteTarget(item)} disabled={deleting} title="Excluir item" aria-label={`Excluir ${item.descricao}`} className="p-1 hover:text-red-600 transition-colors disabled:opacity-40">
                       <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
                     </button>
                   </td>
@@ -2443,6 +2457,18 @@ function TabelaPrecos() {
             </div>
           </div>
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          title="Excluir referência?"
+          itemName={deleteTarget.descricao}
+          description="Este item será removido permanentemente da tabela de preços de referência. Essa ação não poderá ser desfeita."
+          loading={deleting}
+          error={error?.message}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => void excluirItem()}
+        />
       )}
     </div>
   );

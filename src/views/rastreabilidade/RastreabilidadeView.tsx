@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useRastreabilidadeViewModel } from "@/viewmodels/rastreabilidade/useRastreabilidadeViewModel";
 import type { Rastreabilidade as RastreabilidadeItem, RastreabilidadeRequest } from "@/models/Rastreabilidade";
+import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
 
 export type ProjetoOption = { id: number; nome: string; tipo?: string };
 
@@ -29,6 +30,7 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
   const { data, loading, saving, error, projetoId, filterByProjeto, create, update, remove } = useRastreabilidadeViewModel();
   const [selIndex, setSelIndex] = useState(0);
   const [form, setForm] = useState<FormState | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<RastreabilidadeItem | null>(null);
 
   const lotes = data?.content ?? [];
   const s = lotes[selIndex] ?? lotes[0];
@@ -46,10 +48,13 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
       dataRegistro: r.dataRegistro ? r.dataRegistro.slice(0, 10) : hojeISO(),
     });
 
-  const handleExcluir = async (id: number) => {
-    if (!window.confirm("Excluir este material?")) return;
-    await remove(id);
-    setSelIndex(0);
+  const handleExcluir = async () => {
+    if (!deleteTarget) return;
+    const deleted = await remove(deleteTarget.id);
+    if (deleted) {
+      setDeleteTarget(null);
+      setSelIndex(0);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,7 +117,7 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
                     <div className="text-xs font-medium text-bw-preto mt-0.5">{l.tipoMadeira}</div>
                     <div className="text-[10px] text-bw-muted">{l.fornecedor}</div>
                   </button>
-                  <button onClick={() => handleExcluir(l.id)} disabled={saving} title="Excluir material" aria-label={`Excluir ${l.lote}`} className="px-3 text-bw-muted hover:text-red-600 hover:bg-bw-hover transition-colors disabled:opacity-40">
+                  <button onClick={() => setDeleteTarget(l)} disabled={saving} title="Excluir material" aria-label={`Excluir ${l.lote}`} className="px-3 text-bw-muted hover:text-red-600 hover:bg-bw-hover transition-colors disabled:opacity-40">
                     {trashIcon}
                   </button>
                 </div>
@@ -209,6 +214,18 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
             </form>
           </div>
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          title="Excluir material?"
+          itemName={`${deleteTarget.lote} · ${deleteTarget.tipoMadeira}`}
+          description="O vínculo deste material com o projeto e seu histórico de rastreabilidade serão removidos permanentemente."
+          loading={saving}
+          error={error?.message}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => void handleExcluir()}
+        />
       )}
     </div>
   );

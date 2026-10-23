@@ -10,3 +10,8 @@ export async function getReferenciaById(id: number) {
   const resp = await axios.get(`/v1/referencias/${id}`);
   return resp.data as Referencia;
 }
+
+export async function deleteReferencia(id: number) {
+  await axios.delete(`/v1/referencias/${id}`);
+  return true;
+}
