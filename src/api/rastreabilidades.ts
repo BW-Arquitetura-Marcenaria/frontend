@@ -33,6 +33,10 @@ export async function updateRastreabilidade(id: number, body: RastreabilidadeReq
 }
 
 export async function deleteRastreabilidade(id: number) {
-  if (USE_MOCK) return mock.remove(id);
+  if (USE_MOCK) {
+    await mock.remove(id);
+    return true;
+  }
   await axios.delete(`/v1/rastreabilidades/${id}`);
+  return true;
 }
