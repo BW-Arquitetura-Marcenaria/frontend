@@ -104,3 +104,21 @@ button:not(:disabled), a {
 .bw-panel {
   box-shadow: 0 18px 45px rgba(56, 38, 20, .08), 0 2px 6px rgba(56, 38, 20, .04);
 }
+
+/* Hide native browser password reveal / clear icons so our custom toggle is the only one visible */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none !important;
+}
+
+/* Chromium / WebKit built-in reveal button */
+input[type="password"]::-webkit-password-reveal-button,
+input[type="password"]::-webkit-textfield-decoration-container,
+input[type="password"]::-webkit-textfield-decoration-button {
+  display: none !important;
+}
+
+/* Keep the custom toggle aligned inside the input */
+.password-toggle {
+  line-height: 0;
+}

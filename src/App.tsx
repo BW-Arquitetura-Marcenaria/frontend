@@ -12,6 +12,7 @@ import { getContaAdmin, putEmpresaAdmin, putEnderecoAdmin, putSegurancaAdmin, ty
 import { ecopontosPrefeitura } from "@/data/ecopontosPrefeitura";
 import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
 import { useReferenciasViewModel } from "@/viewmodels/referencias/useReferenciasViewModel";
+import { createReferencia, exportReferencias, updateReferencia } from "@/api/referencias";
 import type { Referencia } from "@/models/Referencia";
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -76,6 +77,24 @@ const Icon = {
   AlertCircle: () => <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>,
   Settings: () => <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 00.34 1.88l.06.06a2 2 0 01-2.83 2.83l-.06-.06A1.7 1.7 0 0015 19.4a1.7 1.7 0 00-1 .6 1.7 1.7 0 00-.4 1.1V21a2 2 0 01-4 0v-.09A1.7 1.7 0 008.6 19.4a1.7 1.7 0 00-1.88.34l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.7 1.7 0 004.6 15a1.7 1.7 0 00-.6-1 1.7 1.7 0 00-1.1-.4H3a2 2 0 010-4h.09A1.7 1.7 0 004.6 8.6a1.7 1.7 0 00-.34-1.88l-.06-.06a2 2 0 012.83-2.83l.06.06A1.7 1.7 0 009 4.6a1.7 1.7 0 001-.6 1.7 1.7 0 00.4-1.1V3a2 2 0 014 0v.09A1.7 1.7 0 0015.4 4.6a1.7 1.7 0 001.88-.34l.06-.06a2 2 0 012.83 2.83l-.06.06A1.7 1.7 0 0019.4 9c.12.38.33.72.6 1 .3.28.68.42 1.1.4h.09a2 2 0 010 4h-.09a1.7 1.7 0 00-1.7.6z" /></svg>,
 };
+
+function PasswordInput({ toggleClassName = "text-white", className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement> & { toggleClassName?: string }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="relative">
+      <input {...props} type={visible ? "text" : "password"} className={`${className} pr-9`} />
+      <button
+        type="button"
+        aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
+        aria-pressed={visible}
+        onClick={() => setVisible(value => !value)}
+        className={`password-toggle absolute right-2 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-70 ${toggleClassName}`}
+      >
+        {visible ? <Icon.EyeOff /> : <Icon.Eye />}
+      </button>
+    </div>
+  );
+}
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 function WireTag({ children, status }: { children: React.ReactNode; status?: "ok" | "warn" | "error" | "info" }) {
@@ -315,7 +334,6 @@ type LoginStep = "form" | "verify";
 function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientLogin: (tipo: ClienteTipo) => void }) {
   const [tab, setTab] = useState<LoginTab>("pf");
   const [step, setStep] = useState<LoginStep>("form");
-  const [showPass, setShowPass] = useState(false);
   const [cnpj, setCnpj] = useState("");
   const [pfEmail, setPfEmail] = useState("");
   const [pfPassword, setPfPassword] = useState("");
@@ -428,12 +446,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
                   </div>
                   <div>
                     <label className={glassLabel}>Senha</label>
-                    <div className="relative">
-                      <input type={showPass ? "text" : "password"} placeholder="••••••••" value={pfPassword} onChange={e => setPfPassword(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleLogin(pfEmail, pfPassword); }} className={glassInput} />
-                      <button onClick={() => setShowPass(!showPass)} className="absolute right-0 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60 transition-colors">
-                        {showPass ? <Icon.EyeOff /> : <Icon.Eye />}
-                      </button>
-                    </div>
+                    <PasswordInput placeholder="••••••••" value={pfPassword} onChange={e => setPfPassword(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleLogin(pfEmail, pfPassword); }} className={glassInput} />
                     <div className="text-right mt-2">
                       <a href="#" className="text-[10px] font-mono text-white/30 hover:text-bw-dourado transition-colors">Esqueci minha senha</a>
                     </div>
@@ -455,12 +468,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
                   </div>
                   <div>
                     <label className={glassLabel}>Senha</label>
-                    <div className="relative">
-                      <input type={showPass ? "text" : "password"} placeholder="••••••••" value={pjPassword} onChange={e => setPjPassword(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleLogin(pjEmail, pjPassword); }} className={glassInput} />
-                      <button onClick={() => setShowPass(!showPass)} className="absolute right-0 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60 transition-colors">
-                        {showPass ? <Icon.EyeOff /> : <Icon.Eye />}
-                      </button>
-                    </div>
+                    <PasswordInput placeholder="••••••••" value={pjPassword} onChange={e => setPjPassword(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleLogin(pjEmail, pjPassword); }} className={glassInput} />
                     <div className="text-right mt-2">
                       <a href="#" className="text-[10px] font-mono text-white/30 hover:text-bw-dourado transition-colors">Esqueci minha senha</a>
                     </div>
@@ -566,7 +574,6 @@ function ComoConheceuFields({ comoConheceu, setComoConheceu, instagramUser, setI
 function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientLogin: (tipo: ClienteTipo) => void }) {
   const [tab, setTab] = useState<CadTab>("pf");
   const [step, setStep] = useState<CadStep>("dados");
-  const [showPass, setShowPass] = useState(false);
   const [cnpj, setCnpj] = useState("");
   const [cpf, setCpf] = useState("");
   const [phone, setPhone] = useState("");
@@ -782,12 +789,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
               </div>
               <div>
                 <label className={glassLabel}>Senha</label>
-                <div className="relative">
-                  <input type={showPass ? "text" : "password"} placeholder="Mínimo 8 caracteres" className={glassInput} />
-                  <button onClick={() => setShowPass(!showPass)} className="absolute right-0 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60 transition-colors">
-                    {showPass ? <Icon.EyeOff /> : <Icon.Eye />}
-                  </button>
-                </div>
+                <PasswordInput placeholder="Mínimo 8 caracteres" className={glassInput} />
                 <div className="flex gap-1 mt-3">
                   {["","","",""].map((_, i) => (
                     <div key={i} className="flex-1 h-px bg-white/10" />
@@ -803,7 +805,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
               </div>
               <div>
                 <label className={glassLabel}>Confirmar senha</label>
-                <input type="password" placeholder="Repita a senha" className={glassInput} />
+                <PasswordInput placeholder="Repita a senha" className={glassInput} />
               </div>
               <div className="flex items-start gap-2.5 pt-1">
                 <input type="checkbox" className="mt-0.5 accent-bw-dourado" />
@@ -1136,16 +1138,16 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
           <div className="text-[9px] font-mono uppercase tracking-[.2em] text-white/25">Segurança</div>
           <div>
             <label className={glassLabel}>Senha atual</label>
-            <input type="password" placeholder="••••••••" value={senhaAtual} onChange={e => setSenhaAtual(e.target.value)} className={glassInput} />
+            <PasswordInput placeholder="••••••••" value={senhaAtual} onChange={e => setSenhaAtual(e.target.value)} className={glassInput} />
           </div>
           <div className="grid sm:grid-cols-2 gap-5">
             <div>
               <label className={glassLabel}>Nova senha</label>
-              <input type="password" placeholder="Mínimo 8 caracteres" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} className={glassInput} />
+              <PasswordInput placeholder="Mínimo 8 caracteres" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} className={glassInput} />
             </div>
             <div>
               <label className={glassLabel}>Confirmar nova senha</label>
-              <input type="password" placeholder="Repita" value={confirmarNovaSenha} onChange={e => setConfirmarNovaSenha(e.target.value)} className={glassInput} />
+              <PasswordInput placeholder="Repita" value={confirmarNovaSenha} onChange={e => setConfirmarNovaSenha(e.target.value)} className={glassInput} />
             </div>
           </div>
         </section>
@@ -2234,10 +2236,10 @@ function Simulacao() {
 
 // ─── SCREEN: Tabela de Preços ─────────────────────────────────────────────────
 function TabelaPrecos() {
-  const { data, loading, deleting, error, remove } = useReferenciasViewModel({ page: 0, size: 100, sort: "id,desc" });
+  const { data, loading, deleting, error, remove, refresh } = useReferenciasViewModel({ page: 0, size: 100, sort: "id,desc" });
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<{desc:string, unit:string, material:string, price:number, cat:string} | null>(null);
+  const [editingItem, setEditingItem] = useState<{id:number, desc:string, unit:string, material:string, price:number, cat:string} | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Referencia | null>(null);
   const secoes = Object.entries((data?.content ?? []).reduce<Record<string, Referencia[]>>((acc, item) => {
     const categoria = item.categoria || "OUTROS";
@@ -2282,7 +2284,7 @@ function TabelaPrecos() {
                   <td className="px-4 py-3 font-mono text-bw-muted">{item.unidade}</td>
                   <td className="px-4 py-3 text-bw-muted">{item.materialBase}</td>
                   <td className="px-4 py-3 font-mono font-semibold text-bw-preto">R$ {Number(item.precoReferencia).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-3 text-bw-muted text-[10px] hover:text-bw-madeira cursor-pointer" onClick={() => setEditingItem({desc: item.descricao, unit: item.unidade, material: item.materialBase, price: Number(item.precoReferencia), cat: item.categoria})}>Editar</td>
+                  <td className="px-4 py-3 text-bw-muted text-[10px] hover:text-bw-madeira cursor-pointer" onClick={() => setEditingItem({id: item.id, desc: item.descricao, unit: item.unidade, material: item.materialBase, price: Number(item.precoReferencia), cat: item.categoria})}>Editar</td>
                   <td className="px-2 py-3 text-bw-muted">
                     <button onClick={() => setDeleteTarget(item)} disabled={deleting} title="Excluir item" aria-label={`Excluir ${item.descricao}`} className="p-1 hover:text-red-600 transition-colors disabled:opacity-40">
                       <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
@@ -2310,42 +2312,58 @@ function TabelaPrecos() {
               <p className="font-mono text-[10px] text-bw-dourado uppercase tracking-widest mt-1">Atualizar tabela de preços</p>
             </div>
 
-            <form className="flex flex-col gap-5" onSubmit={e => { e.preventDefault(); setEditingItem(null); }}>
+            <form className="flex flex-col gap-5" onSubmit={async e => {
+                e.preventDefault();
+                if (!editingItem) return;
+                const form = e.currentTarget as HTMLFormElement;
+                const fd = new FormData(form);
+                const payload = {
+                  categoria: (fd.get('categoria') as string) ?? editingItem.cat,
+                  descricao: (fd.get('descricao') as string) ?? editingItem.desc,
+                  materialBase: (fd.get('materialBase') as string) ?? editingItem.material,
+                  unidade: (fd.get('unidade') as string) ?? editingItem.unit,
+                  precoReferencia: Number((fd.get('precoReferencia') as string) ?? editingItem.price)
+                };
+                try {
+                  await updateReferencia(editingItem.id, payload);
+                  refresh();
+                  setEditingItem(null);
+                } catch (err:any) {
+                  alert((err?.response?.data?.message) || err?.message || String(err));
+                }
+              }}>
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Categoria</label>
-                <select defaultValue={editingItem.cat} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
-                  <option value="Marcenaria Planejada" className="bg-bw-preto text-bw-white">Marcenaria Planejada</option>
-                  <option value="Dormitório & Closet" className="bg-bw-preto text-bw-white">Dormitório & Closet</option>
-                  <option value="Mão de Obra" className="bg-bw-preto text-bw-white">Mão de Obra</option>
-                  <option value="Outro" className="bg-bw-preto text-bw-white">Nova Categoria...</option>
+                <select name="categoria" defaultValue={editingItem.cat} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
+                  <option value="MARCENARIA_PLANEJADA" className="bg-bw-preto text-bw-white">Marcenaria Planejada</option>
+                  <option value="DORMITORIO_E_CLOSSET" className="bg-bw-preto text-bw-white">Dormitório & Closet</option>
+                  <option value="MAO_DE_OBRA" className="bg-bw-preto text-bw-white">Mão de Obra</option>
                 </select>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Descrição do item</label>
-                <input type="text" defaultValue={editingItem.desc} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
+                <input name="descricao" type="text" defaultValue={editingItem.desc} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Material Base</label>
-                <input type="text" defaultValue={editingItem.material} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
+                <input name="materialBase" type="text" defaultValue={editingItem.material} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
               </div>
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Unidade</label>
-                  <select defaultValue={editingItem.unit} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
-                    <option value="un" className="bg-bw-preto text-bw-white">un (Unidade)</option>
-                    <option value="m2" className="bg-bw-preto text-bw-white">m² (Metro quadrado)</option>
-                    <option value="ml" className="bg-bw-preto text-bw-white">ml (Metro linear)</option>
-                    <option value="h" className="bg-bw-preto text-bw-white">h (Hora)</option>
-                    <option value="visita" className="bg-bw-preto text-bw-white">visita (Visita)</option>
-                    <option value="projeto" className="bg-bw-preto text-bw-white">projeto (Projeto)</option>
+                  <select name="unidade" defaultValue={editingItem.unit} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
+                    <option value="UNIDADE" className="bg-bw-preto text-bw-white">un (Unidade)</option>
+                    <option value="METRO_QUADRADO" className="bg-bw-preto text-bw-white">m² (Metro quadrado)</option>
+                    <option value="METRO_LINEAR" className="bg-bw-preto text-bw-white">ml (Metro linear)</option>
+                    <option value="HORA" className="bg-bw-preto text-bw-white">h (Hora)</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
-                  <input type="number" step="0.01" defaultValue={editingItem.price} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
+                  <input name="precoReferencia" type="number" step="0.01" defaultValue={editingItem.price} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
                 </div>
               </div>
 
@@ -2377,41 +2395,58 @@ function TabelaPrecos() {
               <p className="font-mono text-[10px] text-bw-dourado uppercase tracking-widest mt-1">Adicionar à tabela de preços</p>
             </div>
 
-            <form className="flex flex-col gap-5" onSubmit={e => { e.preventDefault(); setIsNewItemModalOpen(false); }}>
+            <form className="flex flex-col gap-5" onSubmit={async e => {
+                e.preventDefault();
+                const form = e.currentTarget as HTMLFormElement;
+                const fd = new FormData(form);
+                const payload = {
+                  categoria: fd.get('categoria') as string,
+                  descricao: fd.get('descricao') as string,
+                  materialBase: fd.get('materialBase') as string,
+                  unidade: fd.get('unidade') as string,
+                  precoReferencia: Number(fd.get('precoReferencia') as string)
+                };
+                try {
+                  await createReferencia(payload);
+                  refresh();
+                  setIsNewItemModalOpen(false);
+                } catch (err:any) {
+                  alert((err?.response?.data?.message) || err?.message || String(err));
+                }
+              }}>
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Categoria</label>
-                <select className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
-                  <option value="" disabled selected hidden className="bg-bw-preto text-bw-white">Selecione...</option>
-                  <option value="Marcenaria Planejada" className="bg-bw-preto text-bw-white">Marcenaria Planejada</option>
-                  <option value="Dormitório & Closet" className="bg-bw-preto text-bw-white">Dormitório & Closet</option>
-                  <option value="Mão de Obra" className="bg-bw-preto text-bw-white">Mão de Obra</option>
-                  <option value="Outro" className="bg-bw-preto text-bw-white">Nova Categoria...</option>
+                <select name="categoria" defaultValue="" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
+                  <option value="" disabled hidden className="bg-bw-preto text-bw-white">Selecione...</option>
+                  <option value="MARCENARIA_PLANEJADA" className="bg-bw-preto text-bw-white">Marcenaria Planejada</option>
+                  <option value="DORMITORIO_E_CLOSSET" className="bg-bw-preto text-bw-white">Dormitório & Closet</option>
+                  <option value="MAO_DE_OBRA" className="bg-bw-preto text-bw-white">Mão de Obra</option>
                 </select>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Descrição do item</label>
-                <input type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="Ex: Módulo aéreo especial" />
+                <input name="descricao" type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="Ex: Módulo aéreo especial" />
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Material Base</label>
-                <input type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="Ex: MDF 15mm Branco" />
+                <input name="materialBase" type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="Ex: MDF 15mm Branco" />
               </div>
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Unidade</label>
-                  <select className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
-                    <option value="un" className="bg-bw-preto text-bw-white">un (Unidade)</option>
-                    <option value="m2" className="bg-bw-preto text-bw-white">m² (Metro quadrado)</option>
-                    <option value="ml" className="bg-bw-preto text-bw-white">ml (Metro linear)</option>
-                    <option value="h" className="bg-bw-preto text-bw-white">h (Hora)</option>
+                  <select name="unidade" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
+                    <option value="UNIDADE" className="bg-bw-preto text-bw-white">un (Unidade)</option>
+                    <option value="METRO_QUADRADO" className="bg-bw-preto text-bw-white">m² (Metro quadrado)</option>
+                    <option value="METRO_LINEAR" className="bg-bw-preto text-bw-white">ml (Metro linear)</option>
+                    <option value="HORA" className="bg-bw-preto text-bw-white">h (Hora)</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
-                  <input type="number" step="0.01" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="0,00" />
+                  <input name="precoReferencia" type="number" step="0.01" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="0,00" />
                 </div>
               </div>
 
@@ -2444,13 +2479,27 @@ function TabelaPrecos() {
 
             <div className="flex flex-col gap-3">
               <button 
-                onClick={() => setIsExportModalOpen(false)}
+                onClick={async () => {
+                  try {
+                    await exportReferencias('pdf');
+                    setIsExportModalOpen(false);
+                  } catch {
+                    alert('Não foi possível exportar o PDF. Tente novamente com o backend disponível.');
+                  }
+                }}
                 className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors"
               >
                 Gerar PDF
               </button>
               <button 
-                onClick={() => setIsExportModalOpen(false)}
+                onClick={async () => {
+                  try {
+                    await exportReferencias('excel');
+                    setIsExportModalOpen(false);
+                  } catch {
+                    alert('Não foi possível exportar a planilha. Tente novamente com o backend disponível.');
+                  }
+                }}
                 className="w-full border border-bw-dourado/40 text-bw-areia font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors"
               >
                 Exportar para Excel (.xlsx)
@@ -3501,15 +3550,15 @@ function ConfiguracoesConta() {
               <div className="grid gap-x-7 gap-y-6 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
                   <span className={labelClass}>Senha atual</span>
-                  <input type="password" value={currentPassword} onChange={event => { setCurrentPassword(event.target.value); setError(""); }} disabled={!isCnpjVerified} autoComplete="current-password" placeholder={isCnpjVerified ? "Digite sua senha atual" : "Confirme o CNPJ primeiro"} className={`${fieldClass} disabled:cursor-not-allowed disabled:opacity-50`} />
+                  <PasswordInput value={currentPassword} onChange={event => { setCurrentPassword(event.target.value); setError(""); }} disabled={!isCnpjVerified} autoComplete="current-password" placeholder={isCnpjVerified ? "Digite sua senha atual" : "Confirme o CNPJ primeiro"} className={`${fieldClass} disabled:cursor-not-allowed disabled:opacity-50`} toggleClassName="text-bw-madeira" />
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className={labelClass}>Nova senha</span>
-                  <input type="password" value={newPassword} onChange={event => { setNewPassword(event.target.value); setError(""); }} disabled={!isCnpjVerified} autoComplete="new-password" placeholder="Mínimo de 8 caracteres" className={`${fieldClass} disabled:cursor-not-allowed disabled:opacity-50`} />
+                  <PasswordInput value={newPassword} onChange={event => { setNewPassword(event.target.value); setError(""); }} disabled={!isCnpjVerified} autoComplete="new-password" placeholder="Mínimo de 8 caracteres" className={`${fieldClass} disabled:cursor-not-allowed disabled:opacity-50`} toggleClassName="text-bw-madeira" />
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className={labelClass}>Confirmar nova senha</span>
-                  <input type="password" value={confirmPassword} onChange={event => { setConfirmPassword(event.target.value); setError(""); }} disabled={!isCnpjVerified} autoComplete="new-password" placeholder="Repita a nova senha" className={`${fieldClass} disabled:cursor-not-allowed disabled:opacity-50`} />
+                  <PasswordInput value={confirmPassword} onChange={event => { setConfirmPassword(event.target.value); setError(""); }} disabled={!isCnpjVerified} autoComplete="new-password" placeholder="Repita a nova senha" className={`${fieldClass} disabled:cursor-not-allowed disabled:opacity-50`} toggleClassName="text-bw-madeira" />
                 </label>
               </div>
             </div>
