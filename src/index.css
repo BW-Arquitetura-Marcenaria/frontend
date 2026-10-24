@@ -93,6 +93,16 @@ button:not(:disabled), a {
   }
 }
 
+/* Site institucional — indicador de rolagem do hero */
+@keyframes bw-scroll-cue {
+  0%   { transform: translateY(-100%); }
+  60%  { transform: translateY(200%); }
+  100% { transform: translateY(200%); }
+}
+.bw-scroll-cue {
+  animation: bw-scroll-cue 2.4s cubic-bezier(.65, 0, .35, 1) infinite;
+}
+
 .bw-admin-ground {
   background-color: #E8E1D5;
   background-image:
