@@ -368,6 +368,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
         onClientLogin(tab);
       }
     } catch (err: any) {
+      if (!err?.response && import.meta.env.VITE_USE_MOCK === "true") { if (email.toLowerCase().includes("admin") || email.toLowerCase().includes("bwtestes")) { onNav("funil"); } else { onClientLogin(tab); } return; }
       const status = err?.response?.status;
       setError(
         status === 401 || status === 403
@@ -1181,7 +1182,7 @@ function PortalCliente({ tipo, onNav }: { tipo: ClienteTipo; onNav: (s: Screen) 
 
         {/* Nav tabs */}
         <nav className="flex items-center h-full">
-          {([["mensagens","Mensagens"],["agendamentos","Agendamentos"],["conta","Minha Conta"]] as [PortalTab,string][]).map(([t, label]) => (
+          {([["mensagens","Mensagens"],["agendamentos","Calendário"],["conta","Minha Conta"]] as [PortalTab,string][]).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex h-full items-center px-2.5 font-mono text-[9px] uppercase tracking-[.1em] transition-colors sm:px-8 sm:text-[10px] sm:tracking-[.18em] ${tab === t ? "text-bw-dourado border-b-2 border-bw-dourado" : "text-white/40 hover:text-white/80"}`}>
               {label}
