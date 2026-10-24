@@ -14,6 +14,12 @@ import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
 import { useReferenciasViewModel } from "@/viewmodels/referencias/useReferenciasViewModel";
 import { createReferencia, exportReferencias, updateReferencia } from "@/api/referencias";
 import type { Referencia } from "@/models/Referencia";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { SplitText } from "gsap/SplitText";
+import { useGSAP } from "@gsap/react";
+
+gsap.registerPlugin(ScrollTrigger, SplitText, useGSAP);
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Screen =
@@ -284,9 +290,23 @@ function SiteInstitucional({ onNav }: { onNav: (s: Screen) => void }) {
 }
 
 // ─── SCREEN: Institutional refresh ────────────────────────────────────────────
+const DEP_INTERVAL = 7; // segundos que cada depoimento fica em tela
+
 function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
   const [dep, setDep] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const navHiddenRef = useRef(false);
+  const menuOpenRef = useRef(false);
+  const quoteRefs = useRef<(HTMLParagraphElement | null)[]>([]);
+  const authorRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const fillRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const quoteSplits = useRef<SplitText[]>([]);
+  const progressTween = useRef<gsap.core.Tween | null>(null);
+  const depPaused = useRef(false);
+  const depFirstRun = useRef(true);
   const projects = [
     { title: "Casa Aroeira", type: "Estante residencial", image: bwProject1 },
     { title: "Apartamento Jardins", type: "Estante com adega", image: bwProject2 },
@@ -296,34 +316,320 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
     setMenuOpen(false);
   };
+  const pauseDep = () => { depPaused.current = true; progressTween.current?.pause(); };
+  const resumeDep = () => { depPaused.current = false; progressTween.current?.resume(); };
 
-  return <div className="min-h-full bg-bw-white selection:bg-bw-dourado selection:text-bw-white">
+  // ── Animações de entrada e de scroll ──────────────────────────────────────
+  useGSAP(() => {
+    // Nav: fundo sólido após rolar, esconde ao descer e volta ao subir
+    ScrollTrigger.create({
+      start: 0,
+      end: "max",
+      onRefresh: self => setScrolled(self.scroll() > 40),
+      onUpdate: self => {
+        const y = self.scroll();
+        setScrolled(y > 40);
+        const hide = self.direction === 1 && y > window.innerHeight * 0.8 && !menuOpenRef.current;
+        if (hide !== navHiddenRef.current) {
+          navHiddenRef.current = hide;
+          gsap.to(navRef.current, { yPercent: hide ? -100 : 0, duration: 0.5, ease: "power3.out", overwrite: "auto" });
+        }
+      },
+    });
+
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      // HERO — intro
+      const intro = gsap.timeline({ defaults: { ease: "power3.out" } });
+      intro
+        .from("[data-hero-bg]", { scale: 1.18, autoAlpha: 0, duration: 2.6, ease: "power2.out" }, 0)
+        .from("[data-nav-item]", { y: -16, autoAlpha: 0, duration: 0.9, stagger: 0.08 }, 0.35)
+        .from("[data-hero-fade]", { y: 24, autoAlpha: 0, duration: 1, stagger: 0.12 }, 1.15)
+        .from("[data-hero-card]", { y: 40, autoAlpha: 0, duration: 1.3 }, 1.25);
+
+      SplitText.create("[data-hero-title]", {
+        type: "lines",
+        autoSplit: true,
+        onSplit: self => gsap.from(self.lines, { yPercent: 70, autoAlpha: 0, duration: 1.5, stagger: 0.14, ease: "expo.out", delay: 0.5 }),
+      });
+
+      // HERO — parallax
+      const heroScroll = { trigger: "#inicio", start: "top top", end: "bottom top", scrub: true };
+      gsap.to("[data-hero-bg]", { yPercent: 18, ease: "none", scrollTrigger: heroScroll });
+      gsap.to("[data-hero-copy]", { yPercent: -14, opacity: 0.25, ease: "none", scrollTrigger: heroScroll });
+      gsap.to("[data-hero-card]", { yPercent: -6, ease: "none", scrollTrigger: heroScroll });
+
+      // Títulos — linhas surgindo
+      gsap.utils.toArray<HTMLElement>("[data-split]").forEach(el => {
+        SplitText.create(el, {
+          type: "lines",
+          autoSplit: true,
+          onSplit: self => gsap.from(self.lines, {
+            yPercent: 60, autoAlpha: 0, duration: 1.2, stagger: 0.1, ease: "expo.out",
+            scrollTrigger: { trigger: el, start: "top 85%", once: true },
+          }),
+        });
+      });
+
+      // Elementos simples
+      gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach(el => {
+        gsap.from(el, {
+          y: 32, autoAlpha: 0, duration: 1.1, ease: "power3.out",
+          delay: Number(el.dataset.reveal || 0),
+          scrollTrigger: { trigger: el, start: "top 88%", once: true },
+        });
+      });
+
+      // Grupos em cascata
+      gsap.utils.toArray<HTMLElement>("[data-stagger]").forEach(group => {
+        gsap.from(group.querySelectorAll("[data-stagger-item]"), {
+          y: 48, autoAlpha: 0, duration: 1.1, stagger: 0.15, ease: "power3.out",
+          scrollTrigger: { trigger: group, start: "top 82%", once: true },
+        });
+      });
+
+      // Imagens — revelação com máscara
+      gsap.utils.toArray<HTMLElement>("[data-clip]").forEach(el => {
+        gsap.fromTo(el,
+          { clipPath: "inset(100% 0% 0% 0%)" },
+          {
+            clipPath: "inset(0% 0% 0% 0%)", duration: 1.6, ease: "expo.inOut",
+            delay: Number(el.dataset.clip || 0), clearProps: "clipPath",
+            scrollTrigger: { trigger: el, start: "top 88%", once: true },
+          });
+      });
+
+      // Foto dos fundadores — parallax suave
+      gsap.fromTo("[data-parallax-photo]", { yPercent: 6 }, {
+        yPercent: -6, ease: "none",
+        scrollTrigger: { trigger: "[data-parallax-photo]", start: "top bottom", end: "bottom top", scrub: true },
+      });
+
+      // Método — linha dourada desenhando
+      gsap.from("[data-line]", {
+        scaleX: 0, duration: 1.4, stagger: 0.18, ease: "expo.inOut",
+        scrollTrigger: { trigger: "#metodo [data-stagger]", start: "top 82%", once: true },
+      });
+
+      // Contato — marca d'água
+      gsap.fromTo("[data-watermark]", { yPercent: -10, rotate: -8 }, {
+        yPercent: 12, rotate: 10, ease: "none",
+        scrollTrigger: { trigger: "#contato", start: "top bottom", end: "bottom top", scrub: true },
+      });
+    });
+  }, { scope: rootRef });
+
+  // ── Depoimentos: split por palavras (uma vez por montagem) ─────────────────
+  useGSAP(() => {
+    quoteSplits.current = quoteRefs.current.map(el => SplitText.create(el!, { type: "words" }));
+  }, { scope: rootRef });
+
+  // ── Depoimentos: troca automática com barra de progresso ──────────────────
+  useGSAP(() => {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const first = depFirstRun.current;
+    depFirstRun.current = false;
+
+    depoimentos.forEach((_, i) => {
+      if (i === dep) return;
+      const targets = [quoteRefs.current[i], authorRefs.current[i]];
+      if (first || reduce) gsap.set(targets, { autoAlpha: 0 });
+      else gsap.to(targets, { autoAlpha: 0, y: -10, duration: 0.45, ease: "power2.in", overwrite: true });
+      gsap.set(fillRefs.current[i], { scaleX: 0 });
+    });
+
+    const quote = quoteRefs.current[dep];
+    const author = authorRefs.current[dep];
+    const words = quoteSplits.current[dep]?.words ?? [];
+    if (reduce) {
+      gsap.set([quote, author], { autoAlpha: 1, y: 0 });
+    } else if (!first) {
+      gsap.set(quote, { autoAlpha: 1, y: 0 });
+      gsap.fromTo(words, { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.7, stagger: 0.016, ease: "power2.out", delay: 0.4, overwrite: true });
+      gsap.fromTo(author, { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 0.8, ease: "power3.out", delay: 0.55, overwrite: true });
+    }
+
+    progressTween.current?.kill();
+    progressTween.current = gsap.fromTo(fillRefs.current[dep], { scaleX: 0 }, {
+      scaleX: 1, duration: DEP_INTERVAL, ease: "none",
+      onComplete: () => setDep(d => (d + 1) % depoimentos.length),
+    });
+    if (depPaused.current) progressTween.current.pause();
+    return () => { depFirstRun.current = true; };
+  }, { dependencies: [dep], scope: rootRef });
+
+  // ── Menu mobile ───────────────────────────────────────────────────────────
+  useGSAP(() => {
+    menuOpenRef.current = menuOpen;
+    if (!menuOpen) return;
+    gsap.from("[data-menu-item]", { y: -8, autoAlpha: 0, duration: 0.5, stagger: 0.06, ease: "power2.out" });
+  }, { dependencies: [menuOpen], scope: rootRef });
+
+  return <div ref={rootRef} className="min-h-full bg-bw-white selection:bg-bw-dourado selection:text-bw-white">
     <section id="inicio" className="relative min-h-[100svh] overflow-hidden bg-bw-preto text-bw-white">
-      <img src={bwProject3} alt="Projeto de marcenaria BW — estante comercial" className="absolute inset-0 h-full w-full object-cover opacity-60" />
+      <img data-hero-bg src={bwProject3} alt="Projeto de marcenaria BW — estante comercial" className="absolute inset-0 h-full w-full object-cover opacity-60 will-change-transform" />
       <div className="absolute inset-0 bg-gradient-to-r from-bw-preto via-bw-preto/70 to-bw-preto/15" />
       {/* NAV integrada ao hero */}
-      <nav className="absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-bw-preto/75 to-transparent">
+      <nav ref={navRef} className="fixed top-0 left-0 right-0 z-50 isolate bg-gradient-to-b from-bw-preto/75 to-transparent">
+        <div aria-hidden className={`absolute inset-0 -z-10 border-b border-bw-white/10 bg-bw-preto/85 backdrop-blur-md transition-opacity duration-500 ${scrolled || menuOpen ? "opacity-100" : "opacity-0"}`} />
         <div className="mx-auto flex h-[74px] max-w-[1600px] items-center justify-between px-5 sm:px-8 lg:px-12">
-          <button onClick={() => scrollTo("inicio")} className="text-left leading-none group flex flex-col items-start"><img src={bwLogo} alt="BW" className="object-contain" style={{height:"44px",width:"auto",mixBlendMode:"screen"}} /><span className="mt-[3px] block font-mono text-[8px] uppercase tracking-[.22em] text-bw-areia/60 group-hover:text-bw-dourado transition-colors">Arquitetura & Marcenaria</span></button>
-          <div className="hidden lg:flex items-center gap-9 text-[12px] font-medium uppercase tracking-wider text-bw-areia">{[["SOBRE", "sobre"], ["MÉTODO", "metodo"], ["PROJETOS", "projetos"], ["CONTATO", "contato"]].map(([label, id]) => <button key={id} onClick={() => scrollTo(id)} className="hover:text-bw-dourado transition-colors">{label}</button>)}</div>
-          <div className="flex items-center gap-2 sm:gap-4"><button onClick={() => onNav("login")} className="hidden sm:block px-4 py-2.5 text-sm font-medium text-bw-areia hover:text-bw-white transition-colors">Área do cliente</button><button onClick={() => scrollTo("contato")} className="hidden bg-bw-dourado px-5 py-3 text-[12px] font-medium uppercase tracking-wider text-white hover:bg-[#c19d65] transition-colors sm:block sm:px-6">Começar projeto</button><button onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} aria-expanded={menuOpen} className="grid h-10 w-10 place-items-center border border-bw-white/30 bg-bw-preto/20 text-bw-areia lg:hidden">{menuOpen ? <Icon.X /> : <Icon.Menu />}</button></div>
+          <button data-nav-item onClick={() => scrollTo("inicio")} className="text-left leading-none group flex flex-col items-start"><img src={bwLogo} alt="BW" className="object-contain" style={{ height: "44px", width: "auto", mixBlendMode: "screen" }} /><span className="mt-[3px] block font-mono text-[8px] uppercase tracking-[.22em] text-bw-areia/60 group-hover:text-bw-dourado transition-colors">Arquitetura &amp; Marcenaria</span></button>
+          <div className="hidden lg:flex items-center gap-9 text-[12px] font-medium uppercase tracking-wider text-bw-areia">
+            {[["SOBRE", "sobre"], ["MÉTODO", "metodo"], ["PROJETOS", "projetos"], ["CONTATO", "contato"]].map(([label, id]) => (
+              <button data-nav-item key={id} onClick={() => scrollTo(id)} className="group relative py-1 hover:text-bw-dourado transition-colors">
+                {label}
+                <span aria-hidden className="absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-bw-dourado transition-transform duration-500 ease-out group-hover:scale-x-100" />
+              </button>
+            ))}
+          </div>
+          <div data-nav-item className="flex items-center gap-2 sm:gap-4">
+            <button onClick={() => onNav("login")} className="hidden sm:block px-4 py-2.5 text-sm font-medium text-bw-areia hover:text-bw-white transition-colors">Área do cliente</button>
+            <button onClick={() => scrollTo("contato")} className="hidden bg-bw-dourado px-5 py-3 text-[12px] font-medium uppercase tracking-wider text-white hover:bg-[#c19d65] transition-colors sm:block sm:px-6">Começar projeto</button>
+            <button onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} aria-expanded={menuOpen} className="grid h-10 w-10 place-items-center border border-bw-white/30 bg-bw-preto/20 text-bw-areia lg:hidden">{menuOpen ? <Icon.X /> : <Icon.Menu />}</button>
+          </div>
         </div>
-        {menuOpen && <div className="grid gap-5 border-t border-bw-white/10 bg-bw-preto/80 backdrop-blur-md px-5 py-6 font-mono text-[13px] uppercase tracking-widest text-bw-areia lg:hidden">{[["Sobre", "sobre"], ["Método", "metodo"], ["Projetos", "projetos"], ["Contato", "contato"]].map(([label, id]) => <button key={id} onClick={() => scrollTo(id)} className="text-left hover:text-bw-dourado transition-colors">{label}</button>)}</div>}
+        {menuOpen && <div className="grid gap-5 border-t border-bw-white/10 bg-bw-preto/80 backdrop-blur-md px-5 py-6 font-mono text-[13px] uppercase tracking-widest text-bw-areia lg:hidden">{[["Sobre", "sobre"], ["Método", "metodo"], ["Projetos", "projetos"], ["Contato", "contato"]].map(([label, id]) => <button data-menu-item key={id} onClick={() => scrollTo(id)} className="text-left hover:text-bw-dourado transition-colors">{label}</button>)}</div>}
       </nav>
       <div className="relative z-10 mx-auto grid min-h-[100svh] max-w-[1600px] items-end gap-10 px-5 pb-10 pt-28 sm:px-8 sm:py-16 lg:grid-cols-[1.15fr_.85fr] lg:px-12">
-        <div className="max-w-4xl lg:pb-5"><h1 className="font-display text-[clamp(2.65rem,12vw,8.6rem)] font-medium leading-[.86] tracking-[-.045em] text-bw-white sm:leading-[.78] sm:tracking-[-.055em]">Transformamos ideias<br /><span className="font-normal text-bw-areia fg-inline-italic">em ambientes que</span><br />inspiram.</h1><div className="mt-8 flex flex-col gap-5 sm:mt-10 sm:flex-row sm:items-center sm:gap-6"><button onClick={() => scrollTo("contato")} className="w-full bg-bw-dourado px-7 py-3.5 text-[11px] font-medium uppercase tracking-[.14em] text-white hover:bg-[#c19d65] transition-colors sm:w-fit">Agendar conversa <span className="ml-4">↗</span></button><p className="max-w-xs text-sm leading-relaxed text-bw-areia/80">Projetamos espaços singulares, feitos para viver bem hoje e continuar fazendo sentido amanhã.</p></div></div>
-        <div className="hidden w-full border border-bw-white/20 bg-bw-preto/35 p-6 backdrop-blur-sm sm:block sm:p-7 lg:max-w-md lg:justify-self-end"><div className="mb-9 flex items-start justify-between gap-5"><div className="font-mono text-[10px] uppercase tracking-[.18em] text-bw-dourado">Palavras de quem vive BW</div><StarRow /></div><p className="font-display text-[25px] leading-[1.08] text-bw-white sm:text-[29px]">“{depoimentos[dep].texto}”</p><div className="mt-8 flex items-center justify-between gap-4 border-t border-bw-white/20 pt-5"><div className="flex items-center gap-3"><div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-bw-dourado/50 bg-bw-areia/10 text-[10px] font-semibold text-bw-areia">{depoimentos[dep].nome.split(" ").map((n: string) => n[0]).slice(0, 2).join("")}</div><div><div className="text-xs font-medium text-bw-white">{depoimentos[dep].nome}</div><div className="mt-0.5 text-[10px] text-bw-areia/60">{depoimentos[dep].sub}</div></div></div><div className="flex gap-2">{depoimentos.map((_, i) => <button aria-label={`Depoimento ${i + 1}`} key={i} onClick={() => setDep(i)} className={`h-px transition-all ${dep === i ? "w-8 bg-bw-dourado" : "w-3 bg-bw-white/40 hover:bg-bw-white"}`} />)}</div></div></div>
+        <div data-hero-copy className="max-w-4xl lg:pb-5">
+          <h1 data-hero-title className="font-display text-[clamp(2.65rem,12vw,8.6rem)] font-medium leading-[.86] tracking-[-.045em] text-bw-white sm:leading-[.78] sm:tracking-[-.055em]">Transformamos ideias<br /><span className="font-normal text-bw-areia fg-inline-italic">em ambientes que</span><br />inspiram.</h1>
+          <div className="mt-8 flex flex-col gap-5 sm:mt-10 sm:flex-row sm:items-center sm:gap-6">
+            <button data-hero-fade onClick={() => scrollTo("contato")} className="group w-full bg-bw-dourado px-7 py-3.5 text-[11px] font-medium uppercase tracking-[.14em] text-white hover:bg-[#c19d65] transition-colors sm:w-fit">Agendar conversa <span className="ml-4 inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></button>
+            <p data-hero-fade className="max-w-xs text-sm leading-relaxed text-bw-areia/80">Projetamos espaços singulares, feitos para viver bem hoje e continuar fazendo sentido amanhã.</p>
+          </div>
+        </div>
+        <div
+          data-hero-card
+          role="region"
+          aria-roledescription="carrossel"
+          aria-label="Depoimentos de clientes"
+          onMouseEnter={pauseDep}
+          onMouseLeave={resumeDep}
+          onFocus={pauseDep}
+          onBlur={resumeDep}
+          className="hidden w-full border border-bw-white/20 bg-bw-preto/35 p-6 backdrop-blur-sm sm:block sm:p-7 lg:max-w-md lg:justify-self-end"
+        >
+          <div className="mb-9 flex items-start justify-between gap-5"><div className="font-mono text-[10px] uppercase tracking-[.18em] text-bw-dourado">Palavras de quem vive BW</div><StarRow /></div>
+          <div className="grid">
+            {depoimentos.map((d, i) => (
+              <p key={d.nome} ref={el => { quoteRefs.current[i] = el; }} aria-hidden={dep !== i} className="[grid-area:1/1] font-display text-[25px] leading-[1.08] text-bw-white sm:text-[29px]">“{d.texto}”</p>
+            ))}
+          </div>
+          <div className="mt-8 flex items-center justify-between gap-4 border-t border-bw-white/20 pt-5">
+            <div className="grid">
+              {depoimentos.map((d, i) => (
+                <div key={d.nome} ref={el => { authorRefs.current[i] = el; }} aria-hidden={dep !== i} className="[grid-area:1/1] flex items-center gap-3">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-bw-dourado/50 bg-bw-areia/10 text-[10px] font-semibold text-bw-areia">{d.nome.split(" ").map((n: string) => n[0]).slice(0, 2).join("")}</div>
+                  <div><div className="text-xs font-medium text-bw-white">{d.nome}</div><div className="mt-0.5 text-[10px] text-bw-areia/60">{d.sub}</div></div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              {depoimentos.map((_, i) => (
+                <button aria-label={`Depoimento ${i + 1}`} aria-current={dep === i} key={i} onClick={() => setDep(i)} className={`group relative flex h-4 items-center transition-all duration-500 ${dep === i ? "w-8" : "w-3"}`}>
+                  <span className="relative block h-px w-full overflow-hidden bg-bw-white/40 transition-colors group-hover:bg-bw-white/70">
+                    <span ref={el => { fillRefs.current[i] = el; }} className="absolute inset-0 origin-left scale-x-0 bg-bw-dourado" />
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Indicador de rolagem */}
+      <button data-hero-fade onClick={() => scrollTo("sobre")} aria-label="Rolar para a próxima seção" className="absolute bottom-8 left-1/2 z-10 hidden -translate-x-1/2 flex-col items-center gap-3 font-mono text-[9px] uppercase tracking-[.25em] text-bw-areia/60 hover:text-bw-dourado transition-colors lg:flex">
+        Role
+        <span className="relative block h-10 w-px overflow-hidden bg-bw-white/15"><span className="bw-scroll-cue absolute inset-x-0 top-0 h-1/2 bg-bw-dourado" /></span>
+      </button>
+    </section>
+
+    <section id="sobre" className="bg-bw-white">
+      <div className="mx-auto grid max-w-[1600px] items-start gap-y-12 px-5 py-24 sm:px-8 lg:grid-cols-12 lg:gap-x-12 lg:px-12 lg:py-36">
+        <div className="lg:sticky lg:top-28 lg:col-span-5">
+          <div data-reveal className="mb-6 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">01 — Nossa assinatura</div>
+          <h2 data-split className="font-display text-5xl leading-[.87] tracking-[-.045em] sm:text-6xl lg:text-7xl">A beleza mora na forma como um espaço acolhe.</h2>
+        </div>
+        <div className="lg:col-span-6 lg:col-start-7">
+          <div data-clip className="mx-auto w-full max-w-[500px] overflow-hidden">
+            <img data-parallax-photo src={sobrePhoto} alt="Bianca e Walmir, fundadores da BW" className="w-full max-w-[500px] h-auto mx-auto scale-[1.08]" />
+          </div>
+          <div data-reveal className="mt-4 mb-8 font-mono text-[10px] uppercase leading-relaxed tracking-[.16em] text-bw-muted">Bianca &amp; Walmir<br />Fundadores da BW</div>
+          <div>
+            <p data-reveal className="text-[17px] leading-relaxed text-bw-madeira">A BW nasce do encontro entre olhar arquitetônico e ofício. Somos Bianca e Walmir, parceiros na vida e na criação de interiores que têm presença, propósito e permanência.</p>
+            <p data-reveal="0.1" className="mt-5 text-[15px] leading-relaxed text-bw-madeira">Do desenho à última regulagem da porta, cada decisão é nossa. É assim que o projeto ganha verdade — e vira parte da sua história.</p>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section id="sobre" className="bg-bw-white"><div className="mx-auto grid max-w-[1600px] items-start gap-y-12 px-5 py-24 sm:px-8 lg:grid-cols-12 lg:gap-x-12 lg:px-12 lg:py-36"><div className="lg:sticky lg:top-28 lg:col-span-5"><div className="mb-6 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">01 — Nossa assinatura</div><h2 className="font-display text-5xl leading-[.87] tracking-[-.045em] sm:text-6xl lg:text-7xl">A beleza mora na forma como um espaço acolhe.</h2></div><div className="lg:col-span-6 lg:col-start-7"><img src={sobrePhoto} alt="Bianca e Walmir, fundadores da BW" className="w-full max-w-[500px] h-auto mx-auto" /><div className="mt-4 mb-8 font-mono text-[10px] uppercase leading-relaxed tracking-[.16em] text-bw-muted">Bianca & Walmir<br />Fundadores da BW</div><div><p className="text-[17px] leading-relaxed text-bw-madeira">A BW nasce do encontro entre olhar arquitetônico e ofício. Somos Bianca e Walmir, parceiros na vida e na criação de interiores que têm presença, propósito e permanência.</p><p className="mt-5 text-[15px] leading-relaxed text-bw-madeira">Do desenho à última regulagem da porta, cada decisão é nossa. É assim que o projeto ganha verdade — e vira parte da sua história.</p></div></div></div></section>
+    <section id="metodo" className="border-y border-bw-border-sub bg-bw-areia">
+      <div className="mx-auto max-w-[1600px] px-5 py-24 sm:px-8 lg:px-12 lg:py-32">
+        <div className="mb-16 grid gap-10 lg:grid-cols-12">
+          <div className="lg:col-span-4">
+            <div data-reveal className="mb-5 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">02 — Da conversa à casa</div>
+            <h2 data-split className="font-display text-5xl leading-[.88] tracking-[-.04em]">Um processo<br />sem ruído.</h2>
+          </div>
+          <p data-reveal="0.15" className="self-end text-[15px] leading-relaxed text-bw-madeira lg:col-span-4 lg:col-start-8">Clareza, proximidade e domínio técnico em cada etapa. Você acompanha o que importa — sem precisar administrar a obra.</p>
+        </div>
+        <div data-stagger className="grid border-t border-bw-border md:grid-cols-3">
+          {[["01", "Escuta e estratégia", "Começamos pela sua rotina, referências e desejos. O briefing vira direção, não formulário."], ["02", "Projeto com matéria", "Arquitetura, detalhamento e escolha de materiais em um só desenho, pensado até o milímetro."], ["03", "Execução presente", "Produção, entrega e montagem com equipe própria acompanhando cada acabamento."]].map(([n, t, d]) => (
+            <div key={n} className="group relative border-b border-bw-border py-12 md:border-b-0 md:border-r md:py-14 md:px-12 last:border-0">
+              <span data-line aria-hidden className="absolute -top-px left-0 h-px w-full origin-left bg-bw-dourado/70" />
+              <div data-stagger-item className="mb-12 font-mono text-[22px] font-medium text-bw-dourado">{n}</div>
+              <h3 data-stagger-item className="mb-4 font-display text-3xl leading-none">{t}</h3>
+              <p data-stagger-item className="max-w-xs text-sm leading-relaxed text-bw-madeira">{d}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
 
-    <section id="metodo" className="border-y border-bw-border-sub bg-bw-areia"><div className="mx-auto max-w-[1600px] px-5 py-24 sm:px-8 lg:px-12 lg:py-32"><div className="mb-16 grid gap-10 lg:grid-cols-12"><div className="lg:col-span-4"><div className="mb-5 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">02 — Da conversa à casa</div><h2 className="font-display text-5xl leading-[.88] tracking-[-.04em]">Um processo<br />sem ruído.</h2></div><p className="self-end text-[15px] leading-relaxed text-bw-madeira lg:col-span-4 lg:col-start-8">Clareza, proximidade e domínio técnico em cada etapa. Você acompanha o que importa — sem precisar administrar a obra.</p></div><div className="grid border-t border-bw-border md:grid-cols-3">{[["01", "Escuta e estratégia", "Começamos pela sua rotina, referências e desejos. O briefing vira direção, não formulário."], ["02", "Projeto com matéria", "Arquitetura, detalhamento e escolha de materiais em um só desenho, pensado até o milímetro."], ["03", "Execução presente", "Produção, entrega e montagem com equipe própria acompanhando cada acabamento."]].map(([n, t, d]) => <div key={n} className="border-b border-bw-border py-12 md:border-b-0 md:border-r md:py-14 md:px-12 last:border-0"><div className="mb-12 font-mono text-[22px] font-medium text-bw-dourado">{n}</div><h3 className="mb-4 font-display text-3xl leading-none">{t}</h3><p className="max-w-xs text-sm leading-relaxed text-bw-madeira">{d}</p></div>)}</div></div></section>
+    <section id="projetos" className="bg-bw-white">
+      <div className="mx-auto max-w-[1600px] px-5 py-24 sm:px-8 lg:px-12 lg:py-36">
+        <div className="mb-12 flex flex-col justify-between gap-7 sm:flex-row sm:items-end">
+          <div>
+            <div data-reveal className="mb-5 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">03 — Projetos selecionados</div>
+            <h2 data-split className="font-display text-5xl leading-none tracking-[-.045em] sm:text-6xl">Espaços que pedem<br /><em className="font-normal">para ser vividos.</em></h2>
+          </div>
+          <button data-reveal="0.2" onClick={() => scrollTo("contato")} className="group w-fit border-b border-bw-dourado pb-2 text-left font-mono text-[11px] uppercase tracking-[.14em] text-bw-madeira hover:text-bw-preto transition-colors">Ver portfólio completo <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></button>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-12">
+          {projects.map((p, i) => (
+            <article key={p.title} className={`${i === 0 ? "col-span-2 lg:col-span-6" : "lg:col-span-3"} group cursor-pointer`}>
+              <div data-clip={i * 0.15} className={`${i === 0 ? "aspect-[16/10]" : "aspect-[3/4]"} relative overflow-hidden bg-bw-areia`}>
+                <img src={p.image} alt={`${p.title}, ${p.type}`} className="h-full w-full object-cover transition-transform duration-[1.2s] ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-105" />
+                <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bw-preto/30 to-transparent opacity-0 transition-opacity duration-700 group-hover:opacity-100" />
+              </div>
+              <div data-reveal={0.25 + i * 0.12} className="flex justify-between gap-3 pt-3">
+                <div><h3 className="font-display text-2xl leading-none">{p.title}</h3><p className="mt-2 font-mono text-[10px] uppercase tracking-[.12em] text-bw-muted">{p.type}</p></div>
+                <span className="text-xl text-bw-dourado opacity-0 -translate-x-1 translate-y-1 transition-all duration-500 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0">↗</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
 
-    <section id="projetos" className="bg-bw-white"><div className="mx-auto max-w-[1600px] px-5 py-24 sm:px-8 lg:px-12 lg:py-36"><div className="mb-12 flex flex-col justify-between gap-7 sm:flex-row sm:items-end"><div><div className="mb-5 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">03 — Projetos selecionados</div><h2 className="font-display text-5xl leading-none tracking-[-.045em] sm:text-6xl">Espaços que pedem<br /><em className="font-normal">para ser vividos.</em></h2></div><button onClick={() => scrollTo("contato")} className="w-fit border-b border-bw-dourado pb-2 text-left font-mono text-[11px] uppercase tracking-[.14em] text-bw-madeira hover:text-bw-preto">Ver portfólio completo ↗</button></div><div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-12">{projects.map((p, i) => <article key={p.title} className={`${i === 0 ? "col-span-2 lg:col-span-6" : "lg:col-span-3"} group cursor-pointer`}><div className={`${i === 0 ? "aspect-[16/10]" : "aspect-[3/4]"} overflow-hidden bg-bw-areia`}><img src={p.image} alt={`${p.title}, ${p.type}`} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" /></div><div className="flex justify-between gap-3 pt-3"><div><h3 className="font-display text-2xl leading-none">{p.title}</h3><p className="mt-2 font-mono text-[10px] uppercase tracking-[.12em] text-bw-muted">{p.type}</p></div><span className="text-xl text-bw-dourado opacity-0 transition-opacity group-hover:opacity-100">↗</span></div></article>)}</div></div></section>
-
-    <section id="contato" className="relative overflow-hidden bg-bw-preto text-bw-white"><div className="pointer-events-none absolute -right-20 -top-24 select-none opacity-[.06]"><img src={bwLogo} alt="" className="w-[520px] object-contain" /></div><div className="relative mx-auto grid max-w-[1600px] items-end gap-12 px-5 py-28 sm:px-8 lg:grid-cols-12 lg:px-12 lg:py-40"><div className="lg:col-span-8"><div className="mb-7 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">Vamos conversar</div><h2 className="font-display text-5xl leading-[.82] tracking-[-.05em] sm:text-7xl lg:text-8xl">Seu próximo<br /><em className="font-normal text-bw-areia">ambiente começa</em><br />aqui.</h2></div><div className="lg:col-span-3 lg:col-start-10"><p className="mb-7 text-sm leading-relaxed text-bw-areia/75">Conte um pouco sobre o que você imagina. Nós cuidamos do primeiro traço.</p><button onClick={() => onNav("cadastro")} className="w-full bg-bw-dourado py-4 text-[11px] font-medium uppercase tracking-[.14em] text-white hover:bg-[#c19d65] transition-colors">Iniciar projeto ↗</button></div></div></section>
-    <footer className="border-t border-bw-sidebar-b bg-bw-preto"><div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-5 px-5 py-8 font-mono text-[10px] uppercase tracking-[.1em] text-bw-muted sm:flex-row sm:items-center sm:px-8 lg:px-12"><div><div>© 2026 · São Paulo, Brasil</div></div><div className="flex flex-col items-center"><img src={bwLogo} alt="BW" className="object-contain" style={{height:"44px",width:"auto",mixBlendMode:"screen"}} /><span className="mt-[3px] block font-mono text-[8px] uppercase tracking-[.22em] text-bw-muted">Arquitetura & Marcenaria</span></div><div className="flex gap-6"><a href="#" className="hover:text-bw-areia transition-colors">Instagram</a><a href="#" className="hover:text-bw-areia transition-colors">Pinterest</a></div></div></footer>
+    <section id="contato" className="relative overflow-hidden bg-bw-preto text-bw-white">
+      <div className="pointer-events-none absolute -right-20 -top-24 select-none opacity-[.06]"><img data-watermark src={bwLogo} alt="" className="w-[520px] object-contain" /></div>
+      <div className="relative mx-auto grid max-w-[1600px] items-end gap-12 px-5 py-28 sm:px-8 lg:grid-cols-12 lg:px-12 lg:py-40">
+        <div className="lg:col-span-8">
+          <div data-reveal className="mb-7 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">Vamos conversar</div>
+          <h2 data-split className="font-display text-5xl leading-[.82] tracking-[-.05em] sm:text-7xl lg:text-8xl">Seu próximo<br /><em className="font-normal text-bw-areia">ambiente começa</em><br />aqui.</h2>
+        </div>
+        <div className="lg:col-span-3 lg:col-start-10">
+          <p data-reveal="0.2" className="mb-7 text-sm leading-relaxed text-bw-areia/75">Conte um pouco sobre o que você imagina. Nós cuidamos do primeiro traço.</p>
+          <button data-reveal="0.35" onClick={() => onNav("cadastro")} className="group w-full bg-bw-dourado py-4 text-[11px] font-medium uppercase tracking-[.14em] text-white hover:bg-[#c19d65] transition-colors">Iniciar projeto <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></button>
+        </div>
+      </div>
+    </section>
+    <footer className="border-t border-bw-sidebar-b bg-bw-preto">
+      <div data-reveal className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-5 px-5 py-8 font-mono text-[10px] uppercase tracking-[.1em] text-bw-muted sm:flex-row sm:items-center sm:px-8 lg:px-12">
+        <div><div>© 2026 · São Paulo, Brasil</div></div>
+        <div className="flex flex-col items-center"><img src={bwLogo} alt="BW" className="object-contain" style={{ height: "44px", width: "auto", mixBlendMode: "screen" }} /><span className="mt-[3px] block font-mono text-[8px] uppercase tracking-[.22em] text-bw-muted">Arquitetura &amp; Marcenaria</span></div>
+        <div className="flex gap-6"><a href="#" className="hover:text-bw-areia transition-colors">Instagram</a><a href="#" className="hover:text-bw-areia transition-colors">Pinterest</a></div>
+      </div>
+    </footer>
   </div>;
 }
 
