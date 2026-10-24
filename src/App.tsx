@@ -8,6 +8,7 @@ import bwLoginBg from "@/assets/backgrounds/login-estante-plantas.png";
 import RastreabilidadeView from "@/views/rastreabilidade/RastreabilidadeView";
 import { useMinhaContaViewModel } from "@/viewmodels/minhaConta/useMinhaContaViewModel";
 import { login as apiLogin } from "@/api/auth";
+import { getContaAdmin, putEmpresaAdmin, putEnderecoAdmin, putSegurancaAdmin, type ContaAdmin, type EmpresaAdminPayload, type EnderecoAdminPayload } from "@/api/contaAdmin";
 import { ecopontosPrefeitura } from "@/data/ecopontosPrefeitura";
 import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
 import { useReferenciasViewModel } from "@/viewmodels/referencias/useReferenciasViewModel";
@@ -3248,59 +3249,108 @@ function UsuariosAdmin() {
   );
 }
 
+function accountError(error: unknown) {
+  const response = (error as { response?: { status?: number; data?: { message?: string } } })?.response;
+  if (response?.status === 401 || response?.status === 403) return "Acesso administrativo necessário. Entre com uma conta de administrador.";
+  return response?.data?.message || "Não foi possível acessar a conta. Verifique a conexão e tente novamente.";
+}
+
 function ConfiguracoesConta() {
   const [section, setSection] = useState<AccountSection>("perfil");
+  const accountRequest = useRef(0);
   const [saved, setSaved] = useState(false);
-  const [account, setAccount] = useState(loadAccountData);
-  const [notifications, setNotifications] = useState(loadAccountNotifications);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [account, setAccount] = useState<ContaAdmin | null>(null);
+  const [empresa, setEmpresa] = useState<EmpresaAdminPayload>({ nome: "", nomeFantasia: "", telefone: "" });
+  const [endereco, setEndereco] = useState<EnderecoAdminPayload>({ cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "" });
   const [cnpjVerification, setCnpjVerification] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [securityError, setSecurityError] = useState("");
   const normalizeDocument = (value: string) => value.replace(/\D/g, "");
   const maskCnpj = (value: string) => {
     const digits = normalizeDocument(value);
     return digits.length === 14 ? `${digits.slice(0, 2)}.***.***/****-${digits.slice(-2)}` : "**.***.***/****-**";
   };
-  const isCnpjVerified = normalizeDocument(cnpjVerification) === normalizeDocument(account.documento);
+  const isCnpjVerified = Boolean(account?.empresa.cnpj) && normalizeDocument(cnpjVerification) === normalizeDocument(account?.empresa.cnpj ?? "");
 
-  const updateAccount = (field: keyof typeof account, value: string) => {
-    setAccount(current => ({ ...current, [field]: value }));
-    setSaved(false);
-  };
-  const saveChanges = (event: React.FormEvent) => {
-    event.preventDefault();
-    const isChangingPassword = Boolean(currentPassword || newPassword || confirmPassword);
-    if (section === "seguranca" && isChangingPassword) {
-      if (!isCnpjVerified) {
-        setSecurityError("Confirme corretamente o CNPJ da empresa para alterar a senha.");
-        setSaved(false);
-        return;
-      }
-      if (!currentPassword || newPassword.length < 8 || newPassword !== confirmPassword) {
-        setSecurityError("Confira a senha atual e informe a nova senha com pelo menos 8 caracteres nos dois campos.");
-        setSaved(false);
-        return;
-      }
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      setCnpjVerification("");
+  const loadConta = async () => {
+    const version = ++accountRequest.current;
+    setLoading(true);
+    setError("");
+    try {
+      const data = await getContaAdmin();
+      if (version !== accountRequest.current) return;
+      setAccount(data);
+      setEmpresa({ nome: data.empresa.nome ?? "", nomeFantasia: data.empresa.nomeFantasia ?? "", telefone: data.empresa.telefone ?? "" });
+      setEndereco({ cep: data.endereco?.cep ?? "", logradouro: data.endereco?.logradouro ?? "", numero: data.endereco?.numero ?? "", complemento: data.endereco?.complemento ?? "", bairro: data.endereco?.bairro ?? "", cidade: data.endereco?.cidade ?? "", uf: data.endereco?.uf ?? "" });
+    } catch (err) {
+      if (version === accountRequest.current) setError(accountError(err));
+    } finally {
+      if (version === accountRequest.current) setLoading(false);
     }
-    localStorage.setItem("bw-account", JSON.stringify(account));
-    localStorage.setItem("bw-account-notifications", JSON.stringify(notifications));
-    setSecurityError("");
-    setSaved(true);
+  };
+
+  useEffect(() => {
+    void loadConta();
+    return () => { accountRequest.current++; };
+  }, []);
+
+  const saveChanges = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!account || saving) return;
+    setSaved(false);
+    setError("");
+    if (section === "seguranca") {
+      if (!isCnpjVerified) {
+        setError("Informe o CNPJ cadastrado para alterar sua senha.");
+        return;
+      }
+      if (!currentPassword || newPassword.length < 8 || newPassword.length > 72 || newPassword !== confirmPassword) {
+        setError("Confira a senha atual e informe a nova senha (8 a 72 caracteres) igualmente nos dois campos.");
+        return;
+      }
+    }
+    if (section === "endereco" && (!/^\d{8}$/.test(normalizeDocument(endereco.cep)) || !/^[A-Z]{2}$/.test(endereco.uf))) {
+      setError("Informe um CEP de 8 dígitos e uma UF válida com 2 letras.");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (section === "perfil") {
+        const data = await putEmpresaAdmin(empresa);
+        setAccount(data);
+        setEmpresa({ nome: data.empresa.nome, nomeFantasia: data.empresa.nomeFantasia ?? "", telefone: data.empresa.telefone });
+      } else if (section === "endereco") {
+        const data = await putEnderecoAdmin(endereco);
+        setAccount(data);
+        setEndereco({ cep: data.endereco?.cep ?? "", logradouro: data.endereco?.logradouro ?? "", numero: data.endereco?.numero ?? "", complemento: data.endereco?.complemento ?? "", bairro: data.endereco?.bairro ?? "", cidade: data.endereco?.cidade ?? "", uf: data.endereco?.uf ?? "" });
+      } else {
+        await putSegurancaAdmin({ cnpj: cnpjVerification, senhaAtual: currentPassword, novaSenha: newPassword, confirmarNovaSenha: confirmPassword });
+        setCnpjVerification("");
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      }
+      setSaved(true);
+    } catch (err) {
+      setError(accountError(err));
+    } finally {
+      setSaving(false);
+    }
   };
   const cancelChanges = () => {
-    setAccount(loadAccountData());
-    setNotifications(loadAccountNotifications());
+    if (account) {
+      setEmpresa({ nome: account.empresa.nome, nomeFantasia: account.empresa.nomeFantasia ?? "", telefone: account.empresa.telefone });
+      setEndereco({ cep: account.endereco?.cep ?? "", logradouro: account.endereco?.logradouro ?? "", numero: account.endereco?.numero ?? "", complemento: account.endereco?.complemento ?? "", bairro: account.endereco?.bairro ?? "", cidade: account.endereco?.cidade ?? "", uf: account.endereco?.uf ?? "" });
+    }
     setCnpjVerification("");
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
-    setSecurityError("");
+    setError("");
     setSaved(false);
   };
   const fieldClass = "w-full border-0 border-b border-bw-border-sub bg-transparent px-0 py-2.5 text-sm text-bw-preto outline-none transition-colors placeholder:text-bw-ph focus:border-bw-dourado";
@@ -3312,7 +3362,7 @@ function ConfiguracoesConta() {
         <div>
           <div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">Conta BW</div>
           <h1 className="font-display text-4xl leading-none tracking-[-.04em] text-bw-preto">Informações da conta</h1>
-          <p className="mt-3 max-w-xl text-sm leading-relaxed text-bw-muted">Consulte e atualize os dados da empresa, endereço, preferências e acesso à plataforma.</p>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-bw-muted">Consulte e atualize os dados da empresa, endereço e senha de acesso à plataforma.</p>
         </div>
         {saved && (
           <div className="flex shrink-0 items-center gap-2 border border-bw-dourado/30 bg-bw-dourado/10 px-3 py-2 text-[10px] font-medium text-bw-madeira">
@@ -3334,11 +3384,11 @@ function ConfiguracoesConta() {
             {([
               ["perfil", "Dados da empresa"],
               ["endereco", "Endereço"],
-              ["seguranca", "Segurança e avisos"],
+              ["seguranca", "Segurança"],
             ] as [AccountSection, string][]).map(([id, label]) => (
               <button
                 key={id}
-                onClick={() => { setSection(id); setSaved(false); }}
+                onClick={() => { setSection(id); setSaved(false); setError(""); setCnpjVerification(""); setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); }}
                 className={`flex w-full items-center justify-between px-3 py-2.5 text-left text-xs transition-colors ${section === id ? "bg-bw-dourado text-white" : "text-bw-areia hover:bg-white/10"}`}
               >
                 {label}
@@ -3346,17 +3396,12 @@ function ConfiguracoesConta() {
               </button>
             ))}
           </div>
-          <div className="mt-7 border-t border-bw-dourado/20 pt-5">
-            <div className="font-mono text-[9px] uppercase tracking-wider text-bw-areia/50">Plano atual</div>
-            <div className="mt-1 flex items-center justify-between text-xs text-bw-areia">
-              <span>BW Profissional</span>
-              <WireTag status="ok">Ativo</WireTag>
-            </div>
-          </div>
         </aside>
 
         <form onSubmit={saveChanges} className="border border-bw-border bg-bw-white p-6 shadow-sm sm:p-8">
-          {section === "perfil" && (
+          {error && <div role="alert" className="mb-5 border border-red-300 bg-red-50 p-3 text-xs text-red-800">{error}{!account && <button type="button" onClick={() => void loadConta()} className="ml-3 underline">Tentar novamente</button>}</div>}
+          {loading && <p role="status" className="text-sm text-bw-muted">Carregando dados da conta...</p>}
+          {!loading && account && section === "perfil" && (
             <div>
               <div className="mb-7 border-b border-bw-border pb-5">
                 <h2 className="font-display text-2xl text-bw-preto">Dados da empresa</h2>
@@ -3365,30 +3410,26 @@ function ConfiguracoesConta() {
               <div className="grid gap-x-7 gap-y-6 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
                   <span className={labelClass}>Nome da empresa</span>
-                  <input value={account.empresa} onChange={event => updateAccount("empresa", event.target.value)} className={fieldClass} />
+                  <input value={empresa.nome} onChange={event => { setEmpresa(current => ({ ...current, nome: event.target.value })); setSaved(false); }} maxLength={150} required className={fieldClass} />
                 </label>
                 <label className="flex flex-col gap-1.5">
-                  <span className={labelClass}>Responsáveis</span>
-                  <input value={account.responsavel} onChange={event => updateAccount("responsavel", event.target.value)} className={fieldClass} />
+                  <span className={labelClass}>Nome fantasia</span>
+                  <input value={empresa.nomeFantasia ?? ""} onChange={event => { setEmpresa(current => ({ ...current, nomeFantasia: event.target.value })); setSaved(false); }} maxLength={150} className={fieldClass} />
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className={labelClass}>CNPJ</span>
-                  <input value={maskCnpj(account.documento)} readOnly aria-readonly="true" className={`${fieldClass} cursor-not-allowed bg-bw-areia/50 text-bw-muted`} />
+                  <input value={maskCnpj(account.empresa.cnpj)} readOnly aria-readonly="true" className={`${fieldClass} cursor-not-allowed bg-bw-areia/50 text-bw-muted`} />
                   <span className="mt-1 text-[9px] leading-relaxed text-bw-muted">Este dado não pode ser alterado pela plataforma. Em caso de correção, entre em contato com o suporte.</span>
                 </label>
                 <label className="flex flex-col gap-1.5">
-                  <span className={labelClass}>E-mail principal</span>
-                  <input type="email" value={account.email} onChange={event => updateAccount("email", event.target.value)} placeholder="Informe o e-mail da conta" className={fieldClass} />
-                </label>
-                <label className="flex flex-col gap-1.5">
                   <span className={labelClass}>Telefone</span>
-                  <input value={account.telefone} onChange={event => updateAccount("telefone", event.target.value)} placeholder="(00) 00000-0000" className={fieldClass} />
+                  <input value={empresa.telefone} onChange={event => { setEmpresa(current => ({ ...current, telefone: event.target.value })); setSaved(false); }} maxLength={20} required placeholder="(00) 00000-0000" className={fieldClass} />
                 </label>
               </div>
             </div>
           )}
 
-          {section === "endereco" && (
+          {!loading && account && section === "endereco" && (
             <div>
               <div className="mb-7 border-b border-bw-border pb-5">
                 <h2 className="font-display text-2xl text-bw-preto">Endereço comercial</h2>
@@ -3397,41 +3438,41 @@ function ConfiguracoesConta() {
               <div className="grid gap-x-7 gap-y-6 sm:grid-cols-6">
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
                   <span className={labelClass}>CEP</span>
-                  <input value={account.cep} onChange={event => updateAccount("cep", event.target.value)} placeholder="00000-000" className={fieldClass} />
+                  <input required maxLength={9} inputMode="numeric" value={endereco.cep} onChange={event => { setEndereco(current => ({ ...current, cep: event.target.value })); setSaved(false); }} placeholder="00000-000" className={fieldClass} />
                 </label>
                 <label className="flex flex-col gap-1.5 sm:col-span-4">
                   <span className={labelClass}>Endereço</span>
-                  <input value={account.endereco} onChange={event => updateAccount("endereco", event.target.value)} placeholder="Rua, avenida ou alameda" className={fieldClass} />
+                  <input required maxLength={150} value={endereco.logradouro} onChange={event => { setEndereco(current => ({ ...current, logradouro: event.target.value })); setSaved(false); }} placeholder="Rua, avenida ou alameda" className={fieldClass} />
                 </label>
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
                   <span className={labelClass}>Número</span>
-                  <input value={account.numero} onChange={event => updateAccount("numero", event.target.value)} placeholder="Número" className={fieldClass} />
+                  <input required maxLength={20} value={endereco.numero} onChange={event => { setEndereco(current => ({ ...current, numero: event.target.value })); setSaved(false); }} placeholder="Número" className={fieldClass} />
                 </label>
                 <label className="flex flex-col gap-1.5 sm:col-span-4">
                   <span className={labelClass}>Complemento</span>
-                  <input value={account.complemento} onChange={event => updateAccount("complemento", event.target.value)} placeholder="Sala, conjunto ou referência" className={fieldClass} />
+                  <input maxLength={100} value={endereco.complemento ?? ""} onChange={event => { setEndereco(current => ({ ...current, complemento: event.target.value })); setSaved(false); }} placeholder="Sala, conjunto ou referência" className={fieldClass} />
                 </label>
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
                   <span className={labelClass}>Bairro</span>
-                  <input value={account.bairro} onChange={event => updateAccount("bairro", event.target.value)} placeholder="Bairro" className={fieldClass} />
+                  <input required maxLength={100} value={endereco.bairro} onChange={event => { setEndereco(current => ({ ...current, bairro: event.target.value })); setSaved(false); }} placeholder="Bairro" className={fieldClass} />
                 </label>
                 <label className="flex flex-col gap-1.5 sm:col-span-3">
                   <span className={labelClass}>Cidade</span>
-                  <input value={account.cidade} onChange={event => updateAccount("cidade", event.target.value)} className={fieldClass} />
+                  <input required maxLength={100} value={endereco.cidade} onChange={event => { setEndereco(current => ({ ...current, cidade: event.target.value })); setSaved(false); }} className={fieldClass} />
                 </label>
                 <label className="flex flex-col gap-1.5 sm:col-span-1">
                   <span className={labelClass}>UF</span>
-                  <input value={account.estado} maxLength={2} onChange={event => updateAccount("estado", event.target.value.toUpperCase())} className={fieldClass} />
+                  <input required value={endereco.uf} maxLength={2} onChange={event => { setEndereco(current => ({ ...current, uf: event.target.value.toUpperCase() })); setSaved(false); }} className={fieldClass} />
                 </label>
               </div>
             </div>
           )}
 
-          {section === "seguranca" && (
+          {!loading && account && section === "seguranca" && (
             <div>
               <div className="mb-7 border-b border-bw-border pb-5">
-                <h2 className="font-display text-2xl text-bw-preto">Segurança e avisos</h2>
-                <p className="mt-1 text-xs text-bw-muted">Atualize sua senha e escolha quais comunicações deseja receber.</p>
+                <h2 className="font-display text-2xl text-bw-preto">Segurança</h2>
+                <p className="mt-1 text-xs text-bw-muted">Altere a senha do seu acesso administrativo.</p>
               </div>
               <div className="mb-7 border border-bw-dourado/25 bg-bw-dourado/5 p-4">
                 <div className="mb-1 font-mono text-[9px] uppercase tracking-[.14em] text-bw-dourado">Verificação da empresa</div>
@@ -3442,7 +3483,7 @@ function ConfiguracoesConta() {
                     value={cnpjVerification}
                     onChange={event => {
                       setCnpjVerification(event.target.value);
-                      setSecurityError("");
+                      setError("");
                       setSaved(false);
                     }}
                     placeholder="00.000.000/0000-00"
@@ -3460,52 +3501,24 @@ function ConfiguracoesConta() {
               <div className="grid gap-x-7 gap-y-6 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
                   <span className={labelClass}>Senha atual</span>
-                  <input type="password" value={currentPassword} onChange={event => { setCurrentPassword(event.target.value); setSecurityError(""); }} disabled={!isCnpjVerified} autoComplete="current-password" placeholder={isCnpjVerified ? "Digite sua senha atual" : "Confirme o CNPJ primeiro"} className={`${fieldClass} disabled:cursor-not-allowed disabled:opacity-50`} />
+                  <input type="password" value={currentPassword} onChange={event => { setCurrentPassword(event.target.value); setError(""); }} disabled={!isCnpjVerified} autoComplete="current-password" placeholder={isCnpjVerified ? "Digite sua senha atual" : "Confirme o CNPJ primeiro"} className={`${fieldClass} disabled:cursor-not-allowed disabled:opacity-50`} />
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className={labelClass}>Nova senha</span>
-                  <input type="password" value={newPassword} onChange={event => { setNewPassword(event.target.value); setSecurityError(""); }} disabled={!isCnpjVerified} autoComplete="new-password" placeholder="Mínimo de 8 caracteres" className={`${fieldClass} disabled:cursor-not-allowed disabled:opacity-50`} />
+                  <input type="password" value={newPassword} onChange={event => { setNewPassword(event.target.value); setError(""); }} disabled={!isCnpjVerified} autoComplete="new-password" placeholder="Mínimo de 8 caracteres" className={`${fieldClass} disabled:cursor-not-allowed disabled:opacity-50`} />
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className={labelClass}>Confirmar nova senha</span>
-                  <input type="password" value={confirmPassword} onChange={event => { setConfirmPassword(event.target.value); setSecurityError(""); }} disabled={!isCnpjVerified} autoComplete="new-password" placeholder="Repita a nova senha" className={`${fieldClass} disabled:cursor-not-allowed disabled:opacity-50`} />
+                  <input type="password" value={confirmPassword} onChange={event => { setConfirmPassword(event.target.value); setError(""); }} disabled={!isCnpjVerified} autoComplete="new-password" placeholder="Repita a nova senha" className={`${fieldClass} disabled:cursor-not-allowed disabled:opacity-50`} />
                 </label>
-              </div>
-              {securityError && (
-                <div className="mt-5 flex items-start gap-2 border border-bw-border bg-bw-areia p-3 text-[10px] leading-relaxed text-bw-madeira">
-                  <Icon.AlertCircle /> <span>{securityError}</span>
-                </div>
-              )}
-              <div className="mt-8 border-t border-bw-border pt-6">
-                <div className="mb-4 font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted">Notificações por e-mail</div>
-                <div className="flex flex-col gap-3">
-                  {([
-                    ["oportunidades", "Novas oportunidades e movimentações no funil"],
-                    ["agenda", "Lembretes de compromissos e entregas"],
-                    ["resumo", "Resumo semanal da operação"],
-                  ] as [keyof typeof notifications, string][]).map(([id, label]) => (
-                    <label key={id} className="flex cursor-pointer items-center justify-between gap-4 border-b border-bw-border-sub pb-3 text-sm text-bw-madeira">
-                      <span>{label}</span>
-                      <input
-                        type="checkbox"
-                        checked={notifications[id]}
-                        onChange={event => {
-                          setNotifications(current => ({ ...current, [id]: event.target.checked }));
-                          setSaved(false);
-                        }}
-                        className="h-4 w-4 accent-bw-dourado"
-                      />
-                    </label>
-                  ))}
-                </div>
               </div>
             </div>
           )}
 
-          <div className="mt-9 flex flex-col gap-3 border-t border-bw-border pt-5 sm:flex-row sm:items-center sm:justify-end">
-            <button type="button" onClick={cancelChanges} className="w-full border border-bw-border px-5 py-2.5 text-[10px] font-medium uppercase tracking-wider text-bw-madeira transition-colors hover:bg-bw-hover sm:w-auto">Cancelar</button>
-            <button type="submit" className="w-full bg-bw-dourado px-5 py-2.5 text-[10px] font-medium uppercase tracking-wider text-white transition-colors hover:bg-bw-madeira sm:w-auto">Salvar alterações</button>
-          </div>
+          {!loading && account && <div className="mt-9 flex flex-col gap-3 border-t border-bw-border pt-5 sm:flex-row sm:items-center sm:justify-end">
+            <button type="button" disabled={saving} onClick={cancelChanges} className="w-full border border-bw-border px-5 py-2.5 text-[10px] font-medium uppercase tracking-wider text-bw-madeira transition-colors hover:bg-bw-hover disabled:opacity-50 sm:w-auto">Cancelar</button>
+            <button type="submit" disabled={saving} className="w-full bg-bw-dourado px-5 py-2.5 text-[10px] font-medium uppercase tracking-wider text-white transition-colors hover:bg-bw-madeira disabled:opacity-50 sm:w-auto">{saving ? "Salvando..." : section === "seguranca" ? "Alterar senha" : "Salvar alterações"}</button>
+          </div>}
         </form>
       </div>
     </div>
