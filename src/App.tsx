@@ -1301,7 +1301,8 @@ const leadsData: Lead[] = [
   { id:12, nome:"Isabela Torres", ini:"IT", score:81, fonte:"Instagram", tempo:"3 semanas", tipo:"Reforma", faixa:"R$ 55–70k", urgencia:"1–2 meses", etapa:"Fechado" },
 ];
 
-const colunas = ["Novo lead","Em qualificação","Qualificado","Orçamento enviado","Em negociação","Fechado"];
+const colunas = ["Novo lead","Em qualificação","Qualificado","Orçamento enviado","Em negociação","Fechado"]; const colunasOcultas = ["Novo lead","Em qualificação"]; // Etapas ocultas nesta sprint (usadas depois). Para reativar, remova da lista.
+const colunasVisiveis = colunas.filter(c => !colunasOcultas.includes(c));
 
 function LeadCard({ lead, onSelect, onDragStart, onDragEnd }: { lead: Lead; onSelect: () => void; onDragStart: (event: DragEvent<HTMLButtonElement>) => void; onDragEnd: () => void }) {
   const scoreStyle = lead.score >= 90 ? "bg-bw-dourado text-white" : lead.score >= 75 ? "bg-bw-madeira text-white" : "bg-bw-areia text-bw-madeira";
@@ -1389,8 +1390,8 @@ function Funil() {
           <span className="font-mono text-[9px] uppercase tracking-[.16em] text-bw-muted">{filtered.length} oportunidades ativas</span>
           <span className="text-[10px] text-bw-madeira">Em foco: <button onClick={() => setDetailsLeadId(selectedLead.id)} className="font-semibold underline decoration-bw-dourado underline-offset-4">{selectedLead.nome}</button></span>
         </div>
-      <div className="grid h-[32rem] grid-cols-[repeat(6,minmax(15rem,1fr))] gap-2.5 overflow-x-auto pb-2 sm:h-[calc(100%-38px)]">
-        {colunas.map(col => {
+      <div className="grid h-[32rem] gap-2.5 overflow-x-auto pb-2 sm:h-[calc(100%-38px)]" style={{ gridTemplateColumns: `repeat(${colunasVisiveis.length},minmax(15rem,1fr))` }}>
+        {colunasVisiveis.map(col => {
           const cards = filtered.filter(l => l.etapa === col);
           return (
             <section
@@ -1475,7 +1476,7 @@ function Funil() {
                 onChange={event => moveLead(detailsLead.id, event.target.value)}
                 className="w-full border-b border-bw-dourado/40 bg-transparent py-2 text-sm text-bw-white outline-none transition-colors focus:border-bw-dourado"
               >
-                {colunas.map(coluna => <option key={coluna} value={coluna} className="bg-bw-preto text-bw-white">{coluna}</option>)}
+                {colunasVisiveis.map(coluna => <option key={coluna} value={coluna} className="bg-bw-preto text-bw-white">{coluna}</option>)}
               </select>
               <p className="mt-3 text-[10px] leading-relaxed text-bw-areia/60">Altere a etapa aqui ou arraste o card diretamente entre as colunas do funil.</p>
             </div>
