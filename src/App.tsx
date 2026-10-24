@@ -1303,6 +1303,10 @@ const leadsData: Lead[] = [
 
 const colunas = ["Novo lead","Em qualificação","Qualificado","Orçamento enviado","Em negociação","Fechado"]; const colunasOcultas = ["Novo lead","Em qualificação"]; // Etapas ocultas nesta sprint (usadas depois). Para reativar, remova da lista.
 const colunasVisiveis = colunas.filter(c => !colunasOcultas.includes(c));
+// Filtros de origem ocultos nesta sprint (foco só no Instagram). Para reativar, remova da lista.
+const filtrosOcultos = ["todos","indicação"];
+// Botão "+ Novo lead" oculto nesta sprint (sem cadastro de leads por enquanto). Para reativar, use true.
+const mostrarNovoLead = false;
 
 function LeadCard({ lead, onSelect, onDragStart, onDragEnd }: { lead: Lead; onSelect: () => void; onDragStart: (event: DragEvent<HTMLButtonElement>) => void; onDragEnd: () => void }) {
   const scoreStyle = lead.score >= 90 ? "bg-bw-dourado text-white" : lead.score >= 75 ? "bg-bw-madeira text-white" : "bg-bw-areia text-bw-madeira";
@@ -1334,7 +1338,7 @@ function LeadCard({ lead, onSelect, onDragStart, onDragEnd }: { lead: Lead; onSe
 }
 
 function Funil() {
-  const [filtro, setFiltro] = useState("todos");
+  const [filtro, setFiltro] = useState("instagram");
   const [leads, setLeads] = useState(leadsData);
   const [selectedLeadId, setSelectedLeadId] = useState(leadsData[0].id);
   const [detailsLeadId, setDetailsLeadId] = useState<number | null>(null);
@@ -1377,11 +1381,11 @@ function Funil() {
             </div>
           </div>
           <div className="flex border border-bw-border bg-bw-white text-[10px]">
-            {[["todos","Todos"],["instagram","Instagram"],["indicação","Indicação"]].map(([k,l]) => (
+            {[["todos","Todos"],["instagram","Instagram"],["indicação","Indicação"]].filter(([k]) => !filtrosOcultos.includes(k)).map(([k,l]) => (
               <button key={k} onClick={() => setFiltro(k)} className={`px-2.5 py-2 transition-colors border-l border-bw-border first:border-l-0 ${filtro === k ? "bg-bw-preto text-bw-white" : "text-bw-madeira hover:bg-bw-hover"}`}>{l}</button>
             ))}
           </div>
-          <button onClick={() => setIsNewLeadModalOpen(true)} className="bg-bw-dourado px-3 py-2 text-[10px] font-medium text-white hover:bg-bw-madeira transition-colors">+ Novo lead</button>
+          {mostrarNovoLead && <button onClick={() => setIsNewLeadModalOpen(true)} className="bg-bw-dourado px-3 py-2 text-[10px] font-medium text-white hover:bg-bw-madeira transition-colors">+ Novo lead</button>}
         </div>
       </div>
 
