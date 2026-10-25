@@ -6,6 +6,8 @@ import bwProject2 from "@/assets/portfolio/apartamento-jardins-estante-adega.png
 import bwProject3 from "@/assets/portfolio/estudio-oliva-estante-comercial.png";
 import bwLoginBg from "@/assets/backgrounds/login-estante-plantas.png";
 import RastreabilidadeView from "@/views/rastreabilidade/RastreabilidadeView";
+import CalendarioView from "@/views/calendario/CalendarioView";
+import ClienteAgendamentosView from "@/views/calendario/ClienteAgendamentosView";
 import { useMinhaContaViewModel } from "@/viewmodels/minhaConta/useMinhaContaViewModel";
 import { login as apiLogin } from "@/api/auth";
 import { getContaAdmin, putEmpresaAdmin, putEnderecoAdmin, putSegurancaAdmin, type ContaAdmin, type EmpresaAdminPayload, type EnderecoAdminPayload } from "@/api/contaAdmin";
@@ -673,6 +675,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
         onClientLogin(tab);
       }
     } catch (err: any) {
+      if (!err?.response && import.meta.env.VITE_USE_MOCK === "true") { if (email.toLowerCase().includes("admin") || email.toLowerCase().includes("bwtestes")) { onNav("funil"); } else { onClientLogin(tab); } return; }
       const status = err?.response?.status;
       setError(
         status === 401 || status === 403
@@ -1136,7 +1139,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
 }
 
 // ─── PORTAL DO CLIENTE ────────────────────────────────────────────────────────
-type PortalTab = "mensagens" | "conta";
+type PortalTab = "mensagens" | "agendamentos" | "conta";
 
 const clienteMsgsPF = [
   { from: "bw", text: "Olá, Juliana! Como posso ajudar com seu projeto hoje?" },
@@ -1486,7 +1489,7 @@ function PortalCliente({ tipo, onNav }: { tipo: ClienteTipo; onNav: (s: Screen) 
 
         {/* Nav tabs */}
         <nav className="flex items-center h-full">
-          {([["mensagens","Mensagens"],["conta","Minha Conta"]] as [PortalTab,string][]).map(([t, label]) => (
+          {([["mensagens","Mensagens"],["agendamentos","Calendário"],["conta","Minha Conta"]] as [PortalTab,string][]).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex h-full items-center px-2.5 font-mono text-[9px] uppercase tracking-[.1em] transition-colors sm:px-8 sm:text-[10px] sm:tracking-[.18em] ${tab === t ? "text-bw-dourado border-b-2 border-bw-dourado" : "text-white/40 hover:text-white/80"}`}>
               {label}
@@ -1503,7 +1506,7 @@ function PortalCliente({ tipo, onNav }: { tipo: ClienteTipo; onNav: (s: Screen) 
       {/* Main content */}
       <div className="relative z-10 flex flex-1 items-stretch justify-center overflow-hidden px-3 py-4 sm:px-4 sm:py-8 lg:px-12 lg:py-12">
         <div className="w-full max-w-4xl xl:max-w-5xl">
-          {tab === "mensagens" ? <ClienteChatbot tipo={tipo} /> : <ClienteConta tipo={tipo} />}
+          {tab === "mensagens" ? <ClienteChatbot tipo={tipo} /> : tab === "agendamentos" ? <ClienteAgendamentosView /> : <ClienteConta tipo={tipo} />}
         </div>
       </div>
     </div>
@@ -2102,7 +2105,8 @@ function Financeiro() {
 type CalEvento = { id: number; date: string; title: string; time: string; tipo: string; leadId: number | ""; };
 type CalForm = { id: number | null; date: string; title: string; time: string; tipo: string; leadId: number | ""; };
 
-function Calendario() {
+function Calendario() { return <CalendarioView leads={leadsData.map(l => ({ id: l.id, nome: l.nome, etapa: l.etapa, score: l.score }))} />; }
+function CalendarioLegacy() {
   const pad = (n: number) => String(n).padStart(2, "0");
   const toISO = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
   const now = new Date();
