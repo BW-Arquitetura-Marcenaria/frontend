@@ -19,6 +19,7 @@ export type LeadOption = {
 };
 
 type FiltroStatus = "ATIVOS" | "TODOS" | StatusAgendamento;
+type SubPagina = "agenda" | "solicitacoes" | "integracao";
 
 type NovoAgendamentoForm = {
   modo: "ADMIN" | "CLIENTE";
@@ -131,6 +132,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("ATIVOS");
+  const [subPagina, setSubPagina] = useState<SubPagina>("agenda");
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [observacaoDecisao, setObservacaoDecisao] = useState("");
@@ -289,6 +291,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
         setFeedbackMsg(
           `Solicitação "${criado.titulo}" criada com status PENDENTE. Aprove abaixo para enviar ao Google Calendar.`
         );
+        setSubPagina("solicitacoes");
       } else {
         setFeedbackMsg(
           `Agendamento "${criado.titulo}" criado diretamente como APROVADO e sincronizado com o Google Calendar!`
@@ -316,145 +319,145 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
   };
 
   return (
-    <div className="flex flex-col gap-5 max-w-5xl mx-auto w-full">
-      {/* Cabeçalho */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-bw-preto font-display">
-            Calendário de Entregas e Agendamentos
-          </h1>
-          <p className="text-[10px] font-mono text-bw-muted">
-            Integrado ao Google Calendar — aprove solicitações de clientes ou crie agendamentos diretamente
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => void refreshAll()}
-            disabled={loading}
-            className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors disabled:opacity-50"
-          >
-            {loading ? "Sincronizando..." : "↻ Atualizar"}
-          </button>
-          <button
-            type="button"
-            onClick={() => openNew(undefined, "CLIENTE")}
-            className="px-3 py-1.5 border border-bw-dourado/50 text-bw-madeira rounded-md text-xs hover:bg-bw-areia transition-colors"
-          >
-            + Solicitação de Cliente
-          </button>
-          <button
-            type="button"
-            onClick={() => openNew(undefined, "ADMIN")}
-            className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors"
-          >
-            + Agendar (Admin)
-          </button>
-        </div>
-      </div>
-
-      {/* Painel de Conexão com Google Calendar */}
-      <div
-        className={`rounded-lg border p-4 transition-colors ${
-          googleConectado
-            ? "border-emerald-600/30 bg-emerald-50/50"
-            : "border-bw-dourado/50 bg-bw-areia/70"
-        }`}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div
-              className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-mono font-bold ${
-                googleConectado
-                  ? "border-emerald-600/40 bg-emerald-500/15 text-emerald-800"
-                  : "border-bw-dourado/50 bg-bw-dourado/15 text-bw-madeira"
-              }`}
-            >
-              G
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-bw-preto">
-                  Integração Google Calendar
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider border ${
-                    googleConectado === null
-                      ? "border-bw-border bg-bw-white text-bw-muted"
-                      : googleConectado
-                      ? "border-emerald-600/30 bg-emerald-500/15 text-emerald-800"
-                      : "border-amber-600/40 bg-amber-500/15 text-amber-900"
-                  }`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      googleConectado ? "bg-emerald-600" : "bg-amber-600"
-                    }`}
-                  />
-                  {googleConectado === null
-                    ? "Verificando..."
-                    : googleConectado
-                    ? "Conectado"
-                    : "Autorização Pendente"}
-                </span>
-              </div>
-
-              {googleConectado && calendarioPrincipal ? (
-                <p className="text-[11px] text-bw-madeira mt-1">
-                  Agenda vinculada:{" "}
-                  <strong className="font-mono">{calendarioPrincipal.nome}</strong>{" "}
-                  <span className="text-bw-muted font-mono">
-                    ({calendarioPrincipal.id} · {calendarioPrincipal.fusoHorario})
-                  </span>
-                </p>
-              ) : (
-                <p className="text-[11px] text-bw-madeira mt-1">
-                  Conecte a conta Google oficial (
-                  <strong className="font-mono">bwtestes.automacao@gmail.com</strong>) para
-                  que agendamentos aprovados ou criados pelo admin sejam enviados
-                  automaticamente ao Google Calendar.
-                </p>
-              )}
-
-              {googleError && (
-                <p className="text-[11px] text-red-600 mt-1">{googleError.message}</p>
-              )}
-            </div>
+    <div className="flex flex-col gap-3 max-w-6xl mx-auto w-full sm:h-full min-h-0">
+      {/* Cabeçalho + Subpáginas */}
+      <div className="flex flex-col gap-2.5 shrink-0 border-b border-bw-border pb-2.5">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-bw-preto font-display leading-tight">
+              Calendário de Entregas e Agendamentos
+            </h1>
+            <p className="text-[10px] font-mono text-bw-muted">
+              Integrado ao Google Calendar — aprove solicitações de clientes ou crie agendamentos diretamente
+            </p>
           </div>
-
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {awaitingOAuthCallback && (
-              <button
-                type="button"
-                onClick={() => void verificarConexaoGoogle()}
-                className="px-3 py-1.5 border border-emerald-600 text-emerald-800 bg-white rounded-md text-xs font-medium hover:bg-emerald-50 transition-colors"
-              >
-                Já autorizei · Verificar
-              </button>
-            )}
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
-              onClick={() => void conectarGoogle()}
-              disabled={connectingGoogle}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-50 ${
-                googleConectado
-                  ? "border border-bw-border bg-bw-white text-bw-madeira hover:bg-bw-hover"
-                  : "bg-bw-preto text-bw-white hover:bg-bw-madeira"
-              }`}
+              onClick={() => void refreshAll()}
+              disabled={loading}
+              className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors disabled:opacity-50"
             >
-              {connectingGoogle
-                ? "Abrindo Google..."
-                : googleConectado
-                ? "Reconectar Conta Google"
-                : "Autorizar Google Calendar ↗"}
+              {loading ? "Sincronizando..." : "↻ Atualizar"}
+            </button>
+            <button
+              type="button"
+              onClick={() => openNew(undefined, "CLIENTE")}
+              className="px-3 py-1.5 border border-bw-dourado/50 text-bw-madeira rounded-md text-xs hover:bg-bw-areia transition-colors"
+            >
+              + Solicitação de Cliente
+            </button>
+            <button
+              type="button"
+              onClick={() => openNew(undefined, "ADMIN")}
+              className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors"
+            >
+              + Agendar (Admin)
             </button>
           </div>
+        </div>
+
+        {/* Navegação de Subpáginas */}
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center border border-bw-border bg-bw-white rounded-md p-0.5 gap-0.5">
+            <button
+              type="button"
+              onClick={() => setSubPagina("agenda")}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-2 ${
+                subPagina === "agenda"
+                  ? "bg-bw-preto text-bw-white"
+                  : "text-bw-madeira hover:bg-bw-hover"
+              }`}
+            >
+              <span>Agenda Mensal</span>
+              <span
+                className={`rounded px-1.5 py-0.2 text-[9px] font-mono ${
+                  subPagina === "agenda"
+                    ? "bg-white/15 text-bw-areia"
+                    : "bg-bw-areia text-bw-madeira"
+                }`}
+              >
+                {contagens.APROVADO + contagens.PENDENTE}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSubPagina("solicitacoes")}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-2 ${
+                subPagina === "solicitacoes"
+                  ? "bg-bw-preto text-bw-white"
+                  : "text-bw-madeira hover:bg-bw-hover"
+              }`}
+            >
+              <span>Solicitações Pendentes</span>
+              <span
+                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.2 text-[9px] font-mono ${
+                  pendentes.length > 0
+                    ? "bg-amber-500 text-white font-semibold"
+                    : subPagina === "solicitacoes"
+                    ? "bg-white/15 text-bw-areia"
+                    : "bg-bw-areia text-bw-muted"
+                }`}
+              >
+                {pendentes.length > 0 && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                )}
+                {pendentes.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSubPagina("integracao")}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-2 ${
+                subPagina === "integracao"
+                  ? "bg-bw-preto text-bw-white"
+                  : "text-bw-madeira hover:bg-bw-hover"
+              }`}
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  googleConectado ? "bg-emerald-500" : "bg-amber-500"
+                }`}
+              />
+              <span>Google Calendar</span>
+              <span
+                className={`hidden sm:inline rounded px-1.5 py-0.2 text-[9px] font-mono uppercase ${
+                  subPagina === "integracao"
+                    ? "bg-white/15 text-bw-areia"
+                    : googleConectado
+                    ? "bg-emerald-500/15 text-emerald-800"
+                    : "bg-amber-500/15 text-amber-900"
+                }`}
+              >
+                {googleConectado === null
+                  ? "..."
+                  : googleConectado
+                  ? "Conectado"
+                  : "Pendente"}
+              </span>
+            </button>
+          </div>
+
+          {subPagina === "agenda" && pendentes.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSubPagina("solicitacoes")}
+              className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-50 px-2.5 py-1 text-[11px] font-mono text-amber-900 hover:bg-amber-100 transition-colors"
+            >
+              <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+              <span>
+                {pendentes.length} solicitação(ões) aguardando aprovação →
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* Mensagens de Feedback / Erro */}
       {feedbackMsg && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-emerald-500/40 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-900">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-emerald-500/40 bg-emerald-50 px-3.5 py-2 text-xs text-emerald-900 shrink-0">
           <span>{feedbackMsg}</span>
           <button
             type="button"
@@ -467,7 +470,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
       )}
 
       {error && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-3.5 py-2.5 text-xs text-red-700">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-3.5 py-2 text-xs text-red-700 shrink-0">
           <span>{error.message}</span>
           <button
             type="button"
@@ -479,243 +482,420 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
         </div>
       )}
 
-      {/* Fila de Solicitações Pendentes de Clientes */}
-      {pendentes.length > 0 && (
-        <section className="rounded-lg border border-amber-500/40 bg-bw-white overflow-hidden shadow-sm">
-          <div className="flex items-center justify-between border-b border-amber-500/25 bg-amber-50/80 px-4 py-2.5">
+      {/* SUBPÁGINA 1: AGENDA MENSAL (sem scroll vertical da página) */}
+      {subPagina === "agenda" && (
+        <div className="flex flex-col gap-2.5 flex-1 min-h-0">
+          {/* Barra de Navegação do Mês e Filtros de Status */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-              <h2 className="text-xs font-semibold uppercase tracking-wider font-mono text-amber-950">
+              <button
+                type="button"
+                onClick={goToday}
+                className="px-2.5 py-1 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors"
+              >
+                Hoje
+              </button>
+              <button
+                type="button"
+                onClick={() => changeMonth(-1)}
+                aria-label="Mês anterior"
+                className="p-1 rounded-md border border-bw-border text-bw-madeira hover:bg-bw-hover transition-colors"
+              >
+                <svg {...svgProps}>
+                  <path d="M15 6l-6 6 6 6" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => changeMonth(1)}
+                aria-label="Próximo mês"
+                className="p-1 rounded-md border border-bw-border text-bw-madeira hover:bg-bw-hover transition-colors"
+              >
+                <svg {...svgProps}>
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              </button>
+              <select
+                value={viewMonth}
+                onChange={(e) => setViewMonth(Number(e.target.value))}
+                aria-label="Mês"
+                className="bg-transparent border-b border-bw-border-sub text-bw-preto text-sm font-semibold py-0.5 outline-none focus:border-bw-dourado"
+              >
+                {MESES.map((m, i) => (
+                  <option key={m} value={i}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                value={viewYear}
+                onChange={(e) => setViewYear(Number(e.target.value) || now.getFullYear())}
+                aria-label="Ano"
+                className="w-20 bg-transparent border-b border-bw-border-sub text-bw-preto text-sm font-semibold py-0.5 outline-none focus:border-bw-dourado"
+              />
+            </div>
+
+            {/* Filtros por Status */}
+            <div className="flex items-center gap-1 flex-wrap">
+              {(
+                [
+                  ["ATIVOS", `Calendário (${contagens.APROVADO + contagens.PENDENTE})`],
+                  ["APROVADO", `Aprovados (${contagens.APROVADO})`],
+                  ["PENDENTE", `Pendentes (${contagens.PENDENTE})`],
+                  ["RECUSADO", `Recusados (${contagens.RECUSADO})`],
+                  ["CANCELADO", `Cancelados (${contagens.CANCELADO})`],
+                  ["TODOS", `Todos (${agendamentos.length})`],
+                ] as [FiltroStatus, string][]
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setFiltroStatus(key)}
+                  className={`px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider border transition-colors ${
+                    filtroStatus === key
+                      ? "border-bw-dourado bg-bw-dourado text-white"
+                      : "border-bw-border bg-bw-white text-bw-madeira hover:bg-bw-hover"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Grade Mensal do Calendário ajustada para caber na tela sem scroll */}
+          <div className="flex-1 min-h-0 flex flex-col overflow-x-auto rounded-lg border border-bw-border bg-bw-white">
+            <div className="min-w-[44rem] flex-1 min-h-0 flex flex-col">
+              <div className="grid grid-cols-7 border-b border-bw-border bg-bw-areia shrink-0">
+                {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
+                  <div
+                    key={d}
+                    className="py-1.5 text-center text-[10px] font-mono text-bw-muted uppercase"
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 auto-rows-fr flex-1 min-h-0">
+                {[...Array(firstWeekday)].map((_, i) => (
+                  <div
+                    key={`e${i}`}
+                    className="min-h-[4.25rem] border-r border-b border-bw-border-sub bg-bw-areia/15"
+                  />
+                ))}
+                {days.map((d) => {
+                  const iso = toISO(viewYear, viewMonth, d);
+                  const isHoje = iso === hojeISO;
+                  const doDia = agendamentosFiltrados
+                    .filter((ev) => extractDateISO(ev.inicio) === iso)
+                    .sort((a, b) => a.inicio.localeCompare(b.inicio));
+
+                  return (
+                    <div
+                      key={d}
+                      onClick={() => openNew(iso, "ADMIN")}
+                      className={`min-h-[4.25rem] p-1.5 border-r border-b border-bw-border-sub overflow-y-auto cursor-pointer hover:bg-bw-hover transition-colors ${
+                        isHoje ? "bg-bw-areia/60" : ""
+                      }`}
+                    >
+                      <div
+                        className={`text-[10px] font-mono mb-0.5 flex items-center justify-between ${
+                          isHoje ? "font-bold text-bw-preto" : "text-bw-muted"
+                        }`}
+                      >
+                        <span>
+                          {d}
+                          {isHoje && " · Hoje"}
+                        </span>
+                        {doDia.length > 0 && (
+                          <span className="text-[9px] text-bw-madeira">{doDia.length}</span>
+                        )}
+                      </div>
+                      {doDia.map((ev) => {
+                        const meta = STATUS_META[ev.status];
+                        const hIni = extractTimeHHMM(ev.inicio);
+                        return (
+                          <button
+                            key={ev.id}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDetails(ev);
+                            }}
+                            className={`block w-full text-left text-[9px] rounded px-1.5 py-0.5 truncate font-mono mb-0.5 border transition-colors ${meta.cellCls}`}
+                            title={`${hIni} - ${extractTimeHHMM(ev.fim)} · ${ev.titulo} (${meta.label})`}
+                          >
+                            {ev.status === "PENDENTE" ? "⏳ " : ev.googleEventId ? "G · " : ""}
+                            {hIni} {ev.titulo}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+                {[...Array(trailing)].map((_, i) => (
+                  <div
+                    key={`f${i}`}
+                    className="min-h-[4.25rem] border-r border-b border-bw-border-sub bg-bw-areia/15"
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUBPÁGINA 2: SOLICITAÇÕES PENDENTES DE CLIENTES */}
+      {subPagina === "solicitacoes" && (
+        <section className="flex-1 min-h-0 flex flex-col rounded-lg border border-bw-border bg-bw-white overflow-hidden shadow-sm">
+          <div className="flex items-center justify-between border-b border-bw-border bg-bw-areia/70 px-4 py-3 shrink-0 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  pendentes.length > 0 ? "bg-amber-500 animate-pulse" : "bg-emerald-600"
+                }`}
+              />
+              <h2 className="text-xs font-semibold uppercase tracking-wider font-mono text-bw-preto">
                 Solicitações de Clientes Aguardando Aprovação ({pendentes.length})
               </h2>
             </div>
-            <span className="text-[10px] font-mono text-amber-800">
+            <span className="text-[10px] font-mono text-bw-madeira">
               Ao aceitar, o evento vai para o nosso calendário e para o Google Calendar
             </span>
           </div>
-          <div className="divide-y divide-bw-border-sub">
-            {pendentes.map((sol) => {
-              const dataISO = extractDateISO(sol.inicio);
-              const hInicio = extractTimeHHMM(sol.inicio);
-              const hFim = extractTimeHHMM(sol.fim);
-              return (
-                <div
-                  key={sol.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 hover:bg-bw-hover/50 transition-colors"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold text-bw-preto">
-                        {sol.titulo}
-                      </span>
-                      <span className="rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-mono uppercase text-amber-900">
-                        PENDENTE
-                      </span>
-                    </div>
-                    <div className="text-xs font-mono text-bw-madeira mt-0.5">
-                      {fmtLongDate(dataISO)} · {hInicio} às {hFim}
-                    </div>
-                    {sol.descricao && (
-                      <p className="text-xs text-bw-muted mt-1 line-clamp-2">
-                        {sol.descricao}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => openDetails(sol)}
-                      className="px-2.5 py-1.5 border border-bw-border text-bw-madeira rounded text-[11px] hover:bg-bw-areia transition-colors"
-                    >
-                      Avaliar / Obs.
-                    </button>
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() =>
-                        void handleRecusar(sol, "Solicitação recusada pelo administrador.")
-                      }
-                      className="px-2.5 py-1.5 border border-red-500/40 text-red-700 rounded text-[11px] hover:bg-red-50 transition-colors disabled:opacity-50"
-                    >
-                      Recusar
-                    </button>
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() =>
-                        void handleAprovar(sol, "Solicitação aprovada pelo administrador.")
-                      }
-                      className="px-3 py-1.5 bg-emerald-700 text-white rounded text-[11px] font-medium hover:bg-emerald-800 transition-colors disabled:opacity-50"
-                    >
-                      ✓ Aceitar e Agendar
-                    </button>
-                  </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-bw-border-sub">
+            {pendentes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full py-12 px-4 text-center gap-3">
+                <div className="text-sm font-medium text-bw-preto">
+                  Nenhuma solicitação pendente no momento
                 </div>
-              );
-            })}
+                <p className="text-xs text-bw-muted max-w-md">
+                  Todas as solicitações enviadas pelos clientes já foram avaliadas. Você pode
+                  registrar uma nova solicitação ou voltar para a visualização da agenda mensal.
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => openNew(undefined, "CLIENTE")}
+                    className="px-3.5 py-1.5 border border-bw-dourado text-bw-madeira rounded-md text-xs hover:bg-bw-areia transition-colors"
+                  >
+                    + Nova Solicitação de Cliente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSubPagina("agenda")}
+                    className="px-3.5 py-1.5 bg-bw-preto text-bw-white rounded-md text-xs hover:bg-bw-madeira transition-colors"
+                  >
+                    Ver Agenda Mensal
+                  </button>
+                </div>
+              </div>
+            ) : (
+              pendentes.map((sol) => {
+                const dataISO = extractDateISO(sol.inicio);
+                const hInicio = extractTimeHHMM(sol.inicio);
+                const hFim = extractTimeHHMM(sol.fim);
+                return (
+                  <div
+                    key={sol.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3.5 hover:bg-bw-hover/50 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-bw-preto">
+                          {sol.titulo}
+                        </span>
+                        <span className="rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-mono uppercase text-amber-900">
+                          PENDENTE
+                        </span>
+                      </div>
+                      <div className="text-xs font-mono text-bw-madeira mt-0.5">
+                        {fmtLongDate(dataISO)} · {hInicio} às {hFim}
+                      </div>
+                      {sol.descricao && (
+                        <p className="text-xs text-bw-muted mt-1 line-clamp-2">
+                          {sol.descricao}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => openDetails(sol)}
+                        className="px-2.5 py-1.5 border border-bw-border text-bw-madeira rounded text-[11px] hover:bg-bw-areia transition-colors"
+                      >
+                        Avaliar / Obs.
+                      </button>
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() =>
+                          void handleRecusar(sol, "Solicitação recusada pelo administrador.")
+                        }
+                        className="px-2.5 py-1.5 border border-red-500/40 text-red-700 rounded text-[11px] hover:bg-red-50 transition-colors disabled:opacity-50"
+                      >
+                        Recusar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() =>
+                          void handleAprovar(sol, "Solicitação aprovada pelo administrador.")
+                        }
+                        className="px-3 py-1.5 bg-emerald-700 text-white rounded text-[11px] font-medium hover:bg-emerald-800 transition-colors disabled:opacity-50"
+                      >
+                        ✓ Aceitar e Agendar
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </section>
       )}
 
-      {/* Barra de Navegação do Mês e Filtros de Status */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={goToday}
-            className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors"
+      {/* SUBPÁGINA 3: INTEGRAÇÃO GOOGLE CALENDAR */}
+      {subPagina === "integracao" && (
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
+          <div
+            className={`rounded-lg border p-5 transition-colors ${
+              googleConectado
+                ? "border-emerald-600/30 bg-emerald-50/50"
+                : "border-bw-dourado/50 bg-bw-areia/70"
+            }`}
           >
-            Hoje
-          </button>
-          <button
-            type="button"
-            onClick={() => changeMonth(-1)}
-            aria-label="Mês anterior"
-            className="p-1.5 rounded-md border border-bw-border text-bw-madeira hover:bg-bw-hover transition-colors"
-          >
-            <svg {...svgProps}>
-              <path d="M15 6l-6 6 6 6" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => changeMonth(1)}
-            aria-label="Próximo mês"
-            className="p-1.5 rounded-md border border-bw-border text-bw-madeira hover:bg-bw-hover transition-colors"
-          >
-            <svg {...svgProps}>
-              <path d="M9 6l6 6-6 6" />
-            </svg>
-          </button>
-          <select
-            value={viewMonth}
-            onChange={(e) => setViewMonth(Number(e.target.value))}
-            aria-label="Mês"
-            className="bg-transparent border-b border-bw-border-sub text-bw-preto text-sm font-semibold py-1 outline-none focus:border-bw-dourado"
-          >
-            {MESES.map((m, i) => (
-              <option key={m} value={i}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            value={viewYear}
-            onChange={(e) => setViewYear(Number(e.target.value) || now.getFullYear())}
-            aria-label="Ano"
-            className="w-20 bg-transparent border-b border-bw-border-sub text-bw-preto text-sm font-semibold py-1 outline-none focus:border-bw-dourado"
-          />
-        </div>
-
-        {/* Filtros por Status */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {(
-            [
-              ["ATIVOS", `Calendário (${contagens.APROVADO + contagens.PENDENTE})`],
-              ["APROVADO", `Aprovados (${contagens.APROVADO})`],
-              ["PENDENTE", `Pendentes (${contagens.PENDENTE})`],
-              ["RECUSADO", `Recusados (${contagens.RECUSADO})`],
-              ["CANCELADO", `Cancelados (${contagens.CANCELADO})`],
-              ["TODOS", `Todos (${agendamentos.length})`],
-            ] as [FiltroStatus, string][]
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setFiltroStatus(key)}
-              className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase tracking-wider border transition-colors ${
-                filtroStatus === key
-                  ? "border-bw-dourado bg-bw-dourado text-white"
-                  : "border-bw-border bg-bw-white text-bw-madeira hover:bg-bw-hover"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Grade Mensal do Calendário */}
-      <div className="overflow-x-auto rounded-lg border border-bw-border bg-bw-white">
-        <div className="min-w-[44rem]">
-          <div className="grid grid-cols-7 border-b border-bw-border bg-bw-areia">
-            {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
-              <div
-                key={d}
-                className="py-2 text-center text-[10px] font-mono text-bw-muted uppercase"
-              >
-                {d}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7">
-            {[...Array(firstWeekday)].map((_, i) => (
-              <div
-                key={`e${i}`}
-                className="h-28 border-r border-b border-bw-border-sub bg-bw-areia/15"
-              />
-            ))}
-            {days.map((d) => {
-              const iso = toISO(viewYear, viewMonth, d);
-              const isHoje = iso === hojeISO;
-              const doDia = agendamentosFiltrados
-                .filter((ev) => extractDateISO(ev.inicio) === iso)
-                .sort((a, b) => a.inicio.localeCompare(b.inicio));
-
-              return (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
                 <div
-                  key={d}
-                  onClick={() => openNew(iso, "ADMIN")}
-                  className={`h-28 p-1.5 border-r border-b border-bw-border-sub overflow-y-auto cursor-pointer hover:bg-bw-hover transition-colors ${
-                    isHoje ? "bg-bw-areia/60" : ""
+                  className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-mono font-bold ${
+                    googleConectado
+                      ? "border-emerald-600/40 bg-emerald-500/15 text-emerald-800"
+                      : "border-bw-dourado/50 bg-bw-dourado/15 text-bw-madeira"
                   }`}
                 >
-                  <div
-                    className={`text-[10px] font-mono mb-1 flex items-center justify-between ${
-                      isHoje ? "font-bold text-bw-preto" : "text-bw-muted"
-                    }`}
-                  >
-                    <span>
-                      {d}
-                      {isHoje && " · Hoje"}
-                    </span>
-                    {doDia.length > 0 && (
-                      <span className="text-[9px] text-bw-madeira">{doDia.length}</span>
-                    )}
-                  </div>
-                  {doDia.map((ev) => {
-                    const meta = STATUS_META[ev.status];
-                    const hIni = extractTimeHHMM(ev.inicio);
-                    return (
-                      <button
-                        key={ev.id}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openDetails(ev);
-                        }}
-                        className={`block w-full text-left text-[9px] rounded px-1.5 py-0.5 truncate font-mono mb-1 border transition-colors ${meta.cellCls}`}
-                        title={`${hIni} - ${extractTimeHHMM(ev.fim)} · ${ev.titulo} (${meta.label})`}
-                      >
-                        {ev.status === "PENDENTE" ? "⏳ " : ev.googleEventId ? "G · " : ""}
-                        {hIni} {ev.titulo}
-                      </button>
-                    );
-                  })}
+                  G
                 </div>
-              );
-            })}
-            {[...Array(trailing)].map((_, i) => (
-              <div
-                key={`f${i}`}
-                className="h-28 border-r border-b border-bw-border-sub bg-bw-areia/15"
-              />
-            ))}
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-bw-preto">
+                      Integração Google Calendar
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider border ${
+                        googleConectado === null
+                          ? "border-bw-border bg-bw-white text-bw-muted"
+                          : googleConectado
+                          ? "border-emerald-600/30 bg-emerald-500/15 text-emerald-800"
+                          : "border-amber-600/40 bg-amber-500/15 text-amber-900"
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          googleConectado ? "bg-emerald-600" : "bg-amber-600"
+                        }`}
+                      />
+                      {googleConectado === null
+                        ? "Verificando..."
+                        : googleConectado
+                        ? "Conectado"
+                        : "Autorização Pendente"}
+                    </span>
+                  </div>
+
+                  {googleConectado && calendarioPrincipal ? (
+                    <p className="text-xs text-bw-madeira mt-1.5">
+                      Agenda vinculada:{" "}
+                      <strong className="font-mono">{calendarioPrincipal.nome}</strong>{" "}
+                      <span className="text-bw-muted font-mono">
+                        ({calendarioPrincipal.id} · {calendarioPrincipal.fusoHorario})
+                      </span>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-bw-madeira mt-1.5 max-w-2xl">
+                      Conecte a conta Google oficial (
+                      <strong className="font-mono">bwtestes.automacao@gmail.com</strong>) para
+                      que agendamentos aprovados ou criados pelo admin sejam enviados
+                      automaticamente ao Google Calendar.
+                    </p>
+                  )}
+
+                  {googleError && (
+                    <p className="text-xs text-red-600 mt-1.5">{googleError.message}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                {awaitingOAuthCallback && (
+                  <button
+                    type="button"
+                    onClick={() => void verificarConexaoGoogle()}
+                    className="px-3.5 py-2 border border-emerald-600 text-emerald-800 bg-white rounded-md text-xs font-medium hover:bg-emerald-50 transition-colors"
+                  >
+                    Já autorizei · Verificar
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void conectarGoogle()}
+                  disabled={connectingGoogle}
+                  className={`px-3.5 py-2 rounded-md text-xs font-medium transition-colors disabled:opacity-50 ${
+                    googleConectado
+                      ? "border border-bw-border bg-bw-white text-bw-madeira hover:bg-bw-hover"
+                      : "bg-bw-preto text-bw-white hover:bg-bw-madeira"
+                  }`}
+                >
+                  {connectingGoogle
+                    ? "Abrindo Google..."
+                    : googleConectado
+                    ? "Reconectar Conta Google"
+                    : "Autorizar Google Calendar ↗"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-bw-border bg-bw-white p-4">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-bw-muted">
+                Eventos Aprovados / Sincronizados
+              </div>
+              <div className="text-2xl font-semibold text-bw-preto font-display mt-1">
+                {contagens.APROVADO}
+              </div>
+              <div className="text-[11px] text-bw-madeira mt-1">
+                Ativos no calendário da equipe
+              </div>
+            </div>
+            <div className="rounded-lg border border-bw-border bg-bw-white p-4">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-bw-muted">
+                Aguardando Decisão
+              </div>
+              <div className="text-2xl font-semibold text-bw-preto font-display mt-1">
+                {contagens.PENDENTE}
+              </div>
+              <div className="text-[11px] text-bw-madeira mt-1">
+                Solicitações pendentes de aprovação
+              </div>
+            </div>
+            <div className="rounded-lg border border-bw-border bg-bw-white p-4">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-bw-muted">
+                Agendas Encontradas
+              </div>
+              <div className="text-2xl font-semibold text-bw-preto font-display mt-1">
+                {calendariosGoogle.length}
+              </div>
+              <div className="text-[11px] text-bw-madeira mt-1">
+                {calendarioPrincipal ? calendarioPrincipal.fusoHorario : "Conta Google OAuth"}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Modal de Detalhes / Aprovação do Agendamento */}
       {selected && (
@@ -1031,4 +1211,3 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
     </div>
   );
 }
-

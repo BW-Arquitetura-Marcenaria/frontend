@@ -1585,7 +1585,7 @@ function PlatformShell({ screen, onNav }: { screen: Screen; onNav: (s: Screen) =
           <div className="flex items-center gap-3"><span className="hidden h-2 w-2 rounded-full bg-bw-dourado shadow-[0_0_0_4px_rgba(176,141,87,.12)] sm:block" /><span className="text-[10px] font-mono uppercase tracking-[.18em] text-bw-muted">{navItems.find(n => n.id === screen)?.label}</span></div>
           <div className="hidden items-center gap-2 text-[10px] font-mono text-bw-muted sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-bw-dourado" /> Operação em dia</div>
         </header>
-        <main className={`flex-1 min-h-0 px-3 sm:px-6 lg:px-8 ${screen === "funil" ? "overflow-y-auto py-4 sm:overflow-hidden sm:py-5" : "overflow-y-auto py-5 sm:py-8"}`}>
+        <main className={`flex-1 min-h-0 px-3 sm:px-6 lg:px-8 ${screen === "funil" || screen === "calendario" ? "overflow-y-auto py-4 sm:overflow-hidden sm:py-5" : "overflow-y-auto py-5 sm:py-8"}`}>
           {renderScreen()}
         </main>
       </div>
