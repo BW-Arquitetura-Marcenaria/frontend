@@ -251,17 +251,16 @@ export default function FinanceiroView() {
         </div>
       </div>
       {carregandoPainel && !comparativo ? <p className="text-sm text-bw-muted">Carregando gráfico...</p> : comparativo?.length ? <>
-        <div className="overflow-x-auto pb-2">
-          <div className="grid min-w-[680px] grid-cols-[76px_minmax(0,1fr)] gap-3">
-            <div className="flex h-72 flex-col justify-between pb-1 text-right text-xs text-bw-madeira" aria-hidden="true">
+        <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)] gap-2 sm:grid-cols-[76px_minmax(0,1fr)] sm:gap-3">
+            <div className="flex h-52 flex-col justify-between pb-1 text-right text-[10px] text-bw-madeira sm:h-72 sm:text-xs" aria-hidden="true">
               {ticks.map((tick, indice) => <span key={indice}>{new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(tick)}</span>)}
             </div>
-            <div className="relative h-72 border-b border-bw-border">
+            <div className="relative h-52 min-w-0 border-b border-bw-border sm:h-72">
               <div className="pointer-events-none absolute inset-0 flex flex-col justify-between" aria-hidden="true">
                 {ticks.map((_, indice) => <div key={indice} className="border-t border-dashed border-bw-border-sub" />)}
               </div>
               <div className="relative z-10 flex h-full items-end">
-                {comparativo.map(mes => <div key={mes.mes} className="flex h-full min-w-0 flex-1 items-end justify-center gap-2 px-2 sm:px-3">
+                {comparativo.map(mes => <div key={mes.mes} className="flex h-full min-w-0 flex-1 items-end justify-center gap-0.5 px-0.5 sm:gap-2 sm:px-3">
                   {([ ["receitas", "bg-bw-dourado", "Recebido"], ["despesas", "bg-bw-madeira", "Frete"] ] as const).map(([chave, cor, nome]) => <div key={chave} tabIndex={0} role="img" aria-label={`${nome} em ${mes.mes}: ${moeda(mes[chave])}`} title={`${nome}: ${moeda(mes[chave])}`} className={`group relative w-full max-w-12 rounded-t-md ${cor} outline-offset-2 hover:brightness-90 focus:outline-2 focus:outline-bw-preto`} style={{ height: `${Math.max(Number(mes[chave]) > 0 ? 2 : 0, Math.min(100, Number(mes[chave]) / maximo * 100))}%` }}>
                     <span aria-hidden="true" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-bw-preto px-2 py-1 text-xs text-white shadow-lg group-hover:block group-focus:block">{nome}: {moeda(mes[chave])}</span>
                   </div>)}
@@ -269,8 +268,7 @@ export default function FinanceiroView() {
               </div>
             </div>
             <div />
-            <div className="flex">{comparativo.map(mes => <span key={mes.mes} className="min-w-0 flex-1 text-center text-xs font-medium capitalize text-bw-madeira">{new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(new Date(`${mes.mes}-01T12:00:00`)).replace(".", "")}</span>)}</div>
-          </div>
+            <div className="flex">{comparativo.map(mes => <span key={mes.mes} className="min-w-0 flex-1 text-center text-[10px] font-medium capitalize text-bw-madeira sm:text-xs">{new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(new Date(`${mes.mes}-01T12:00:00`)).replace(".", "")}</span>)}</div>
         </div>
         <div className="mt-5 grid gap-3 border-t border-bw-border-sub pt-5 sm:grid-cols-3">
           <div><p className="text-sm text-bw-madeira">Recebido no período</p><p className="mt-1 text-xl font-semibold tabular-nums text-bw-preto">{moeda(soma("receitas"))}</p></div>
