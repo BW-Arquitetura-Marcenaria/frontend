@@ -48,11 +48,11 @@ function mensagemErro(erro: unknown): string {
   return "Não foi possível concluir a operação. Tente novamente.";
 }
 
-function Cartao({ titulo, valor, detalhe }: { titulo: string; valor: string; detalhe?: string }) {
-  return <div className="rounded-lg border border-bw-border bg-bw-white p-5">
-    <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-bw-muted">{titulo}</p>
-    <p className="font-display text-2xl font-semibold text-bw-preto">{valor}</p>
-    {detalhe && <p className="mt-1 font-mono text-xs text-bw-madeira">{detalhe}</p>}
+function Cartao({ titulo, valor, detalhe, destaque = false }: { titulo: string; valor: string; detalhe?: string; destaque?: boolean }) {
+  return <div className={`rounded-xl border p-5 shadow-sm sm:p-6 ${destaque ? "border-bw-madeira bg-bw-madeira text-white" : "border-bw-border bg-bw-white text-bw-preto"}`}>
+    <p className={`mb-3 text-sm font-semibold ${destaque ? "text-bw-areia" : "text-bw-madeira"}`}>{titulo}</p>
+    <p className="font-body text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{valor}</p>
+    {detalhe && <p className={`mt-3 text-sm ${destaque ? "text-bw-areia" : "text-bw-madeira"}`}>{detalhe}</p>}
   </div>;
 }
 
@@ -210,11 +210,14 @@ export default function FinanceiroView() {
   const maximo = Math.max(1, ...(comparativo ?? []).flatMap(mes => [Number(mes.receitas), Number(mes.despesas)].filter(Number.isFinite)));
   const mesAtual = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date());
   const soma = (chave: "receitas" | "despesas") => (comparativo ?? []).reduce((total, mes) => total + (Number(mes[chave]) || 0), 0);
+  const mesAnterior = new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
+  const variacao = (valor: ValorMonetario) => `${Number(valor) > 0 ? "+" : ""}${percentual.format(Number(valor))}% vs. ${mesAnterior}`;
+  const ticks = Array.from({ length: 5 }, (_, indice) => maximo * (4 - indice) / 4);
 
-  return <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+  return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h1 className="font-display text-2xl font-semibold text-bw-preto">Controle Financeiro</h1>
-        <p className="font-mono text-[10px] uppercase tracking-wider text-bw-muted">Visão de {mesAtual} · pedidos e recebimentos</p></div>
+        <p className="mt-1 text-sm text-bw-madeira">Visão de {mesAtual} · pedidos e recebimentos</p></div>
       <div className="flex flex-wrap gap-2">
         <button className="rounded border border-bw-border px-3 py-2 text-xs text-bw-preto hover:bg-bw-white disabled:opacity-50" disabled={ocupado} onClick={() => { void carregarPainel(); void carregarLista(paginaAtual); }}>Atualizar</button>
         <button className="rounded border border-bw-dourado px-3 py-2 text-xs text-bw-madeira hover:bg-bw-white disabled:opacity-50" disabled={ocupado} onClick={() => void exportar()}>Exportar Excel</button>
@@ -226,32 +229,54 @@ export default function FinanceiroView() {
     {aviso && <div role="status" className="rounded border border-bw-dourado bg-bw-white p-3 text-xs text-bw-madeira">{aviso} <button className="ml-2 underline" onClick={() => setAviso("")}>Dispensar</button></div>}
     {erroAcao && !modalRegistro && !modalImportacao && !excluindo && <p role="alert" className="text-sm text-red-700">{erroAcao}</p>}
     {erroPainel && <div role="alert" className="text-sm text-red-700">{erroPainel} <button className="underline" onClick={() => void carregarPainel()}>Tentar novamente</button></div>}
-    <div className="grid gap-3 sm:grid-cols-3">
-      <Cartao titulo="Receitas (mês)" valor={kpis ? moeda(kpis.receitasMes) : carregandoPainel ? "Carregando..." : "—"} detalhe={kpis ? `${percentual.format(Number(kpis.variacaoReceitasPercentual))}% em relação ao mês anterior` : undefined} />
-      <Cartao titulo="Despesas · frete (mês)" valor={kpis ? moeda(kpis.despesasMes) : carregandoPainel ? "Carregando..." : "—"} detalhe={kpis ? `${percentual.format(Number(kpis.variacaoDespesasPercentual))}% em relação ao mês anterior` : undefined} />
-      <Cartao titulo="Resultado líquido" valor={kpis ? moeda(kpis.resultadoLiquido) : carregandoPainel ? "Carregando..." : "—"} detalhe={kpis ? `Margem ${percentual.format(Number(kpis.margemPercentual))}%` : undefined} />
+    <div className="grid gap-4 sm:grid-cols-3">
+      <Cartao titulo="Recebido no mês" valor={kpis ? moeda(kpis.receitasMes) : carregandoPainel ? "Carregando..." : "—"} detalhe={kpis ? variacao(kpis.variacaoReceitasPercentual) : undefined} />
+      <Cartao titulo="Frete no mês" valor={kpis ? moeda(kpis.despesasMes) : carregandoPainel ? "Carregando..." : "—"} detalhe={kpis ? variacao(kpis.variacaoDespesasPercentual) : undefined} />
+      <Cartao titulo="Recebido menos frete" valor={kpis ? moeda(kpis.resultadoLiquido) : carregandoPainel ? "Carregando..." : "—"} detalhe={kpis ? `Margem sobre recebimentos: ${percentual.format(Number(kpis.margemPercentual))}%` : undefined} destaque />
     </div>
-    <p className="text-xs text-bw-muted">Indicadores calculados pelo backend a partir da data do pedido: receitas = valor recebido final; despesas = frete. Outros custos não estão incluídos.</p>
+    <p className="rounded-lg border border-bw-border-sub bg-bw-white/70 px-4 py-3 text-sm leading-relaxed text-bw-madeira"><strong>Como ler:</strong> recebido é a soma do valor recebido final; frete é o único custo considerado. Os números usam a data do pedido. O saldo não representa o lucro total.</p>
     <div className="flex flex-wrap gap-2" role="tablist" aria-label="Seções financeiras">
       {([ ["resumo", "Resumo"], ["registros", "Registros"], ["metricas", "Métricas"] ] as const).map(([valor, texto]) =>
         <button key={valor} role="tab" aria-selected={aba === valor} className={`rounded border px-3 py-1.5 text-xs ${aba === valor ? "border-bw-dourado bg-bw-dourado text-white" : "border-bw-border text-bw-madeira hover:bg-bw-white"}`} onClick={() => setAba(valor)}>{texto}</button>
       )}
     </div>
 
-    {aba === "resumo" && <section className="rounded-lg border border-bw-border bg-bw-white p-5" aria-label="Comparativo financeiro mensal">
-      <h2 className="font-display text-lg font-semibold text-bw-preto">Receitas e frete · últimos 6 meses</h2>
-      <p className="mb-5 text-xs text-bw-muted">Valores por data do pedido; passe o cursor ou use o teclado para consultar cada barra.</p>
+    {aba === "resumo" && <section className="rounded-xl border border-bw-border bg-bw-white p-5 shadow-sm sm:p-7" aria-label="Comparativo financeiro mensal">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div><h2 className="font-display text-2xl font-semibold text-bw-preto">Evolução dos recebimentos</h2>
+          <p className="mt-1 text-sm text-bw-madeira">Comparativo com frete nos últimos seis meses</p></div>
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium text-bw-preto">
+          <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm bg-bw-dourado" />Recebido</span>
+          <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm bg-bw-madeira" />Frete</span>
+        </div>
+      </div>
       {carregandoPainel && !comparativo ? <p className="text-sm text-bw-muted">Carregando gráfico...</p> : comparativo?.length ? <>
-        <div className="overflow-x-auto"><div className="flex min-w-[360px] items-end gap-3 border-b border-bw-border pb-2">
-          {comparativo.map(mes => <div key={mes.mes} className="flex min-w-0 flex-1 flex-col items-center gap-2">
-            <div className="flex h-44 w-full items-end justify-center gap-1">
-              {([ ["receitas", "bg-bw-dourado", "Receitas"], ["despesas", "bg-bw-madeira", "Frete"] ] as const).map(([chave, cor, nome]) => <div key={chave} tabIndex={0} role="img" aria-label={`${nome} de ${mes.mes}: ${moeda(mes[chave])}`} title={`${nome}: ${moeda(mes[chave])}`} className={`w-5 max-w-[40%] rounded-t-sm ${cor} focus:outline-2 focus:outline-bw-preto`} style={{ height: `${Math.max(Number(mes[chave]) > 0 ? 3 : 0, Math.min(100, Number(mes[chave]) / maximo * 100))}%` }} />)}
+        <div className="overflow-x-auto pb-2">
+          <div className="grid min-w-[680px] grid-cols-[76px_minmax(0,1fr)] gap-3">
+            <div className="flex h-72 flex-col justify-between pb-1 text-right text-xs text-bw-madeira" aria-hidden="true">
+              {ticks.map((tick, indice) => <span key={indice}>{new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(tick)}</span>)}
             </div>
-            <span className="font-mono text-[10px] text-bw-muted">{new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(new Date(`${mes.mes}-01T12:00:00`))}</span>
-          </div>)}
-        </div></div>
-        <div className="mt-4 flex gap-5 font-mono text-[10px] text-bw-madeira"><span>■ Receitas</span><span>■ Frete (despesas)</span></div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2"><Cartao titulo="Receitas no período" valor={moeda(soma("receitas"))} /><Cartao titulo="Frete no período" valor={moeda(soma("despesas"))} /></div>
+            <div className="relative h-72 border-b border-bw-border">
+              <div className="pointer-events-none absolute inset-0 flex flex-col justify-between" aria-hidden="true">
+                {ticks.map((_, indice) => <div key={indice} className="border-t border-dashed border-bw-border-sub" />)}
+              </div>
+              <div className="relative z-10 flex h-full items-end">
+                {comparativo.map(mes => <div key={mes.mes} className="flex h-full min-w-0 flex-1 items-end justify-center gap-2 px-2 sm:px-3">
+                  {([ ["receitas", "bg-bw-dourado", "Recebido"], ["despesas", "bg-bw-madeira", "Frete"] ] as const).map(([chave, cor, nome]) => <div key={chave} tabIndex={0} role="img" aria-label={`${nome} em ${mes.mes}: ${moeda(mes[chave])}`} title={`${nome}: ${moeda(mes[chave])}`} className={`group relative w-full max-w-12 rounded-t-md ${cor} outline-offset-2 hover:brightness-90 focus:outline-2 focus:outline-bw-preto`} style={{ height: `${Math.max(Number(mes[chave]) > 0 ? 2 : 0, Math.min(100, Number(mes[chave]) / maximo * 100))}%` }}>
+                    <span aria-hidden="true" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-bw-preto px-2 py-1 text-xs text-white shadow-lg group-hover:block group-focus:block">{nome}: {moeda(mes[chave])}</span>
+                  </div>)}
+                </div>)}
+              </div>
+            </div>
+            <div />
+            <div className="flex">{comparativo.map(mes => <span key={mes.mes} className="min-w-0 flex-1 text-center text-xs font-medium capitalize text-bw-madeira">{new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(new Date(`${mes.mes}-01T12:00:00`)).replace(".", "")}</span>)}</div>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-3 border-t border-bw-border-sub pt-5 sm:grid-cols-3">
+          <div><p className="text-sm text-bw-madeira">Recebido no período</p><p className="mt-1 text-xl font-semibold tabular-nums text-bw-preto">{moeda(soma("receitas"))}</p></div>
+          <div><p className="text-sm text-bw-madeira">Frete no período</p><p className="mt-1 text-xl font-semibold tabular-nums text-bw-preto">{moeda(soma("despesas"))}</p></div>
+          <div><p className="text-sm text-bw-madeira">Recebido menos frete</p><p className="mt-1 text-xl font-semibold tabular-nums text-bw-preto">{moeda(soma("receitas") - soma("despesas"))}</p></div>
+        </div>
       </> : !erroPainel && <p className="text-sm text-bw-muted">Não há dados para o comparativo.</p>}
     </section>}
 
