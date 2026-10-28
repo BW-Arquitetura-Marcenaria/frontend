@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useRastreabilidadeViewModel } from "@/viewmodels/rastreabilidade/useRastreabilidadeViewModel";
 import type { Rastreabilidade as RastreabilidadeItem, RastreabilidadeRequest } from "@/models/Rastreabilidade";
 import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
+import DeleteButton from "@/components/DeleteButton";
+import FeedbackMessage from "@/components/FeedbackMessage";
 
 export type ProjetoOption = { id: number; nome: string; tipo?: string };
 
@@ -27,7 +29,7 @@ const inputCls = "bg-transparent border-b border-bw-dourado/30 focus:border-bw-d
 const labelCls = "font-mono text-[9px] uppercase tracking-wider text-bw-areia";
 
 export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOption[] }) {
-  const { data, loading, saving, error, projetoId, filterByProjeto, create, update, remove } = useRastreabilidadeViewModel();
+  const { data, loading, saving, error, projetoId, fetchPage, filterByProjeto, create, update, remove } = useRastreabilidadeViewModel();
   const [selIndex, setSelIndex] = useState(0);
   const [form, setForm] = useState<FormState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RastreabilidadeItem | null>(null);
@@ -54,6 +56,7 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
     if (deleted) {
       setDeleteTarget(null);
       setSelIndex(0);
+      if (data?.content.length === 1 && data.number > 0) void fetchPage({ page: data.number - 1 });
     }
   };
 
@@ -66,13 +69,17 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
       projetoId: Number(form.projetoId),
     };
     const result = form.id === null ? await create(body) : await update(form.id, body);
-    if (result) setForm(null);
+    if (result) {
+      setForm(null);
+      setSelIndex(0);
+    }
   };
 
   const set = (patch: Partial<FormState>) => setForm(f => (f ? { ...f, ...patch } : f));
-  const trashIcon = (
-    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
-  );
+  const mudarPagina = (page: number) => {
+    setSelIndex(0);
+    void fetchPage({ page });
+  };
 
   return (
     <div className="flex flex-col gap-5 max-w-5xl mx-auto w-full relative">
@@ -96,7 +103,7 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
         </select>
       </div>
 
-      {error && <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">Erro: {error.message}</div>}
+      {error && !form && !deleteTarget && <FeedbackMessage message={error.message} />}
 
       <div className="grid md:grid-cols-5 gap-5 min-h-[400px]">
         <div className="md:col-span-2 bg-bw-white border border-bw-border rounded-lg overflow-hidden flex flex-col">
@@ -107,6 +114,8 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="p-8 text-center text-sm text-bw-muted">Carregando...</div>
+            ) : error ? (
+              <div className="p-8 text-center text-sm text-bw-muted">Não foi possível carregar os materiais.</div>
             ) : lotes.length === 0 ? (
               <div className="p-8 text-center text-sm text-bw-muted">Nenhum material registrado para este projeto.</div>
             ) : (
@@ -117,13 +126,18 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
                     <div className="text-xs font-medium text-bw-preto mt-0.5">{l.tipoMadeira}</div>
                     <div className="text-[10px] text-bw-muted">{l.fornecedor}</div>
                   </button>
-                  <button onClick={() => setDeleteTarget(l)} disabled={saving} title="Excluir material" aria-label={`Excluir ${l.lote}`} className="px-3 text-bw-muted hover:text-red-600 hover:bg-bw-hover transition-colors disabled:opacity-40">
-                    {trashIcon}
-                  </button>
+                  <DeleteButton onClick={() => setDeleteTarget(l)} disabled={saving} title="Excluir material" aria-label={`Excluir ${l.lote}`} className="mx-2 self-center" />
                 </div>
               ))
             )}
           </div>
+          {data && data.totalPages > 1 && (
+            <nav aria-label="Páginas de rastreabilidade" className="flex items-center justify-between border-t border-bw-border px-4 py-3 text-xs text-bw-madeira">
+              <button type="button" disabled={loading || data.number === 0} onClick={() => mudarPagina(data.number - 1)} className="underline disabled:opacity-40">Anterior</button>
+              <span>Página {data.number + 1} de {data.totalPages}</span>
+              <button type="button" disabled={loading || data.number >= data.totalPages - 1} onClick={() => mudarPagina(data.number + 1)} className="underline disabled:opacity-40">Próxima</button>
+            </nav>
+          )}
         </div>
 
         <div className="md:col-span-3 bg-bw-white border border-bw-border rounded-lg p-6 flex flex-col gap-4">
@@ -153,7 +167,7 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
       </div>
 
       {form && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
+        <div role="dialog" aria-modal="true" aria-label={form.id === null ? "Registrar uso de material" : "Editar material"} className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8">
             <button onClick={() => setForm(null)} className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors">
               <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
@@ -204,7 +218,7 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
                 <input type="date" value={form.dataRegistro} onChange={e => set({ dataRegistro: e.target.value })} className={`${inputCls} [color-scheme:dark]`} />
               </div>
 
-              {error && <div className="text-xs text-red-400">{error.message}</div>}
+              {error && <FeedbackMessage message={error.message} className="!border-red-400/30 !bg-red-400/10 !text-red-200" />}
 
               <div className="mt-4">
                 <button type="submit" disabled={saving} className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-60">
