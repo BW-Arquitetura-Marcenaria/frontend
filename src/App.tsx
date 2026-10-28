@@ -90,14 +90,15 @@ const Icon = {
 function PasswordInput({ toggleClassName = "text-white", className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement> & { toggleClassName?: string }) {
   const [visible, setVisible] = useState(false);
   return (
-    <div className="relative">
-      <input {...props} type={visible ? "text" : "password"} className={`${className} pr-9`} />
+    <div className="relative w-full">
+      <input {...props} type={visible ? "text" : "password"} className={`${className} pr-10`} />
       <button
         type="button"
         aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
         aria-pressed={visible}
+        disabled={props.disabled}
         onClick={() => setVisible(value => !value)}
-        className={`password-toggle absolute right-2 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-70 ${toggleClassName}`}
+        className={`password-toggle absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center p-0 transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40 ${toggleClassName}`}
       >
         {visible ? <Icon.EyeOff /> : <Icon.Eye />}
       </button>
