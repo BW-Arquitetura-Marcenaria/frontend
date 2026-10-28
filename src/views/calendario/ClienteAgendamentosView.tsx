@@ -10,6 +10,8 @@ import {
 const CLIENTE_MEUS_IDS_KEY = "bw-cliente-meus-ids-v1";
 const CLIENTE_HISTORICO_KEY = "bw-cliente-solicitacoes-v2";
 
+type SubPaginaCliente = "calendario" | "minhas-solicitacoes";
+
 const MESES = [
   "Janeiro",
   "Fevereiro",
@@ -120,6 +122,7 @@ export default function ClienteAgendamentosView() {
 
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
+  const [subPagina, setSubPagina] = useState<SubPaginaCliente>("calendario");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedAgendamento, setSelectedAgendamento] = useState<{
@@ -160,6 +163,14 @@ export default function ClienteAgendamentosView() {
       // ignore
     }
   }, []);
+
+  const meusAgendamentos = useMemo(
+    () =>
+      todosAgendamentos
+        .filter((ev) => meusIds.includes(ev.id))
+        .sort((a, b) => b.inicio.localeCompare(a.inicio)),
+    [todosAgendamentos, meusIds]
+  );
 
   const firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -266,7 +277,7 @@ export default function ClienteAgendamentosView() {
 
   return (
     <div
-      className="flex flex-col w-full h-full rounded-sm overflow-y-auto p-5 sm:p-7 gap-6"
+      className="flex flex-col w-full h-full min-h-0 rounded-sm overflow-hidden p-4 sm:p-6 gap-3.5"
       style={{
         background: "rgba(22,19,15,0.45)",
         border: "1px solid rgba(255,255,255,0.08)",
@@ -275,32 +286,59 @@ export default function ClienteAgendamentosView() {
         boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
       }}
     >
-      {/* Cabeçalho */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[.2em] text-bw-dourado mb-1">
-            Agenda Online · Portal do Cliente
+      {/* Cabeçalho + Subpáginas */}
+      <div className="flex flex-col gap-3 border-b border-white/10 pb-3 shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[.2em] text-bw-dourado mb-0.5">
+              Agenda Online · Portal do Cliente
+            </div>
+            <h2 className="text-xl sm:text-2xl font-display text-white leading-tight">
+              Calendário de Agendamentos
+            </h2>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-display text-white">
-            Calendário de Agendamentos
-          </h2>
-          <p className="text-xs text-white/55 mt-1">
-            Clique em um dia disponível para solicitar um horário. Sua solicitação nasce com
-            status <strong className="text-bw-dourado font-mono">PENDENTE</strong> até a
-            confirmação da equipe BW.
-          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center border border-white/15 bg-black/30 p-0.5">
+              <button
+                type="button"
+                onClick={() => setSubPagina("calendario")}
+                className={`px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider transition-colors ${
+                  subPagina === "calendario"
+                    ? "bg-bw-dourado text-white"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                Calendário Mensal
+              </button>
+              <button
+                type="button"
+                onClick={() => setSubPagina("minhas-solicitacoes")}
+                className={`px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
+                  subPagina === "minhas-solicitacoes"
+                    ? "bg-bw-dourado text-white"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                <span>Minhas Solicitações</span>
+                <span className="rounded bg-white/15 px-1.5 py-0.2 text-[9px]">
+                  {meusAgendamentos.length}
+                </span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => openDayModal()}
+              className="shrink-0 px-4 py-2 bg-bw-dourado text-white text-[10px] font-mono uppercase tracking-[.16em] hover:bg-[#c19d65] transition-colors"
+            >
+              + Solicitar Agendamento
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={() => openDayModal()}
-          className="shrink-0 px-5 py-2.5 bg-bw-dourado text-white text-[11px] font-mono uppercase tracking-[.16em] hover:bg-[#c19d65] transition-colors"
-        >
-          + Solicitar Agendamento
-        </button>
       </div>
 
       {sucesso && (
-        <div className="flex items-center justify-between gap-3 border border-emerald-400/35 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-200">
+        <div className="flex items-center justify-between gap-3 border border-emerald-400/35 bg-emerald-500/10 px-3.5 py-2 text-xs text-emerald-200 shrink-0">
           <div>
             <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-300 mr-2">
               ✓ Solicitação Enviada:
@@ -319,153 +357,214 @@ export default function ClienteAgendamentosView() {
         </div>
       )}
 
-      {/* Controles do Mês */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setViewYear(now.getFullYear());
-              setViewMonth(now.getMonth());
-            }}
-            className="px-3 py-1.5 border border-white/15 text-white/80 text-xs font-mono hover:border-bw-dourado hover:text-bw-dourado transition-colors"
-          >
-            Hoje
-          </button>
-          <button
-            type="button"
-            onClick={() => changeMonth(-1)}
-            aria-label="Mês anterior"
-            className="px-2.5 py-1.5 border border-white/15 text-white/80 text-xs hover:border-bw-dourado hover:text-bw-dourado transition-colors"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            onClick={() => changeMonth(1)}
-            aria-label="Próximo mês"
-            className="px-2.5 py-1.5 border border-white/15 text-white/80 text-xs hover:border-bw-dourado hover:text-bw-dourado transition-colors"
-          >
-            ›
-          </button>
-          <span className="ml-2 font-display text-xl text-white">
-            {MESES[viewMonth]} {viewYear}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-4 text-[10px] font-mono text-white/60">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-white/35" /> Horário Ocupado
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-amber-400" /> Minha Solicitação (Pendente)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" /> Meu Agendamento (Aprovado)
-          </span>
-        </div>
-      </div>
-
-      {/* Grade Mensal do Calendário do Cliente */}
-      <div className="overflow-x-auto border border-white/10 bg-black/25">
-        <div className="min-w-[38rem]">
-          <div className="grid grid-cols-7 border-b border-white/10 bg-white/[0.04]">
-            {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
-              <div
-                key={d}
-                className="py-2 text-center text-[10px] font-mono uppercase tracking-wider text-white/50"
+      {/* SUBPÁGINA 1: CALENDÁRIO MENSAL (sem scroll vertical da página) */}
+      {subPagina === "calendario" && (
+        <div className="flex-1 min-h-0 flex flex-col gap-2.5">
+          {/* Controles do Mês */}
+          <div className="flex items-center justify-between flex-wrap gap-2 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setViewYear(now.getFullYear());
+                  setViewMonth(now.getMonth());
+                }}
+                className="px-2.5 py-1 border border-white/15 text-white/80 text-xs font-mono hover:border-bw-dourado hover:text-bw-dourado transition-colors"
               >
-                {d}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7">
-            {[...Array(firstWeekday)].map((_, i) => (
-              <div
-                key={`empty-${i}`}
-                className="h-24 border-r border-b border-white/10 bg-white/[0.01]"
-              />
-            ))}
-            {days.map((d) => {
-              const iso = toISO(viewYear, viewMonth, d);
-              const isHoje = iso === hojeISO;
-              const doDia = todosAgendamentos
-                .filter((ev) => {
-                  if (extractDateISO(ev.inicio) !== iso) return false;
-                  const isMeu = meusIds.includes(ev.id);
-                  // De terceiros, exibe apenas se estiver ocupando a agenda (PENDENTE ou APROVADO)
-                  return isMeu || ev.status === "PENDENTE" || ev.status === "APROVADO";
-                })
-                .sort((a, b) => a.inicio.localeCompare(b.inicio));
+                Hoje
+              </button>
+              <button
+                type="button"
+                onClick={() => changeMonth(-1)}
+                aria-label="Mês anterior"
+                className="px-2 py-1 border border-white/15 text-white/80 text-xs hover:border-bw-dourado hover:text-bw-dourado transition-colors"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={() => changeMonth(1)}
+                aria-label="Próximo mês"
+                className="px-2 py-1 border border-white/15 text-white/80 text-xs hover:border-bw-dourado hover:text-bw-dourado transition-colors"
+              >
+                ›
+              </button>
+              <span className="ml-2 font-display text-lg text-white">
+                {MESES[viewMonth]} {viewYear}
+              </span>
+            </div>
 
+            <div className="flex items-center gap-3 text-[10px] font-mono text-white/60 flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-white/35" /> Horário Ocupado
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-amber-400" /> Minha Solicitação (Pendente)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" /> Meu Agendamento (Aprovado)
+              </span>
+            </div>
+          </div>
+
+          {/* Grade Mensal do Calendário do Cliente ajustada para não precisar de scroll */}
+          <div className="flex-1 min-h-0 flex flex-col overflow-x-auto border border-white/10 bg-black/25">
+            <div className="min-w-[38rem] flex-1 min-h-0 flex flex-col">
+              <div className="grid grid-cols-7 border-b border-white/10 bg-white/[0.04] shrink-0">
+                {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
+                  <div
+                    key={d}
+                    className="py-1.5 text-center text-[10px] font-mono uppercase tracking-wider text-white/50"
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 auto-rows-fr flex-1 min-h-0">
+                {[...Array(firstWeekday)].map((_, i) => (
+                  <div
+                    key={`empty-${i}`}
+                    className="min-h-[3.5rem] border-r border-b border-white/10 bg-white/[0.01]"
+                  />
+                ))}
+                {days.map((d) => {
+                  const iso = toISO(viewYear, viewMonth, d);
+                  const isHoje = iso === hojeISO;
+                  const doDia = todosAgendamentos
+                    .filter((ev) => {
+                      if (extractDateISO(ev.inicio) !== iso) return false;
+                      const isMeu = meusIds.includes(ev.id);
+                      // De terceiros, exibe apenas se estiver ocupando a agenda (PENDENTE ou APROVADO)
+                      return isMeu || ev.status === "PENDENTE" || ev.status === "APROVADO";
+                    })
+                    .sort((a, b) => a.inicio.localeCompare(b.inicio));
+
+                  return (
+                    <div
+                      key={d}
+                      onClick={() => openDayModal(iso)}
+                      className={`min-h-[3.5rem] p-1 border-r border-b border-white/10 overflow-y-auto cursor-pointer hover:bg-bw-dourado/10 transition-colors ${
+                        isHoje ? "bg-bw-dourado/15" : ""
+                      }`}
+                    >
+                      <div
+                        className={`text-[10px] font-mono mb-0.5 flex items-center justify-between ${
+                          isHoje ? "font-bold text-bw-dourado" : "text-white/50"
+                        }`}
+                      >
+                        <span>
+                          {d}
+                          {isHoje && " · Hoje"}
+                        </span>
+                        <span className="text-[9px] text-white/25 hover:text-bw-dourado">+</span>
+                      </div>
+                      {doDia.map((ev) => {
+                        const isMeu = meusIds.includes(ev.id);
+                        const hIni = extractTimeHHMM(ev.inicio);
+                        const hFim = extractTimeHHMM(ev.fim);
+
+                        if (!isMeu) {
+                          return (
+                            <button
+                              key={ev.id}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedAgendamento({ agendamento: ev, isMeu: false });
+                              }}
+                              className="block w-full text-left text-[9px] rounded px-1.5 py-0.5 truncate font-mono mb-0.5 border border-white/15 bg-white/10 text-white/60 hover:bg-white/15"
+                              title={`${hIni} às ${hFim} · Ocupado`}
+                            >
+                              {hIni}–{hFim} · Ocupado
+                            </button>
+                          );
+                        }
+
+                        const meta = STATUS_BADGE[ev.status] ?? STATUS_BADGE.PENDENTE;
+                        return (
+                          <button
+                            key={ev.id}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedAgendamento({ agendamento: ev, isMeu: true });
+                            }}
+                            className={`block w-full text-left text-[9px] rounded px-1.5 py-0.5 truncate font-mono mb-0.5 border ${meta.pillCls}`}
+                          >
+                            {hIni} {ev.titulo}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+                {[...Array(trailing)].map((_, i) => (
+                  <div
+                    key={`trail-${i}`}
+                    className="min-h-[3.5rem] border-r border-b border-white/10 bg-white/[0.01]"
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUBPÁGINA 2: MINHAS SOLICITAÇÕES */}
+      {subPagina === "minhas-solicitacoes" && (
+        <div className="flex-1 min-h-0 overflow-y-auto border border-white/10 bg-black/25 divide-y divide-white/10">
+          {meusAgendamentos.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full py-12 px-4 text-center gap-3">
+              <div className="text-sm font-medium text-white">
+                Você ainda não possui solicitações registradas
+              </div>
+              <p className="text-xs text-white/50 max-w-md">
+                Clique em um dia no calendário ou no botão abaixo para solicitar uma visita
+                técnica, reunião ou apresentação de projeto.
+              </p>
+              <button
+                type="button"
+                onClick={() => openDayModal()}
+                className="mt-1 px-4 py-2 bg-bw-dourado text-white text-[10px] font-mono uppercase tracking-wider hover:bg-[#c19d65] transition-colors"
+              >
+                + Solicitar Agendamento
+              </button>
+            </div>
+          ) : (
+            meusAgendamentos.map((ev) => {
+              const meta = STATUS_BADGE[ev.status] ?? STATUS_BADGE.PENDENTE;
               return (
                 <div
-                  key={d}
-                  onClick={() => openDayModal(iso)}
-                  className={`h-24 p-1.5 border-r border-b border-white/10 overflow-y-auto cursor-pointer hover:bg-bw-dourado/10 transition-colors ${
-                    isHoje ? "bg-bw-dourado/15" : ""
-                  }`}
+                  key={ev.id}
+                  onClick={() => setSelectedAgendamento({ agendamento: ev, isMeu: true })}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3.5 hover:bg-white/[0.04] cursor-pointer transition-colors"
                 >
-                  <div
-                    className={`text-[10px] font-mono mb-1 flex items-center justify-between ${
-                      isHoje ? "font-bold text-bw-dourado" : "text-white/50"
-                    }`}
-                  >
-                    <span>
-                      {d}
-                      {isHoje && " · Hoje"}
-                    </span>
-                    <span className="text-[9px] text-white/25 hover:text-bw-dourado">+</span>
-                  </div>
-                  {doDia.map((ev) => {
-                    const isMeu = meusIds.includes(ev.id);
-                    const hIni = extractTimeHHMM(ev.inicio);
-                    const hFim = extractTimeHHMM(ev.fim);
-
-                    if (!isMeu) {
-                      return (
-                        <button
-                          key={ev.id}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedAgendamento({ agendamento: ev, isMeu: false });
-                          }}
-                          className="block w-full text-left text-[9px] rounded px-1.5 py-0.5 truncate font-mono mb-1 border border-white/15 bg-white/10 text-white/60 hover:bg-white/15"
-                          title={`${hIni} às ${hFim} · Ocupado`}
-                        >
-                          {hIni}–{hFim} · Ocupado
-                        </button>
-                      );
-                    }
-
-                    const meta = STATUS_BADGE[ev.status] ?? STATUS_BADGE.PENDENTE;
-                    return (
-                      <button
-                        key={ev.id}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedAgendamento({ agendamento: ev, isMeu: true });
-                        }}
-                        className={`block w-full text-left text-[9px] rounded px-1.5 py-0.5 truncate font-mono mb-1 border ${meta.pillCls}`}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-white">{ev.titulo}</span>
+                      <span
+                        className={`rounded border px-2 py-0.5 text-[9px] font-mono uppercase ${meta.cls}`}
                       >
-                        {hIni} {ev.titulo}
-                      </button>
-                    );
-                  })}
+                        {meta.label}
+                      </span>
+                    </div>
+                    <div className="text-xs font-mono text-bw-dourado mt-1">
+                      {fmtDateBR(extractDateISO(ev.inicio))} · {extractTimeHHMM(ev.inicio)} às{" "}
+                      {extractTimeHHMM(ev.fim)}
+                    </div>
+                    {ev.descricao && (
+                      <p className="text-xs text-white/60 mt-1 line-clamp-2">{ev.descricao}</p>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-mono uppercase text-white/50 hover:text-bw-dourado shrink-0">
+                    Ver detalhes →
+                  </span>
                 </div>
               );
-            })}
-            {[...Array(trailing)].map((_, i) => (
-              <div
-                key={`trail-${i}`}
-                className="h-24 border-r border-b border-white/10 bg-white/[0.01]"
-              />
-            ))}
-          </div>
+            })
+          )}
         </div>
-      </div>
+      )}
 
       {/* Modal de Detalhes de um Item no Calendário */}
       {selectedAgendamento && (
