@@ -15,6 +15,8 @@ import { cadastrarCliente, validarLinkCadastro, type CadastroPayload } from "@/a
 import { getContaAdmin, putEmpresaAdmin, putEnderecoAdmin, putSegurancaAdmin, type ContaAdmin, type EmpresaAdminPayload, type EnderecoAdminPayload } from "@/api/contaAdmin";
 import { ecopontosPrefeitura } from "@/data/ecopontosPrefeitura";
 import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
+import DeleteButton from "@/components/DeleteButton";
+import FeedbackMessage from "@/components/FeedbackMessage";
 import { useReferenciasViewModel } from "@/viewmodels/referencias/useReferenciasViewModel";
 import { createReferencia, exportReferencias, updateReferencia } from "@/api/referencias";
 import type { Referencia } from "@/models/Referencia";
@@ -2347,7 +2349,10 @@ function Simulacao() {
 
 // ─── SCREEN: Tabela de Preços ─────────────────────────────────────────────────
 function TabelaPrecos() {
-  const { data, loading, deleting, error, remove, refresh } = useReferenciasViewModel({ page: 0, size: 100, sort: "id,desc" });
+  const { data, loading, deleting, error, remove, refresh, fetchPage } = useReferenciasViewModel({ page: 0, size: 10, sort: "id,desc" });
+  const [formError, setFormError] = useState("");
+  const [exportError, setExportError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<{id:number, desc:string, unit:string, material:string, price:number, cat:string} | null>(null);
@@ -2366,7 +2371,10 @@ function TabelaPrecos() {
   const excluirItem = async () => {
     if (!deleteTarget) return;
     const deleted = await remove(deleteTarget.id);
-    if (deleted) setDeleteTarget(null);
+    if (deleted) {
+      setDeleteTarget(null);
+      if (data?.content.length === 1 && (data.number ?? 0) > 0) void fetchPage({ page: data.number - 1 });
+    }
   };
 
   return (
@@ -2374,14 +2382,14 @@ function TabelaPrecos() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div><h1 className="text-2xl font-semibold text-bw-preto font-display">Tabela de Preços de Referência</h1><p className="text-[10px] font-mono text-bw-muted">Padronização para orçamentos</p></div>
         <div className="flex gap-2">
-          <button onClick={() => setIsExportModalOpen(true)} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors">Exportar PDF</button>
-          <button onClick={() => setIsNewItemModalOpen(true)} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Novo item</button>
+          <button onClick={() => { setExportError(""); setIsExportModalOpen(true); }} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors">Exportar PDF</button>
+          <button onClick={() => { setFormError(""); setIsNewItemModalOpen(true); }} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Novo item</button>
         </div>
       </div>
-      {error && !deleteTarget && <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">Erro: {error.message}</div>}
+      {error && !deleteTarget && <FeedbackMessage message={error.message} />}
       {loading && <div className="rounded-lg border border-bw-border bg-bw-white p-8 text-center text-sm text-bw-muted">Carregando referências...</div>}
-      {!loading && secoes.length === 0 && <div className="rounded-lg border border-bw-border bg-bw-white p-8 text-center text-sm text-bw-muted">Nenhuma referência encontrada.</div>}
-      {secoes.map(([categoria, items])=>(
+      {!loading && !error && secoes.length === 0 && <div className="rounded-lg border border-bw-border bg-bw-white p-8 text-center text-sm text-bw-muted">Nenhuma referência encontrada.</div>}
+      {!loading && !error && secoes.map(([categoria, items])=>(
         <div key={categoria} className="overflow-x-auto rounded-lg border border-bw-border bg-bw-white">
           <div className="px-4 py-3 border-b border-bw-border bg-bw-areia"><span className="text-xs font-semibold text-bw-madeira">{formatCategoria(categoria)}</span></div>
           <table className="w-full min-w-[42rem] text-xs">
@@ -2395,11 +2403,10 @@ function TabelaPrecos() {
                   <td className="px-4 py-3 font-mono text-bw-muted">{item.unidade}</td>
                   <td className="px-4 py-3 text-bw-muted">{item.materialBase}</td>
                   <td className="px-4 py-3 font-mono font-semibold text-bw-preto">R$ {Number(item.precoReferencia).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-3 text-bw-muted text-[10px] hover:text-bw-madeira cursor-pointer" onClick={() => setEditingItem({id: item.id, desc: item.descricao, unit: item.unidade, material: item.materialBase, price: Number(item.precoReferencia), cat: item.categoria})}>Editar</td>
+                  <td className="px-4 py-3"><button type="button" className="text-xs text-bw-madeira underline hover:text-bw-preto" onClick={() => { setFormError(""); setEditingItem({id: item.id, desc: item.descricao, unit: item.unidade, material: item.materialBase, price: Number(item.precoReferencia), cat: item.categoria}); }}>Editar</button></td>
                   <td className="px-2 py-3 text-bw-muted">
-                    <button onClick={() => setDeleteTarget(item)} disabled={deleting} title="Excluir item" aria-label={`Excluir ${item.descricao}`} className="p-1 hover:text-red-600 transition-colors disabled:opacity-40">
-                      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
-                    </button>
+                    <DeleteButton onClick={() => setDeleteTarget(item)} disabled={deleting} title="Excluir item" aria-label={`Excluir ${item.descricao}`} />
+
                   </td>
                 </tr>
               ))}
@@ -2407,9 +2414,14 @@ function TabelaPrecos() {
           </table>
         </div>
       ))}
+      {data && data.totalPages > 1 && <nav aria-label="Páginas de referências" className="flex items-center justify-between rounded-lg border border-bw-border bg-bw-white px-4 py-3 text-sm text-bw-madeira">
+        <button type="button" disabled={loading || data.number === 0} onClick={() => void fetchPage({ page: data.number - 1 })} className="underline disabled:opacity-40">Anterior</button>
+        <span>Página {data.number + 1} de {data.totalPages} · {data.totalElements} itens</span>
+        <button type="button" disabled={loading || data.number >= data.totalPages - 1} onClick={() => void fetchPage({ page: data.number + 1 })} className="underline disabled:opacity-40">Próxima</button>
+      </nav>}
 
       {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
+        <div role="dialog" aria-modal="true" aria-label="Editar referência" className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8">
             <button 
               onClick={() => setEditingItem(null)}
@@ -2435,13 +2447,15 @@ function TabelaPrecos() {
                   unidade: (fd.get('unidade') as string) ?? editingItem.unit,
                   precoReferencia: Number((fd.get('precoReferencia') as string) ?? editingItem.price)
                 };
+                setSaving(true);
+                setFormError("");
                 try {
                   await updateReferencia(editingItem.id, payload);
-                  refresh();
+                  void refresh();
                   setEditingItem(null);
                 } catch (err:any) {
-                  alert((err?.response?.data?.message) || err?.message || String(err));
-                }
+                  setFormError(err?.response?.data?.message || "Não foi possível atualizar a referência. Tente novamente.");
+                } finally { setSaving(false); }
               }}>
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Categoria</label>
@@ -2474,16 +2488,17 @@ function TabelaPrecos() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
-                  <input name="precoReferencia" type="number" step="0.01" defaultValue={editingItem.price} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
+                  <input name="precoReferencia" type="number" min="0" step="0.01" defaultValue={editingItem.price} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
                 </div>
               </div>
 
+              {formError && <FeedbackMessage message={formError} className="!text-red-200" />}
               <div className="mt-4 flex gap-3">
-                <button type="button" onClick={() => setEditingItem(null)} className="flex-1 border border-bw-dourado/30 text-bw-areia font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors">
+                <button type="button" disabled={saving} onClick={() => setEditingItem(null)} className="flex-1 border border-bw-dourado/30 text-bw-areia font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors">
                   Cancelar
                 </button>
-                <button type="submit" className="flex-1 bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors">
-                  Salvar
+                <button type="submit" disabled={saving} className="flex-1 bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-50">
+                  {saving ? "Salvando..." : "Salvar"}
                 </button>
               </div>
             </form>
@@ -2492,7 +2507,7 @@ function TabelaPrecos() {
       )}
 
       {isNewItemModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
+        <div role="dialog" aria-modal="true" aria-label="Nova referência" className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8">
             <button 
               onClick={() => setIsNewItemModalOpen(false)}
@@ -2517,13 +2532,15 @@ function TabelaPrecos() {
                   unidade: fd.get('unidade') as string,
                   precoReferencia: Number(fd.get('precoReferencia') as string)
                 };
+                setSaving(true);
+                setFormError("");
                 try {
                   await createReferencia(payload);
-                  refresh();
+                  void fetchPage({ page: 0 });
                   setIsNewItemModalOpen(false);
                 } catch (err:any) {
-                  alert((err?.response?.data?.message) || err?.message || String(err));
-                }
+                  setFormError(err?.response?.data?.message || "Não foi possível criar a referência. Tente novamente.");
+                } finally { setSaving(false); }
               }}>
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Categoria</label>
@@ -2557,13 +2574,14 @@ function TabelaPrecos() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
-                  <input name="precoReferencia" type="number" step="0.01" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="0,00" />
+                  <input name="precoReferencia" type="number" min="0" step="0.01" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="0,00" />
                 </div>
               </div>
 
+              {formError && <FeedbackMessage message={formError} className="!text-red-200" />}
               <div className="mt-4">
-                <button type="submit" className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors">
-                  Salvar Item
+                <button type="submit" disabled={saving} className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-50">
+                  {saving ? "Salvando..." : "Salvar Item"}
                 </button>
               </div>
             </form>
@@ -2572,7 +2590,7 @@ function TabelaPrecos() {
       )}
 
       {isExportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
+        <div role="dialog" aria-modal="true" aria-label="Exportar referências" className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-sm overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 text-center shadow-2xl backdrop-blur-md sm:p-8">
             <button 
               onClick={() => setIsExportModalOpen(false)}
@@ -2589,13 +2607,14 @@ function TabelaPrecos() {
             <p className="text-xs text-bw-muted mb-6">Selecione o formato para download do referencial de preços atualizado.</p>
 
             <div className="flex flex-col gap-3">
+              {exportError && <FeedbackMessage message={exportError} className="!text-red-200" />}
               <button 
                 onClick={async () => {
                   try {
                     await exportReferencias('pdf');
                     setIsExportModalOpen(false);
                   } catch {
-                    alert('Não foi possível exportar o PDF. Tente novamente com o backend disponível.');
+                    setExportError('Não foi possível exportar o PDF. Tente novamente.');
                   }
                 }}
                 className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors"
@@ -2608,7 +2627,7 @@ function TabelaPrecos() {
                     await exportReferencias('excel');
                     setIsExportModalOpen(false);
                   } catch {
-                    alert('Não foi possível exportar a planilha. Tente novamente com o backend disponível.');
+                    setExportError('Não foi possível exportar a planilha. Tente novamente.');
                   }
                 }}
                 className="w-full border border-bw-dourado/40 text-bw-areia font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors"
