@@ -10,7 +10,7 @@ import CalendarioView from "@/views/calendario/CalendarioView";
 import FinanceiroView from "@/views/financeiro/FinanceiroView";
 import ClienteAgendamentosView from "@/views/calendario/ClienteAgendamentosView";
 import { useMinhaContaViewModel } from "@/viewmodels/minhaConta/useMinhaContaViewModel";
-import { login as apiLogin } from "@/api/auth";
+import { login as apiLogin, logout, getPerfilAtual } from "@/api/auth";
 import { getContaAdmin, putEmpresaAdmin, putEnderecoAdmin, putSegurancaAdmin, type ContaAdmin, type EmpresaAdminPayload, type EnderecoAdminPayload } from "@/api/contaAdmin";
 import { ecopontosPrefeitura } from "@/data/ecopontosPrefeitura";
 import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
@@ -676,6 +676,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
         onClientLogin(tab);
       }
     } catch (err: any) {
+      // O modo mock permite explorar a interface, mas não cria uma sessão autenticada.
       if (!err?.response && import.meta.env.VITE_USE_MOCK === "true") { if (email.toLowerCase().includes("admin") || email.toLowerCase().includes("bwtestes")) { onNav("funil"); } else { onClientLogin(tab); } return; }
       const status = err?.response?.status;
       setError(
@@ -816,7 +817,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
             <button onClick={() => onNav("institucional")} className="text-[10px] font-mono text-white/20 hover:text-white/40 transition-colors lg:hidden">← Site</button>
           </div>
           <div className="mt-4 text-center">
-            <button onClick={() => onNav("funil")} className="text-[9px] font-mono text-white/15 hover:text-white/30 transition-colors">Acesso interno — Equipe BW ↗</button>
+            <button onClick={() => { if (getPerfilAtual() === "ADMIN" || import.meta.env.VITE_USE_MOCK === "true") onNav("funil"); else setError("Entre com uma conta da equipe para acessar a plataforma."); }} className="text-[9px] font-mono text-white/15 hover:text-white/30 transition-colors">Acesso interno — Equipe BW ↗</button>
           </div>
         </div>
       </div>
@@ -3662,18 +3663,43 @@ function ConfiguracoesConta() {
 const platformScreens: Screen[] = ["funil","financeiro","calendario","chatbot","simulacao","tabela-precos","rastreabilidade","descarte","usuarios-admin","configuracoes"];
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("institucional");
-  const [clienteTipo, setClienteTipo] = useState<ClienteTipo>("pf");
+  const [perfil, setPerfil] = useState(() => getPerfilAtual());
+  const [screen, setScreen] = useState<Screen>(() => {
+    const atual = getPerfilAtual();
+    if (atual === "ADMIN") return "funil";
+    if (atual === "CLIENTE") return "portal-cliente";
+    if (new URLSearchParams(window.location.search).has("token") && window.location.pathname === "/cadastro") return "cadastro";
+    return "institucional";
+  });
+  const [clienteTipo, setClienteTipo] = useState<ClienteTipo>(() => sessionStorage.getItem("authClienteTipo") === "pj" ? "pj" : "pf");
+
+  function navegar(destino: Screen) {
+    if (destino === "institucional" && (screen === "portal-cliente" || platformScreens.includes(screen))) {
+      logout();
+      setPerfil(null);
+    }
+    if (destino === "cadastro" && window.location.pathname === "/cadastro") window.history.replaceState(null, "", "/");
+    if (destino === "portal-cliente" && perfil !== "CLIENTE" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
+    if (platformScreens.includes(destino) && perfil !== "ADMIN" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
+    setScreen(destino);
+  }
 
   function handleClientLogin(tipo: ClienteTipo) {
     setClienteTipo(tipo);
+    if (getPerfilAtual() === "CLIENTE") sessionStorage.setItem("authClienteTipo", tipo);
+    setPerfil(getPerfilAtual());
     setScreen("portal-cliente");
   }
 
-  if (screen === "institucional") return <SiteInstitucionalPremium onNav={setScreen} />;
-  if (screen === "login") return <Login onNav={setScreen} onClientLogin={handleClientLogin} />;
-  if (screen === "cadastro") return <Cadastro onNav={setScreen} onClientLogin={handleClientLogin} />;
-  if (screen === "portal-cliente") return <PortalCliente tipo={clienteTipo} onNav={setScreen} />;
-  if (platformScreens.includes(screen)) return <PlatformShell screen={screen} onNav={setScreen} />;
-  return <SiteInstitucionalPremium onNav={setScreen} />;
+  function handleLoginNav(destino: Screen) {
+    if (destino === "funil") setPerfil(getPerfilAtual());
+    navegar(destino);
+  }
+
+  if (screen === "institucional") return <SiteInstitucionalPremium onNav={navegar} />;
+  if (screen === "login") return <Login onNav={handleLoginNav} onClientLogin={handleClientLogin} />;
+  if (screen === "cadastro") return <Cadastro onNav={navegar} onClientLogin={handleClientLogin} />;
+  if (screen === "portal-cliente") return <PortalCliente tipo={clienteTipo} onNav={navegar} />;
+  if (platformScreens.includes(screen)) return <PlatformShell screen={screen} onNav={navegar} />;
+  return <SiteInstitucionalPremium onNav={navegar} />;
 }
