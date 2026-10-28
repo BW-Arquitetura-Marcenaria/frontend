@@ -11,6 +11,7 @@ import FinanceiroView from "@/views/financeiro/FinanceiroView";
 import ClienteAgendamentosView from "@/views/calendario/ClienteAgendamentosView";
 import { useMinhaContaViewModel } from "@/viewmodels/minhaConta/useMinhaContaViewModel";
 import { login as apiLogin, logout, getPerfilAtual } from "@/api/auth";
+import { cadastrarCliente, validarLinkCadastro, type CadastroPayload } from "@/api/cadastro";
 import { getContaAdmin, putEmpresaAdmin, putEnderecoAdmin, putSegurancaAdmin, type ContaAdmin, type EmpresaAdminPayload, type EnderecoAdminPayload } from "@/api/contaAdmin";
 import { ecopontosPrefeitura } from "@/data/ecopontosPrefeitura";
 import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
@@ -828,7 +829,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
 
 // ─── SCREEN: Cadastro ─────────────────────────────────────────────────────────
 type CadTab = "pf" | "pj";
-type CadStep = "dados" | "verificacao" | "confirmacao";
+type CadStep = "dados" | "confirmacao";
 
 const COMO_CONHECEU_OPTIONS = [
   { value: "instagram", label: "Instagram" },
@@ -884,12 +885,26 @@ function ComoConheceuFields({ comoConheceu, setComoConheceu, instagramUser, setI
 }
 
 function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientLogin: (tipo: ClienteTipo) => void }) {
+  const token = new URLSearchParams(window.location.search).get("token") ?? "";
+  const [linkValido, setLinkValido] = useState(false);
+  const [validando, setValidando] = useState(Boolean(token));
+  const [enviando, setEnviando] = useState(false);
+  const [erroCadastro, setErroCadastro] = useState("");
+  const [nome, setNome] = useState("");
+  const [sobrenome, setSobrenome] = useState("");
+  const [email, setEmail] = useState("");
+  const [dataNascimento, setDataNascimento] = useState("");
+  const [razaoSocial, setRazaoSocial] = useState("");
+  const [nomeFantasia, setNomeFantasia] = useState("");
+  const [senha, setSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [aceitou, setAceitou] = useState(false);
+  const [cadastroConcluido, setCadastroConcluido] = useState(false);
   const [tab, setTab] = useState<CadTab>("pf");
   const [step, setStep] = useState<CadStep>("dados");
   const [cnpj, setCnpj] = useState("");
   const [cpf, setCpf] = useState("");
   const [phone, setPhone] = useState("");
-  const [emailSent, setEmailSent] = useState(false);
   const [comoConheceu, setComoConheceu] = useState("");
   const [instagramUser, setInstagramUser] = useState("");
 
@@ -906,8 +921,51 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
     return d.replace(/^(\d{2})(\d{5})(\d{4})$/, "($1) $2-$3").replace(/^(\d{2})(\d{5})$/, "($1) $2").replace(/^(\d{2})$/, "($1");
   }
 
-  const stepLabel = { dados: "1. Dados", verificacao: "2. Verificação", confirmacao: "3. Acesso" };
-  const steps: CadStep[] = ["dados", "verificacao", "confirmacao"];
+  useEffect(() => {
+    if (!token) return;
+    let ativo = true;
+    validarLinkCadastro(token).then(dados => {
+      if (ativo) { setLinkValido(true); if (dados.nome) setNome(dados.nome); }
+    }).catch(() => { if (ativo) setErroCadastro("Este link de cadastro é inválido, expirou ou já foi utilizado. Solicite um novo link à equipe BW."); })
+      .finally(() => { if (ativo) setValidando(false); });
+    return () => { ativo = false; };
+  }, [token]);
+
+  async function concluirCadastro() {
+    if (cadastroConcluido) { window.history.replaceState(null, "", "/"); onNav("login"); return; }
+    if (!cadastroConcluido && (senha.length < 8 || senha !== confirmarSenha || !aceitou)) {
+      setErroCadastro("Confira a senha (mínimo de 8 caracteres), a confirmação e o aceite dos termos.");
+      return;
+    }
+    setEnviando(true);
+    setErroCadastro("");
+    const payload: CadastroPayload = {
+      token, tipoCliente: tab === "pf" ? "PESSOA_FISICA" : "PESSOA_JURIDICA",
+      nome: nome.trim(), sobrenome: sobrenome.trim(), cpf: cpf.replace(/\D/g, ""),
+      dataNascimento: dataNascimento || null, email: email.trim(), telefone: phone.replace(/\D/g, ""),
+      origemContato: comoConheceu, senha, cnpj: tab === "pj" ? cnpj.replace(/\D/g, "") : null,
+      razaoSocial: tab === "pj" ? razaoSocial.trim() : null, nomeFantasia: tab === "pj" ? nomeFantasia.trim() : null,
+    };
+    try {
+      if (!cadastroConcluido) {
+        await cadastrarCliente(payload);
+        setCadastroConcluido(true);
+      }
+      try {
+        const { perfil } = await apiLogin(payload.email, senha);
+        window.history.replaceState(null, "", "/");
+        if (perfil === "CLIENTE") onClientLogin(tab);
+        else onNav("login");
+      } catch {
+        window.history.replaceState(null, "", "/");
+        setErroCadastro("Cadastro concluído! O login automático não foi possível. Acesse com seu e-mail e senha.");
+      }
+    } catch (erro: any) {
+      setErroCadastro(erro?.response?.data?.message || "Não foi possível concluir o cadastro. Confira os dados e tente novamente.");
+    } finally { setEnviando(false); }
+  }
+
+  const steps: CadStep[] = ["dados", "confirmacao"];
 
   const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors pr-8";
   const glassLabel = "block text-[10px] font-mono uppercase tracking-[.18em] text-white/40 mb-1";
@@ -954,8 +1012,11 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
             ))}
           </div>
 
+          {validando && <p role="status" className="mb-5 text-sm text-white">Validando seu link de cadastro...</p>}
+          {!validando && !linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroCadastro || "Para criar uma conta, utilize o link de cadastro enviado pela equipe BW."}</p>}
+          {erroCadastro && linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroCadastro}</p>}
           {/* STEP 1: Dados */}
-          {step === "dados" && (
+          {linkValido && step === "dados" && (
             <>
               <div className="mb-7">
                 <h2 className="font-display text-3xl text-white leading-tight">Seus dados</h2>
@@ -977,11 +1038,11 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className={glassLabel}>Nome</label>
-                      <input type="text" placeholder="Nome" className={glassInput} />
+                      <input type="text" placeholder="Nome" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} />
                     </div>
                     <div>
                       <label className={glassLabel}>Sobrenome</label>
-                      <input type="text" placeholder="Sobrenome" className={glassInput} />
+                      <input type="text" placeholder="Sobrenome" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} />
                     </div>
                   </div>
                   <div>
@@ -990,12 +1051,12 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                   </div>
                   <div>
                     <label className={glassLabel}>Data de nascimento</label>
-                    <input type="date" className={glassInput + " font-mono"} />
+                    <input type="date" value={dataNascimento} onChange={e => setDataNascimento(e.target.value)} className={glassInput + " font-mono"} />
                   </div>
                   <div>
                     <label className={glassLabel}>E-mail</label>
-                    <input type="email" placeholder="seu@email.com" className={glassInput} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Verificado por código no próximo passo</p>
+                    <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
+                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
                   </div>
                   <div>
                     <label className={glassLabel}>Celular / WhatsApp</label>
@@ -1008,107 +1069,70 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                   <div>
                     <label className={glassLabel}>CNPJ</label>
                     <input type="text" placeholder="00.000.000/0001-00" value={cnpj} onChange={e => setCnpj(formatCNPJ(e.target.value))} className={glassInput + " font-mono"} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Validado automaticamente na Receita Federal</p>
+                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> CNPJ conferido ao enviar o cadastro</p>
                   </div>
                   <div>
                     <label className={glassLabel}>Razão social</label>
-                    <input type="text" placeholder="Nome da empresa Ltda." className={glassInput} />
+                    <input type="text" placeholder="Nome da empresa Ltda." value={razaoSocial} onChange={e => setRazaoSocial(e.target.value)} className={glassInput} />
                   </div>
                   <div>
                     <label className={glassLabel}>Nome fantasia</label>
-                    <input type="text" placeholder="BW Arquitetura" className={glassInput} />
+                    <input type="text" placeholder="BW Arquitetura" value={nomeFantasia} onChange={e => setNomeFantasia(e.target.value)} className={glassInput} />
                   </div>
                   <div>
                     <label className={glassLabel}>E-mail corporativo</label>
-                    <input type="email" placeholder="contato@empresa.com.br" className={glassInput} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Verificado por código no próximo passo</p>
+                    <input type="email" placeholder="contato@empresa.com.br" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
+                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
                   </div>
                   <div>
                     <label className={glassLabel}>Telefone comercial</label>
-                    <input type="tel" placeholder="(11) 3000-0000" className={glassInput + " font-mono"} />
+                    <input type="tel" placeholder="(11) 3000-0000" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-mono"} />
                   </div>
                   <div>
                     <label className={glassLabel}>Nome do responsável</label>
-                    <input type="text" placeholder="Nome completo" className={glassInput} />
+                    <input type="text" placeholder="Nome do responsável" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} />
+                     <input type="text" placeholder="Sobrenome do responsável" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} />
                   </div>
                   <div>
                     <label className={glassLabel}>CPF do responsável</label>
-                    <input type="text" placeholder="000.000.000-00" className={glassInput + " font-mono"} />
+                    <input type="text" placeholder="000.000.000-00" value={cpf} onChange={e => setCpf(formatCPF(e.target.value))} className={glassInput + " font-mono"} />
                   </div>
                   <ComoConheceuFields comoConheceu={comoConheceu} setComoConheceu={setComoConheceu} instagramUser={instagramUser} setInstagramUser={setInstagramUser} glassInput={glassInput} glassLabel={glassLabel} />
                 </div>
               )}
 
-              <button onClick={() => setStep("verificacao")} className="mt-8 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
+              <button onClick={() => {
+                 if (!nome.trim() || !sobrenome.trim() || cpf.replace(/\D/g, "").length !== 11 || !email.includes("@") || phone.replace(/\D/g, "").length < 10 || !comoConheceu || (tab === "pj" && (cnpj.replace(/\D/g, "").length !== 14 || !razaoSocial.trim()))) {
+                   setErroCadastro("Preencha nome, sobrenome, CPF, e-mail, telefone e origem do contato. Para empresas, informe CNPJ e razão social.");
+                   return;
+                 }
+                 setErroCadastro(""); setStep("confirmacao");
+               }} className="mt-8 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
                 Continuar <span className="text-base leading-none">›</span>
               </button>
             </>
           )}
 
-          {/* STEP 2: Verificação */}
-          {step === "verificacao" && (
-            <div>
-              <div className="mb-7">
-                <h2 className="font-display text-3xl text-white leading-tight">Verificação</h2>
-                <p className="text-[11px] font-mono text-white/35 mt-1">Confirme o endereço de e-mail</p>
-              </div>
-
-              {!emailSent ? (
-                <div className="flex flex-col gap-5">
-                  <div className="flex items-center gap-3 border-b border-white/10 pb-5">
-                    <span className="text-white/30"><Icon.Mail /></span>
-                    <div>
-                      <div className="text-xs font-mono text-white/70">seu@email.com</div>
-                      <div className="text-[9px] font-mono text-white/30">{tab === "pj" ? "E-mail corporativo" : "E-mail pessoal"}</div>
-                    </div>
-                  </div>
-                  <p className="text-[11px] font-mono text-white/35 leading-relaxed">Enviaremos um código de 6 dígitos. Expira em 15 minutos.</p>
-                  <button onClick={() => setEmailSent(true)} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
-                    Enviar código <span className="text-base leading-none">›</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-6">
-                  <p className="text-[11px] font-mono text-white/35">Código enviado para <span className="text-white/60">seu@email.com</span></p>
-                  <div>
-                    <label className={glassLabel}>Código de 6 dígitos</label>
-                    <div className="flex gap-2 mt-2">
-                      {Array.from({ length: 6 }).map((_, i) => (
-                        <input key={i} type="text" maxLength={1} className="w-full bg-transparent border-b border-white/20 py-3 text-center text-lg font-mono text-white focus:outline-none focus:border-bw-dourado transition-colors" />
-                      ))}
-                    </div>
-                    <p className="text-[9px] font-mono text-white/25 text-right mt-2">Expira em <span className="text-white/50">14:32</span></p>
-                  </div>
-                  <button onClick={() => setStep("confirmacao")} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
-                    Verificar e-mail <span className="text-base leading-none">›</span>
-                  </button>
-                  <button onClick={() => {}} className="text-[10px] font-mono text-white/25 hover:text-bw-dourado transition-colors text-center underline">Reenviar código</button>
-                </div>
-              )}
-              <button onClick={() => setStep("dados")} className="mt-6 text-[10px] font-mono text-white/25 hover:text-white/50 transition-colors block">← Voltar</button>
-            </div>
-          )}
-
-          {/* STEP 3: Senha */}
-          {step === "confirmacao" && (
+          {/* STEP 2: Senha */}
+          {linkValido && step === "confirmacao" && (
             <div className="flex flex-col gap-5">
               <div>
                 <div className="flex items-center gap-2 text-[10px] font-mono text-bw-dourado/70 border-b border-white/10 pb-4 mb-2">
-                  <Icon.Check /> E-mail verificado com sucesso
+                  <Icon.Check /> Link de cadastro validado
                 </div>
                 <h2 className="font-display text-3xl text-white leading-tight mt-4">Definir senha</h2>
                 <p className="text-[11px] font-mono text-white/35 mt-1">Mínimo 8 caracteres</p>
               </div>
               <div>
                 <label className={glassLabel}>Senha</label>
-                <PasswordInput placeholder="Mínimo 8 caracteres" className={glassInput} />
+                <PasswordInput placeholder="Mínimo 8 caracteres" value={senha} onChange={e => setSenha(e.target.value)} className={glassInput} />
                 <div className="flex gap-1 mt-3">
                   {["","","",""].map((_, i) => (
                     <div key={i} className="flex-1 h-px bg-white/10" />
                   ))}
                 </div>
                 <div className="mt-2.5 grid gap-x-4 gap-y-1 sm:grid-cols-2">
-                  {[["Mín. 8 caracteres",false],["Letra maiúscula",false],["Número",false],["Caractere especial",false]].map(([r, ok]) => (
+                  {[["Mín. 8 caracteres",senha.length >= 8],["Letra maiúscula",/[A-Z]/.test(senha)],["Número",/\d/.test(senha)],["Caractere especial",/[^\w\s]/.test(senha)]].map(([r, ok]) => (
                     <div key={r as string} className="flex items-center gap-1.5 text-[9px] font-mono text-white/25">
                       <span>{ok ? "✓" : "–"}</span>{r as string}
                     </div>
@@ -1117,15 +1141,16 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
               </div>
               <div>
                 <label className={glassLabel}>Confirmar senha</label>
-                <PasswordInput placeholder="Repita a senha" className={glassInput} />
+                <PasswordInput placeholder="Repita a senha" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} className={glassInput} />
               </div>
               <div className="flex items-start gap-2.5 pt-1">
-                <input type="checkbox" className="mt-0.5 accent-bw-dourado" />
+                <input type="checkbox" checked={aceitou} onChange={e => setAceitou(e.target.checked)} className="mt-0.5 accent-bw-dourado" />
                 <label className="text-[10px] font-mono text-white/35 leading-relaxed">Li e aceito os <a href="#" className="text-white/60 hover:text-bw-dourado transition-colors underline">Termos de Uso</a> e a <a href="#" className="text-white/60 hover:text-bw-dourado transition-colors underline">Política de Privacidade</a></label>
               </div>
-              <button onClick={() => onClientLogin(tab)} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
-                Criar conta e entrar <span className="text-base leading-none">›</span>
+              <button onClick={() => void concluirCadastro()} disabled={enviando} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50">
+                {enviando ? "Criando conta..." : cadastroConcluido ? "Ir para o login" : "Criar conta e entrar"} <span className="text-base leading-none">›</span>
               </button>
+              {!cadastroConcluido && <button onClick={() => { setErroCadastro(""); setStep("dados"); }} className="text-xs text-bw-areia underline">← Voltar aos dados</button>}
             </div>
           )}
 
