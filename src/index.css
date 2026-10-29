@@ -130,5 +130,5 @@ input[type="password"]::-webkit-textfield-decoration-button {
 
 /* Keep the custom toggle aligned inside the input */
 .password-toggle {
-  line-height: 0;
+  width: 2rem; height: 2rem; min-width: 2rem; min-height: 0 !important; padding: 0.375rem; line-height: 0;
 }

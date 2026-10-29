@@ -84,8 +84,8 @@ const Icon = {
   Check: () => <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>,
   Mail: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="2" y="4" width="20" height="16" rx="2" /><polyline points="2,4 12,13 22,4" /></svg>,
   Building: () => <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="2" y="3" width="20" height="18" rx="1" /><path d="M8 21V12h8v9M9 7h2M13 7h2M9 11h2M13 11h2" /></svg>,
-  Eye: () => <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>,
-  EyeOff: () => <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22" /></svg>,
+  Eye: () => <svg width="18" height="18" className="w-[18px] h-[18px] shrink-0 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>,
+  EyeOff: () => <svg width="18" height="18" className="w-[18px] h-[18px] shrink-0 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22" /></svg>,
   AlertCircle: () => <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>,
   Settings: () => <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 00.34 1.88l.06.06a2 2 0 01-2.83 2.83l-.06-.06A1.7 1.7 0 0015 19.4a1.7 1.7 0 00-1 .6 1.7 1.7 0 00-.4 1.1V21a2 2 0 01-4 0v-.09A1.7 1.7 0 008.6 19.4a1.7 1.7 0 00-1.88.34l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.7 1.7 0 004.6 15a1.7 1.7 0 00-.6-1 1.7 1.7 0 00-1.1-.4H3a2 2 0 010-4h.09A1.7 1.7 0 004.6 8.6a1.7 1.7 0 00-.34-1.88l-.06-.06a2 2 0 012.83-2.83l.06.06A1.7 1.7 0 009 4.6a1.7 1.7 0 001-.6 1.7 1.7 0 00.4-1.1V3a2 2 0 014 0v.09A1.7 1.7 0 0015.4 4.6a1.7 1.7 0 001.88-.34l.06-.06a2 2 0 012.83 2.83l-.06.06A1.7 1.7 0 0019.4 9c.12.38.33.72.6 1 .3.28.68.42 1.1.4h.09a2 2 0 010 4h-.09a1.7 1.7 0 00-1.7.6z" /></svg>,
 };
@@ -93,7 +93,7 @@ const Icon = {
 function PasswordInput({ toggleClassName = "text-white", className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement> & { toggleClassName?: string }) {
   const [visible, setVisible] = useState(false);
   return (
-    <div className="relative w-full">
+    <div className="relative flex w-full items-center">
       <input {...props} type={visible ? "text" : "password"} className={`${className} pr-10`} />
       <button
         type="button"
@@ -101,7 +101,7 @@ function PasswordInput({ toggleClassName = "text-white", className = "", ...prop
         aria-pressed={visible}
         disabled={props.disabled}
         onClick={() => setVisible(value => !value)}
-        className={`password-toggle absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center p-0 transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40 ${toggleClassName}`}
+        className={`password-toggle absolute right-1 top-1/2 -translate-y-1/2 z-10 inline-flex h-8 w-8 items-center justify-center rounded p-1.5 transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40 ${toggleClassName}`}
       >
         {visible ? <Icon.EyeOff /> : <Icon.Eye />}
       </button>
