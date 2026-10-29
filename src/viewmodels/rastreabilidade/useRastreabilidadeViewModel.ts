@@ -18,7 +18,7 @@ function toError(err: unknown): Error {
 }
 
 export function useRastreabilidadeViewModel(
-  initialParams: PageParams = { page: 0, size: 100, sort: "id,desc" }
+  initialParams: PageParams = { page: 0, size: 10, sort: "id,desc" }
 ) {
   const [data, setData] = useState<Page<Rastreabilidade> | null>(null);
   const [loading, setLoading] = useState(false);

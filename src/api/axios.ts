@@ -3,7 +3,7 @@ import axios from "axios";
 function getAuthToken(): string | null {
   try {
     // Prefer in-memory / sessionStorage, fallback to localStorage
-    return sessionStorage.getItem("authToken") || localStorage.getItem("authToken") || null;
+    return localStorage.getItem("authToken") || sessionStorage.getItem("authToken") || null;
   } catch {
     return null;
   }

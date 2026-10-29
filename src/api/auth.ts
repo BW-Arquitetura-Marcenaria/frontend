@@ -45,21 +45,32 @@ export async function login(email: string, senha: string): Promise<LoginResult> 
   const resp = await axios.post<LoginResponse>("/v1/api/auth/login", { email, senha });
   const data = resp.data;
 
+  const payload = decodeJwt(data.token);
+  if (!payload || (payload.perfil !== "ADMIN" && payload.perfil !== "CLIENTE") || payload.exp * 1000 <= Date.now()) {
+    throw new Error("A sessão recebida é inválida. Tente entrar novamente.");
+  }
   localStorage.setItem("authToken", data.token);
   localStorage.setItem("authUsuarioId", String(data.usuarioId));
   localStorage.setItem("authNome", data.nome);
-
-  const payload = decodeJwt(data.token);
-  return { ...data, perfil: payload?.perfil ?? null, payload };
+  return { ...data, perfil: payload.perfil, payload };
 }
 
 export function logout(): void {
-  localStorage.removeItem("authToken");
-  localStorage.removeItem("authUsuarioId");
-  localStorage.removeItem("authNome");
+  for (const storage of [localStorage, sessionStorage]) {
+    storage.removeItem("authToken");
+    storage.removeItem("authUsuarioId");
+    storage.removeItem("authNome");
+  }
+  sessionStorage.removeItem("authClienteTipo");
 }
 
 export function getPerfilAtual(): Perfil | null {
-  const token = localStorage.getItem("authToken");
-  return token ? (decodeJwt(token)?.perfil ?? null) : null;
+  const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+  if (!token) return null;
+  const payload = decodeJwt(token);
+  if (!payload || payload.exp * 1000 <= Date.now() || (payload.perfil !== "ADMIN" && payload.perfil !== "CLIENTE")) {
+    logout();
+    return null;
+  }
+  return payload.perfil;
 }
