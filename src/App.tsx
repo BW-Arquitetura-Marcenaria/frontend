@@ -10,10 +10,13 @@ import CalendarioView from "@/views/calendario/CalendarioView";
 import FinanceiroView from "@/views/financeiro/FinanceiroView";
 import ClienteAgendamentosView from "@/views/calendario/ClienteAgendamentosView";
 import { useMinhaContaViewModel } from "@/viewmodels/minhaConta/useMinhaContaViewModel";
-import { login as apiLogin } from "@/api/auth";
+import { login as apiLogin, logout, getPerfilAtual } from "@/api/auth";
+import { cadastrarCliente, validarLinkCadastro, type CadastroPayload } from "@/api/cadastro";
 import { getContaAdmin, putEmpresaAdmin, putEnderecoAdmin, putSegurancaAdmin, type ContaAdmin, type EmpresaAdminPayload, type EnderecoAdminPayload } from "@/api/contaAdmin";
 import { ecopontosPrefeitura } from "@/data/ecopontosPrefeitura";
 import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
+import DeleteButton from "@/components/DeleteButton";
+import FeedbackMessage from "@/components/FeedbackMessage";
 import { useReferenciasViewModel } from "@/viewmodels/referencias/useReferenciasViewModel";
 import { createReferencia, exportReferencias, updateReferencia } from "@/api/referencias";
 import type { Referencia } from "@/models/Referencia";
@@ -96,8 +99,9 @@ function PasswordInput({ toggleClassName = "text-white", className = "", ...prop
         type="button"
         aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
         aria-pressed={visible}
+        disabled={props.disabled}
         onClick={() => setVisible(value => !value)}
-        className={`password-toggle absolute right-1 top-1/2 -translate-y-1/2 z-10 inline-flex h-8 w-8 items-center justify-center rounded p-1.5 transition-opacity hover:opacity-70 ${toggleClassName}`}
+        className={`password-toggle absolute right-1 top-1/2 -translate-y-1/2 z-10 inline-flex h-8 w-8 items-center justify-center rounded p-1.5 transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40 ${toggleClassName}`}
       >
         {visible ? <Icon.EyeOff /> : <Icon.Eye />}
       </button>
@@ -676,6 +680,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
         onClientLogin(tab);
       }
     } catch (err: any) {
+      // O modo mock permite explorar a interface, mas não cria uma sessão autenticada.
       if (!err?.response && import.meta.env.VITE_USE_MOCK === "true") { if (email.toLowerCase().includes("admin") || email.toLowerCase().includes("bwtestes")) { onNav("funil"); } else { onClientLogin(tab); } return; }
       const status = err?.response?.status;
       setError(
@@ -816,7 +821,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
             <button onClick={() => onNav("institucional")} className="text-[10px] font-mono text-white/20 hover:text-white/40 transition-colors lg:hidden">← Site</button>
           </div>
           <div className="mt-4 text-center">
-            <button onClick={() => onNav("funil")} className="text-[9px] font-mono text-white/15 hover:text-white/30 transition-colors">Acesso interno — Equipe BW ↗</button>
+            <button onClick={() => { if (getPerfilAtual() === "ADMIN" || import.meta.env.VITE_USE_MOCK === "true") onNav("funil"); else setError("Entre com uma conta da equipe para acessar a plataforma."); }} className="text-[9px] font-mono text-white/15 hover:text-white/30 transition-colors">Acesso interno — Equipe BW ↗</button>
           </div>
         </div>
       </div>
@@ -826,7 +831,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
 
 // ─── SCREEN: Cadastro ─────────────────────────────────────────────────────────
 type CadTab = "pf" | "pj";
-type CadStep = "dados" | "verificacao" | "confirmacao";
+type CadStep = "dados" | "confirmacao";
 
 const COMO_CONHECEU_OPTIONS = [
   { value: "instagram", label: "Instagram" },
@@ -882,12 +887,26 @@ function ComoConheceuFields({ comoConheceu, setComoConheceu, instagramUser, setI
 }
 
 function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientLogin: (tipo: ClienteTipo) => void }) {
+  const token = new URLSearchParams(window.location.search).get("token") ?? "";
+  const [linkValido, setLinkValido] = useState(false);
+  const [validando, setValidando] = useState(Boolean(token));
+  const [enviando, setEnviando] = useState(false);
+  const [erroCadastro, setErroCadastro] = useState("");
+  const [nome, setNome] = useState("");
+  const [sobrenome, setSobrenome] = useState("");
+  const [email, setEmail] = useState("");
+  const [dataNascimento, setDataNascimento] = useState("");
+  const [razaoSocial, setRazaoSocial] = useState("");
+  const [nomeFantasia, setNomeFantasia] = useState("");
+  const [senha, setSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [aceitou, setAceitou] = useState(false);
+  const [cadastroConcluido, setCadastroConcluido] = useState(false);
   const [tab, setTab] = useState<CadTab>("pf");
   const [step, setStep] = useState<CadStep>("dados");
   const [cnpj, setCnpj] = useState("");
   const [cpf, setCpf] = useState("");
   const [phone, setPhone] = useState("");
-  const [emailSent, setEmailSent] = useState(false);
   const [comoConheceu, setComoConheceu] = useState("");
   const [instagramUser, setInstagramUser] = useState("");
 
@@ -904,8 +923,51 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
     return d.replace(/^(\d{2})(\d{5})(\d{4})$/, "($1) $2-$3").replace(/^(\d{2})(\d{5})$/, "($1) $2").replace(/^(\d{2})$/, "($1");
   }
 
-  const stepLabel = { dados: "1. Dados", verificacao: "2. Verificação", confirmacao: "3. Acesso" };
-  const steps: CadStep[] = ["dados", "verificacao", "confirmacao"];
+  useEffect(() => {
+    if (!token) return;
+    let ativo = true;
+    validarLinkCadastro(token).then(dados => {
+      if (ativo) { setLinkValido(true); if (dados.nome) setNome(dados.nome); }
+    }).catch(() => { if (ativo) setErroCadastro("Este link de cadastro é inválido, expirou ou já foi utilizado. Solicite um novo link à equipe BW."); })
+      .finally(() => { if (ativo) setValidando(false); });
+    return () => { ativo = false; };
+  }, [token]);
+
+  async function concluirCadastro() {
+    if (cadastroConcluido) { window.history.replaceState(null, "", "/"); onNav("login"); return; }
+    if (!cadastroConcluido && (senha.length < 8 || senha !== confirmarSenha || !aceitou)) {
+      setErroCadastro("Confira a senha (mínimo de 8 caracteres), a confirmação e o aceite dos termos.");
+      return;
+    }
+    setEnviando(true);
+    setErroCadastro("");
+    const payload: CadastroPayload = {
+      token, tipoCliente: tab === "pf" ? "PESSOA_FISICA" : "PESSOA_JURIDICA",
+      nome: nome.trim(), sobrenome: sobrenome.trim(), cpf: cpf.replace(/\D/g, ""),
+      dataNascimento: dataNascimento || null, email: email.trim(), telefone: phone.replace(/\D/g, ""),
+      origemContato: comoConheceu, senha, cnpj: tab === "pj" ? cnpj.replace(/\D/g, "") : null,
+      razaoSocial: tab === "pj" ? razaoSocial.trim() : null, nomeFantasia: tab === "pj" ? nomeFantasia.trim() : null,
+    };
+    try {
+      if (!cadastroConcluido) {
+        await cadastrarCliente(payload);
+        setCadastroConcluido(true);
+      }
+      try {
+        const { perfil } = await apiLogin(payload.email, senha);
+        window.history.replaceState(null, "", "/");
+        if (perfil === "CLIENTE") onClientLogin(tab);
+        else onNav("login");
+      } catch {
+        window.history.replaceState(null, "", "/");
+        setErroCadastro("Cadastro concluído! O login automático não foi possível. Acesse com seu e-mail e senha.");
+      }
+    } catch (erro: any) {
+      setErroCadastro(erro?.response?.data?.message || "Não foi possível concluir o cadastro. Confira os dados e tente novamente.");
+    } finally { setEnviando(false); }
+  }
+
+  const steps: CadStep[] = ["dados", "confirmacao"];
 
   const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors pr-8";
   const glassLabel = "block text-[10px] font-mono uppercase tracking-[.18em] text-white/40 mb-1";
@@ -952,8 +1014,11 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
             ))}
           </div>
 
+          {validando && <p role="status" className="mb-5 text-sm text-white">Validando seu link de cadastro...</p>}
+          {!validando && !linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroCadastro || "Para criar uma conta, utilize o link de cadastro enviado pela equipe BW."}</p>}
+          {erroCadastro && linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroCadastro}</p>}
           {/* STEP 1: Dados */}
-          {step === "dados" && (
+          {linkValido && step === "dados" && (
             <>
               <div className="mb-7">
                 <h2 className="font-display text-3xl text-white leading-tight">Seus dados</h2>
@@ -975,11 +1040,11 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className={glassLabel}>Nome</label>
-                      <input type="text" placeholder="Nome" className={glassInput} />
+                      <input type="text" placeholder="Nome" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} />
                     </div>
                     <div>
                       <label className={glassLabel}>Sobrenome</label>
-                      <input type="text" placeholder="Sobrenome" className={glassInput} />
+                      <input type="text" placeholder="Sobrenome" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} />
                     </div>
                   </div>
                   <div>
@@ -988,12 +1053,12 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                   </div>
                   <div>
                     <label className={glassLabel}>Data de nascimento</label>
-                    <input type="date" className={glassInput + " font-mono"} />
+                    <input type="date" value={dataNascimento} onChange={e => setDataNascimento(e.target.value)} className={glassInput + " font-mono"} />
                   </div>
                   <div>
                     <label className={glassLabel}>E-mail</label>
-                    <input type="email" placeholder="seu@email.com" className={glassInput} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Verificado por código no próximo passo</p>
+                    <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
+                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
                   </div>
                   <div>
                     <label className={glassLabel}>Celular / WhatsApp</label>
@@ -1006,107 +1071,70 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                   <div>
                     <label className={glassLabel}>CNPJ</label>
                     <input type="text" placeholder="00.000.000/0001-00" value={cnpj} onChange={e => setCnpj(formatCNPJ(e.target.value))} className={glassInput + " font-mono"} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Validado automaticamente na Receita Federal</p>
+                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> CNPJ conferido ao enviar o cadastro</p>
                   </div>
                   <div>
                     <label className={glassLabel}>Razão social</label>
-                    <input type="text" placeholder="Nome da empresa Ltda." className={glassInput} />
+                    <input type="text" placeholder="Nome da empresa Ltda." value={razaoSocial} onChange={e => setRazaoSocial(e.target.value)} className={glassInput} />
                   </div>
                   <div>
                     <label className={glassLabel}>Nome fantasia</label>
-                    <input type="text" placeholder="BW Arquitetura" className={glassInput} />
+                    <input type="text" placeholder="BW Arquitetura" value={nomeFantasia} onChange={e => setNomeFantasia(e.target.value)} className={glassInput} />
                   </div>
                   <div>
                     <label className={glassLabel}>E-mail corporativo</label>
-                    <input type="email" placeholder="contato@empresa.com.br" className={glassInput} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Verificado por código no próximo passo</p>
+                    <input type="email" placeholder="contato@empresa.com.br" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
+                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
                   </div>
                   <div>
                     <label className={glassLabel}>Telefone comercial</label>
-                    <input type="tel" placeholder="(11) 3000-0000" className={glassInput + " font-mono"} />
+                    <input type="tel" placeholder="(11) 3000-0000" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-mono"} />
                   </div>
                   <div>
                     <label className={glassLabel}>Nome do responsável</label>
-                    <input type="text" placeholder="Nome completo" className={glassInput} />
+                    <input type="text" placeholder="Nome do responsável" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} />
+                     <input type="text" placeholder="Sobrenome do responsável" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} />
                   </div>
                   <div>
                     <label className={glassLabel}>CPF do responsável</label>
-                    <input type="text" placeholder="000.000.000-00" className={glassInput + " font-mono"} />
+                    <input type="text" placeholder="000.000.000-00" value={cpf} onChange={e => setCpf(formatCPF(e.target.value))} className={glassInput + " font-mono"} />
                   </div>
                   <ComoConheceuFields comoConheceu={comoConheceu} setComoConheceu={setComoConheceu} instagramUser={instagramUser} setInstagramUser={setInstagramUser} glassInput={glassInput} glassLabel={glassLabel} />
                 </div>
               )}
 
-              <button onClick={() => setStep("verificacao")} className="mt-8 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
+              <button onClick={() => {
+                 if (!nome.trim() || !sobrenome.trim() || cpf.replace(/\D/g, "").length !== 11 || !email.includes("@") || phone.replace(/\D/g, "").length < 10 || !comoConheceu || (tab === "pj" && (cnpj.replace(/\D/g, "").length !== 14 || !razaoSocial.trim()))) {
+                   setErroCadastro("Preencha nome, sobrenome, CPF, e-mail, telefone e origem do contato. Para empresas, informe CNPJ e razão social.");
+                   return;
+                 }
+                 setErroCadastro(""); setStep("confirmacao");
+               }} className="mt-8 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
                 Continuar <span className="text-base leading-none">›</span>
               </button>
             </>
           )}
 
-          {/* STEP 2: Verificação */}
-          {step === "verificacao" && (
-            <div>
-              <div className="mb-7">
-                <h2 className="font-display text-3xl text-white leading-tight">Verificação</h2>
-                <p className="text-[11px] font-mono text-white/35 mt-1">Confirme o endereço de e-mail</p>
-              </div>
-
-              {!emailSent ? (
-                <div className="flex flex-col gap-5">
-                  <div className="flex items-center gap-3 border-b border-white/10 pb-5">
-                    <span className="text-white/30"><Icon.Mail /></span>
-                    <div>
-                      <div className="text-xs font-mono text-white/70">seu@email.com</div>
-                      <div className="text-[9px] font-mono text-white/30">{tab === "pj" ? "E-mail corporativo" : "E-mail pessoal"}</div>
-                    </div>
-                  </div>
-                  <p className="text-[11px] font-mono text-white/35 leading-relaxed">Enviaremos um código de 6 dígitos. Expira em 15 minutos.</p>
-                  <button onClick={() => setEmailSent(true)} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
-                    Enviar código <span className="text-base leading-none">›</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-6">
-                  <p className="text-[11px] font-mono text-white/35">Código enviado para <span className="text-white/60">seu@email.com</span></p>
-                  <div>
-                    <label className={glassLabel}>Código de 6 dígitos</label>
-                    <div className="flex gap-2 mt-2">
-                      {Array.from({ length: 6 }).map((_, i) => (
-                        <input key={i} type="text" maxLength={1} className="w-full bg-transparent border-b border-white/20 py-3 text-center text-lg font-mono text-white focus:outline-none focus:border-bw-dourado transition-colors" />
-                      ))}
-                    </div>
-                    <p className="text-[9px] font-mono text-white/25 text-right mt-2">Expira em <span className="text-white/50">14:32</span></p>
-                  </div>
-                  <button onClick={() => setStep("confirmacao")} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
-                    Verificar e-mail <span className="text-base leading-none">›</span>
-                  </button>
-                  <button onClick={() => {}} className="text-[10px] font-mono text-white/25 hover:text-bw-dourado transition-colors text-center underline">Reenviar código</button>
-                </div>
-              )}
-              <button onClick={() => setStep("dados")} className="mt-6 text-[10px] font-mono text-white/25 hover:text-white/50 transition-colors block">← Voltar</button>
-            </div>
-          )}
-
-          {/* STEP 3: Senha */}
-          {step === "confirmacao" && (
+          {/* STEP 2: Senha */}
+          {linkValido && step === "confirmacao" && (
             <div className="flex flex-col gap-5">
               <div>
                 <div className="flex items-center gap-2 text-[10px] font-mono text-bw-dourado/70 border-b border-white/10 pb-4 mb-2">
-                  <Icon.Check /> E-mail verificado com sucesso
+                  <Icon.Check /> Link de cadastro validado
                 </div>
                 <h2 className="font-display text-3xl text-white leading-tight mt-4">Definir senha</h2>
                 <p className="text-[11px] font-mono text-white/35 mt-1">Mínimo 8 caracteres</p>
               </div>
               <div>
                 <label className={glassLabel}>Senha</label>
-                <PasswordInput placeholder="Mínimo 8 caracteres" className={glassInput} />
+                <PasswordInput placeholder="Mínimo 8 caracteres" value={senha} onChange={e => setSenha(e.target.value)} className={glassInput} />
                 <div className="flex gap-1 mt-3">
                   {["","","",""].map((_, i) => (
                     <div key={i} className="flex-1 h-px bg-white/10" />
                   ))}
                 </div>
                 <div className="mt-2.5 grid gap-x-4 gap-y-1 sm:grid-cols-2">
-                  {[["Mín. 8 caracteres",false],["Letra maiúscula",false],["Número",false],["Caractere especial",false]].map(([r, ok]) => (
+                  {[["Mín. 8 caracteres",senha.length >= 8],["Letra maiúscula",/[A-Z]/.test(senha)],["Número",/\d/.test(senha)],["Caractere especial",/[^\w\s]/.test(senha)]].map(([r, ok]) => (
                     <div key={r as string} className="flex items-center gap-1.5 text-[9px] font-mono text-white/25">
                       <span>{ok ? "✓" : "–"}</span>{r as string}
                     </div>
@@ -1115,15 +1143,16 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
               </div>
               <div>
                 <label className={glassLabel}>Confirmar senha</label>
-                <PasswordInput placeholder="Repita a senha" className={glassInput} />
+                <PasswordInput placeholder="Repita a senha" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} className={glassInput} />
               </div>
               <div className="flex items-start gap-2.5 pt-1">
-                <input type="checkbox" className="mt-0.5 accent-bw-dourado" />
+                <input type="checkbox" checked={aceitou} onChange={e => setAceitou(e.target.checked)} className="mt-0.5 accent-bw-dourado" />
                 <label className="text-[10px] font-mono text-white/35 leading-relaxed">Li e aceito os <a href="#" className="text-white/60 hover:text-bw-dourado transition-colors underline">Termos de Uso</a> e a <a href="#" className="text-white/60 hover:text-bw-dourado transition-colors underline">Política de Privacidade</a></label>
               </div>
-              <button onClick={() => onClientLogin(tab)} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
-                Criar conta e entrar <span className="text-base leading-none">›</span>
+              <button onClick={() => void concluirCadastro()} disabled={enviando} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50">
+                {enviando ? "Criando conta..." : cadastroConcluido ? "Ir para o login" : "Criar conta e entrar"} <span className="text-base leading-none">›</span>
               </button>
+              {!cadastroConcluido && <button onClick={() => { setErroCadastro(""); setStep("dados"); }} className="text-xs text-bw-areia underline">← Voltar aos dados</button>}
             </div>
           )}
 
@@ -2320,7 +2349,10 @@ function Simulacao() {
 
 // ─── SCREEN: Tabela de Preços ─────────────────────────────────────────────────
 function TabelaPrecos() {
-  const { data, loading, deleting, error, remove, refresh } = useReferenciasViewModel({ page: 0, size: 100, sort: "id,desc" });
+  const { data, loading, deleting, error, remove, refresh, fetchPage } = useReferenciasViewModel({ page: 0, size: 10, sort: "id,desc" });
+  const [formError, setFormError] = useState("");
+  const [exportError, setExportError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<{id:number, desc:string, unit:string, material:string, price:number, cat:string} | null>(null);
@@ -2339,7 +2371,10 @@ function TabelaPrecos() {
   const excluirItem = async () => {
     if (!deleteTarget) return;
     const deleted = await remove(deleteTarget.id);
-    if (deleted) setDeleteTarget(null);
+    if (deleted) {
+      setDeleteTarget(null);
+      if (data?.content.length === 1 && (data.number ?? 0) > 0) void fetchPage({ page: data.number - 1 });
+    }
   };
 
   return (
@@ -2347,14 +2382,14 @@ function TabelaPrecos() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div><h1 className="text-2xl font-semibold text-bw-preto font-display">Tabela de Preços de Referência</h1><p className="text-[10px] font-mono text-bw-muted">Padronização para orçamentos</p></div>
         <div className="flex gap-2">
-          <button onClick={() => setIsExportModalOpen(true)} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors">Exportar PDF</button>
-          <button onClick={() => setIsNewItemModalOpen(true)} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Novo item</button>
+          <button onClick={() => { setExportError(""); setIsExportModalOpen(true); }} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors">Exportar PDF</button>
+          <button onClick={() => { setFormError(""); setIsNewItemModalOpen(true); }} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Novo item</button>
         </div>
       </div>
-      {error && !deleteTarget && <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">Erro: {error.message}</div>}
+      {error && !deleteTarget && <FeedbackMessage message={error.message} />}
       {loading && <div className="rounded-lg border border-bw-border bg-bw-white p-8 text-center text-sm text-bw-muted">Carregando referências...</div>}
-      {!loading && secoes.length === 0 && <div className="rounded-lg border border-bw-border bg-bw-white p-8 text-center text-sm text-bw-muted">Nenhuma referência encontrada.</div>}
-      {secoes.map(([categoria, items])=>(
+      {!loading && !error && secoes.length === 0 && <div className="rounded-lg border border-bw-border bg-bw-white p-8 text-center text-sm text-bw-muted">Nenhuma referência encontrada.</div>}
+      {!loading && !error && secoes.map(([categoria, items])=>(
         <div key={categoria} className="overflow-x-auto rounded-lg border border-bw-border bg-bw-white">
           <div className="px-4 py-3 border-b border-bw-border bg-bw-areia"><span className="text-xs font-semibold text-bw-madeira">{formatCategoria(categoria)}</span></div>
           <table className="w-full min-w-[42rem] text-xs">
@@ -2368,11 +2403,10 @@ function TabelaPrecos() {
                   <td className="px-4 py-3 font-mono text-bw-muted">{item.unidade}</td>
                   <td className="px-4 py-3 text-bw-muted">{item.materialBase}</td>
                   <td className="px-4 py-3 font-mono font-semibold text-bw-preto">R$ {Number(item.precoReferencia).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-3 text-bw-muted text-[10px] hover:text-bw-madeira cursor-pointer" onClick={() => setEditingItem({id: item.id, desc: item.descricao, unit: item.unidade, material: item.materialBase, price: Number(item.precoReferencia), cat: item.categoria})}>Editar</td>
+                  <td className="px-4 py-3"><button type="button" className="text-xs text-bw-madeira underline hover:text-bw-preto" onClick={() => { setFormError(""); setEditingItem({id: item.id, desc: item.descricao, unit: item.unidade, material: item.materialBase, price: Number(item.precoReferencia), cat: item.categoria}); }}>Editar</button></td>
                   <td className="px-2 py-3 text-bw-muted">
-                    <button onClick={() => setDeleteTarget(item)} disabled={deleting} title="Excluir item" aria-label={`Excluir ${item.descricao}`} className="p-1 hover:text-red-600 transition-colors disabled:opacity-40">
-                      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
-                    </button>
+                    <DeleteButton onClick={() => setDeleteTarget(item)} disabled={deleting} title="Excluir item" aria-label={`Excluir ${item.descricao}`} />
+
                   </td>
                 </tr>
               ))}
@@ -2380,9 +2414,14 @@ function TabelaPrecos() {
           </table>
         </div>
       ))}
+      {data && data.totalPages > 1 && <nav aria-label="Páginas de referências" className="flex items-center justify-between rounded-lg border border-bw-border bg-bw-white px-4 py-3 text-sm text-bw-madeira">
+        <button type="button" disabled={loading || data.number === 0} onClick={() => void fetchPage({ page: data.number - 1 })} className="underline disabled:opacity-40">Anterior</button>
+        <span>Página {data.number + 1} de {data.totalPages} · {data.totalElements} itens</span>
+        <button type="button" disabled={loading || data.number >= data.totalPages - 1} onClick={() => void fetchPage({ page: data.number + 1 })} className="underline disabled:opacity-40">Próxima</button>
+      </nav>}
 
       {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
+        <div role="dialog" aria-modal="true" aria-label="Editar referência" className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8">
             <button 
               onClick={() => setEditingItem(null)}
@@ -2408,13 +2447,15 @@ function TabelaPrecos() {
                   unidade: (fd.get('unidade') as string) ?? editingItem.unit,
                   precoReferencia: Number((fd.get('precoReferencia') as string) ?? editingItem.price)
                 };
+                setSaving(true);
+                setFormError("");
                 try {
                   await updateReferencia(editingItem.id, payload);
-                  refresh();
+                  void refresh();
                   setEditingItem(null);
                 } catch (err:any) {
-                  alert((err?.response?.data?.message) || err?.message || String(err));
-                }
+                  setFormError(err?.response?.data?.message || "Não foi possível atualizar a referência. Tente novamente.");
+                } finally { setSaving(false); }
               }}>
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Categoria</label>
@@ -2447,16 +2488,17 @@ function TabelaPrecos() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
-                  <input name="precoReferencia" type="number" step="0.01" defaultValue={editingItem.price} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
+                  <input name="precoReferencia" type="number" min="0" step="0.01" defaultValue={editingItem.price} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
                 </div>
               </div>
 
+              {formError && <FeedbackMessage message={formError} className="!text-red-200" />}
               <div className="mt-4 flex gap-3">
-                <button type="button" onClick={() => setEditingItem(null)} className="flex-1 border border-bw-dourado/30 text-bw-areia font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors">
+                <button type="button" disabled={saving} onClick={() => setEditingItem(null)} className="flex-1 border border-bw-dourado/30 text-bw-areia font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors">
                   Cancelar
                 </button>
-                <button type="submit" className="flex-1 bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors">
-                  Salvar
+                <button type="submit" disabled={saving} className="flex-1 bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-50">
+                  {saving ? "Salvando..." : "Salvar"}
                 </button>
               </div>
             </form>
@@ -2465,7 +2507,7 @@ function TabelaPrecos() {
       )}
 
       {isNewItemModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
+        <div role="dialog" aria-modal="true" aria-label="Nova referência" className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8">
             <button 
               onClick={() => setIsNewItemModalOpen(false)}
@@ -2490,13 +2532,15 @@ function TabelaPrecos() {
                   unidade: fd.get('unidade') as string,
                   precoReferencia: Number(fd.get('precoReferencia') as string)
                 };
+                setSaving(true);
+                setFormError("");
                 try {
                   await createReferencia(payload);
-                  refresh();
+                  void fetchPage({ page: 0 });
                   setIsNewItemModalOpen(false);
                 } catch (err:any) {
-                  alert((err?.response?.data?.message) || err?.message || String(err));
-                }
+                  setFormError(err?.response?.data?.message || "Não foi possível criar a referência. Tente novamente.");
+                } finally { setSaving(false); }
               }}>
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Categoria</label>
@@ -2530,13 +2574,14 @@ function TabelaPrecos() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
-                  <input name="precoReferencia" type="number" step="0.01" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="0,00" />
+                  <input name="precoReferencia" type="number" min="0" step="0.01" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="0,00" />
                 </div>
               </div>
 
+              {formError && <FeedbackMessage message={formError} className="!text-red-200" />}
               <div className="mt-4">
-                <button type="submit" className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors">
-                  Salvar Item
+                <button type="submit" disabled={saving} className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-50">
+                  {saving ? "Salvando..." : "Salvar Item"}
                 </button>
               </div>
             </form>
@@ -2545,7 +2590,7 @@ function TabelaPrecos() {
       )}
 
       {isExportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
+        <div role="dialog" aria-modal="true" aria-label="Exportar referências" className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-sm overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 text-center shadow-2xl backdrop-blur-md sm:p-8">
             <button 
               onClick={() => setIsExportModalOpen(false)}
@@ -2562,13 +2607,14 @@ function TabelaPrecos() {
             <p className="text-xs text-bw-muted mb-6">Selecione o formato para download do referencial de preços atualizado.</p>
 
             <div className="flex flex-col gap-3">
+              {exportError && <FeedbackMessage message={exportError} className="!text-red-200" />}
               <button 
                 onClick={async () => {
                   try {
                     await exportReferencias('pdf');
                     setIsExportModalOpen(false);
                   } catch {
-                    alert('Não foi possível exportar o PDF. Tente novamente com o backend disponível.');
+                    setExportError('Não foi possível exportar o PDF. Tente novamente.');
                   }
                 }}
                 className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors"
@@ -2581,7 +2627,7 @@ function TabelaPrecos() {
                     await exportReferencias('excel');
                     setIsExportModalOpen(false);
                   } catch {
-                    alert('Não foi possível exportar a planilha. Tente novamente com o backend disponível.');
+                    setExportError('Não foi possível exportar a planilha. Tente novamente.');
                   }
                 }}
                 className="w-full border border-bw-dourado/40 text-bw-areia font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors"
@@ -3662,18 +3708,43 @@ function ConfiguracoesConta() {
 const platformScreens: Screen[] = ["funil","financeiro","calendario","chatbot","simulacao","tabela-precos","rastreabilidade","descarte","usuarios-admin","configuracoes"];
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("institucional");
-  const [clienteTipo, setClienteTipo] = useState<ClienteTipo>("pf");
+  const [perfil, setPerfil] = useState(() => getPerfilAtual());
+  const [screen, setScreen] = useState<Screen>(() => {
+    const atual = getPerfilAtual();
+    if (atual === "ADMIN") return "funil";
+    if (atual === "CLIENTE") return "portal-cliente";
+    if (new URLSearchParams(window.location.search).has("token") && window.location.pathname === "/cadastro") return "cadastro";
+    return "institucional";
+  });
+  const [clienteTipo, setClienteTipo] = useState<ClienteTipo>(() => sessionStorage.getItem("authClienteTipo") === "pj" ? "pj" : "pf");
+
+  function navegar(destino: Screen) {
+    if (destino === "institucional" && (screen === "portal-cliente" || platformScreens.includes(screen))) {
+      logout();
+      setPerfil(null);
+    }
+    if (destino === "cadastro" && window.location.pathname === "/cadastro") window.history.replaceState(null, "", "/");
+    if (destino === "portal-cliente" && perfil !== "CLIENTE" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
+    if (platformScreens.includes(destino) && perfil !== "ADMIN" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
+    setScreen(destino);
+  }
 
   function handleClientLogin(tipo: ClienteTipo) {
     setClienteTipo(tipo);
+    if (getPerfilAtual() === "CLIENTE") sessionStorage.setItem("authClienteTipo", tipo);
+    setPerfil(getPerfilAtual());
     setScreen("portal-cliente");
   }
 
-  if (screen === "institucional") return <SiteInstitucionalPremium onNav={setScreen} />;
-  if (screen === "login") return <Login onNav={setScreen} onClientLogin={handleClientLogin} />;
-  if (screen === "cadastro") return <Cadastro onNav={setScreen} onClientLogin={handleClientLogin} />;
-  if (screen === "portal-cliente") return <PortalCliente tipo={clienteTipo} onNav={setScreen} />;
-  if (platformScreens.includes(screen)) return <PlatformShell screen={screen} onNav={setScreen} />;
-  return <SiteInstitucionalPremium onNav={setScreen} />;
+  function handleLoginNav(destino: Screen) {
+    if (destino === "funil") setPerfil(getPerfilAtual());
+    navegar(destino);
+  }
+
+  if (screen === "institucional") return <SiteInstitucionalPremium onNav={navegar} />;
+  if (screen === "login") return <Login onNav={handleLoginNav} onClientLogin={handleClientLogin} />;
+  if (screen === "cadastro") return <Cadastro onNav={navegar} onClientLogin={handleClientLogin} />;
+  if (screen === "portal-cliente") return <PortalCliente tipo={clienteTipo} onNav={navegar} />;
+  if (platformScreens.includes(screen)) return <PlatformShell screen={screen} onNav={navegar} />;
+  return <SiteInstitucionalPremium onNav={navegar} />;
 }
