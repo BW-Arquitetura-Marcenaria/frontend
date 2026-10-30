@@ -834,7 +834,7 @@ export function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; on
 
 // ─── SCREEN: Cadastro ─────────────────────────────────────────────────────────
 type CadTab = "pf" | "pj";
-type CadStep = "dados" | "confirmacao";
+type CadStep = "dados" | "contato" | "confirmacao";
 
 const COMO_CONHECEU_OPTIONS = [
   { value: "instagram", label: "Instagram" },
@@ -970,7 +970,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
     } finally { setEnviando(false); }
   }
 
-  const steps: CadStep[] = ["dados", "confirmacao"];
+  const steps: CadStep[] = ["dados", "contato", "confirmacao"];
 
   const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors pr-8";
   const glassLabel = "block text-[10px] font-mono uppercase tracking-[.18em] text-white/40 mb-1";
@@ -1020,12 +1020,12 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
           {validando && <p role="status" className="mb-5 text-sm text-white">Validando seu link de cadastro...</p>}
           {!validando && !linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroCadastro || "Para criar uma conta, utilize o link de cadastro enviado pela equipe BW."}</p>}
           {erroCadastro && linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroCadastro}</p>}
-          {/* STEP 1: Dados */}
+          {/* STEP 1: Dados pessoais ou da empresa */}
           {linkValido && step === "dados" && (
             <>
               <div className="mb-7">
-                <h2 className="font-display text-3xl text-white leading-tight">Seus dados</h2>
-                <p className="text-[11px] font-mono text-white/35 mt-1">Escolha o tipo de conta</p>
+                <h2 className="font-display text-3xl text-white leading-tight">{tab === "pf" ? "Seus dados" : "Dados da empresa"}</h2>
+                <p className="text-[11px] font-mono text-white/35 mt-1">Etapa 1 de {steps.length}</p>
               </div>
 
               {/* PF / PJ tabs */}
@@ -1058,16 +1058,6 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
                     <label className={glassLabel}>Data de nascimento</label>
                     <input type="date" value={dataNascimento} onChange={e => setDataNascimento(e.target.value)} className={glassInput + " font-mono"} />
                   </div>
-                  <div>
-                    <label className={glassLabel}>E-mail</label>
-                    <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
-                  </div>
-                  <div>
-                    <label className={glassLabel}>Celular / WhatsApp</label>
-                    <input type="tel" placeholder="(11) 99999-9999" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-mono"} />
-                  </div>
-                  <ComoConheceuFields comoConheceu={comoConheceu} setComoConheceu={setComoConheceu} instagramUser={instagramUser} setInstagramUser={setInstagramUser} glassInput={glassInput} glassLabel={glassLabel} />
                 </div>
               ) : (
                 <div key="pj" className="flex flex-col gap-5">
@@ -1084,41 +1074,63 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
                     <label className={glassLabel}>Nome fantasia</label>
                     <input type="text" placeholder="BW Arquitetura" value={nomeFantasia} onChange={e => setNomeFantasia(e.target.value)} className={glassInput} />
                   </div>
-                  <div>
-                    <label className={glassLabel}>E-mail corporativo</label>
-                    <input type="email" placeholder="contato@empresa.com.br" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
-                  </div>
-                  <div>
-                    <label className={glassLabel}>Telefone comercial</label>
-                    <input type="tel" placeholder="(11) 3000-0000" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-mono"} />
-                  </div>
-                  <div>
-                    <label className={glassLabel}>Nome do responsável</label>
-                    <input type="text" placeholder="Nome do responsável" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} />
-                     <input type="text" placeholder="Sobrenome do responsável" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} />
-                  </div>
-                  <div>
-                    <label className={glassLabel}>CPF do responsável</label>
-                    <input type="text" placeholder="000.000.000-00" value={cpf} onChange={e => setCpf(formatCPF(e.target.value))} className={glassInput + " font-mono"} />
-                  </div>
-                  <ComoConheceuFields comoConheceu={comoConheceu} setComoConheceu={setComoConheceu} instagramUser={instagramUser} setInstagramUser={setInstagramUser} glassInput={glassInput} glassLabel={glassLabel} />
                 </div>
               )}
 
               <button onClick={() => {
-                 if (!nome.trim() || !sobrenome.trim() || cpf.replace(/\D/g, "").length !== 11 || !email.includes("@") || phone.replace(/\D/g, "").length < 10 || !comoConheceu || (tab === "pj" && (cnpj.replace(/\D/g, "").length !== 14 || !razaoSocial.trim()))) {
-                   setErroCadastro("Preencha nome, sobrenome, CPF, e-mail, telefone e origem do contato. Para empresas, informe CNPJ e razão social.");
+                 if ((tab === "pf" && (!nome.trim() || !sobrenome.trim() || cpf.replace(/\D/g, "").length !== 11)) || (tab === "pj" && (cnpj.replace(/\D/g, "").length !== 14 || !razaoSocial.trim()))) {
+                   setErroCadastro(tab === "pf" ? "Preencha nome, sobrenome e um CPF válido." : "Preencha CNPJ e razão social.");
                    return;
                  }
-                 setErroCadastro(""); setStep("confirmacao");
+                 setErroCadastro(""); setStep("contato");
                }} className="mt-8 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
                 Continuar <span className="text-base leading-none">›</span>
               </button>
             </>
           )}
 
-          {/* STEP 2: Senha */}
+          {/* STEP 2: Contato */}
+          {linkValido && step === "contato" && (
+            <div className="flex flex-col gap-5">
+              <div>
+                <div className="flex items-center gap-2 text-[10px] font-mono text-bw-dourado/70 border-b border-white/10 pb-4 mb-2">
+                  <Icon.Check /> {tab === "pf" ? "Dados pessoais preenchidos" : "Dados da empresa preenchidos"}
+                </div>
+                <h2 className="font-display text-3xl text-white leading-tight mt-4">Contato</h2>
+                <p className="text-[11px] font-mono text-white/35 mt-1">Etapa 2 de {steps.length}</p>
+              </div>
+              {tab === "pj" && (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div><label className={glassLabel}>Nome do responsável</label><input type="text" placeholder="Nome" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} /></div>
+                    <div><label className={glassLabel}>Sobrenome do responsável</label><input type="text" placeholder="Sobrenome" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} /></div>
+                  </div>
+                  <div><label className={glassLabel}>CPF do responsável</label><input type="text" placeholder="000.000.000-00" value={cpf} onChange={e => setCpf(formatCPF(e.target.value))} className={glassInput + " font-mono"} /></div>
+                </>
+              )}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={glassLabel}>{tab === "pf" ? "E-mail" : "E-mail corporativo"}</label>
+                  <input type="email" placeholder={tab === "pf" ? "seu@email.com" : "contato@empresa.com.br"} value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
+                  <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
+                </div>
+                <div><label className={glassLabel}>{tab === "pf" ? "Celular / WhatsApp" : "Telefone comercial"}</label><input type="tel" placeholder={tab === "pf" ? "(11) 99999-9999" : "(11) 3000-0000"} value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-mono"} /></div>
+              </div>
+              <ComoConheceuFields comoConheceu={comoConheceu} setComoConheceu={setComoConheceu} instagramUser={instagramUser} setInstagramUser={setInstagramUser} glassInput={glassInput} glassLabel={glassLabel} />
+              <button onClick={() => {
+                if (!nome.trim() || !sobrenome.trim() || cpf.replace(/\D/g, "").length !== 11 || !email.includes("@") || phone.replace(/\D/g, "").length < 10 || !comoConheceu) {
+                  setErroCadastro("Preencha nome, sobrenome, CPF, e-mail, telefone e origem do contato.");
+                  return;
+                }
+                setErroCadastro(""); setStep("confirmacao");
+              }} className="mt-3 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
+                Continuar <span className="text-base leading-none">›</span>
+              </button>
+              <button onClick={() => { setErroCadastro(""); setStep("dados"); }} className="text-xs text-bw-areia underline">← Voltar</button>
+            </div>
+          )}
+
+          {/* STEP 3: Senha */}
           {linkValido && step === "confirmacao" && (
             <div className="flex flex-col gap-5">
               <div>
@@ -1126,7 +1138,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
                   <Icon.Check /> Link de cadastro validado
                 </div>
                 <h2 className="font-display text-3xl text-white leading-tight mt-4">Definir senha</h2>
-                <p className="text-[11px] font-mono text-white/35 mt-1">Mínimo 8 caracteres</p>
+                <p className="text-[11px] font-mono text-white/35 mt-1">Etapa 3 de {steps.length} · mínimo 8 caracteres</p>
               </div>
               <div>
                 <label className={glassLabel}>Senha</label>
@@ -1155,7 +1167,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
               <button onClick={() => void concluirCadastro()} disabled={enviando} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50">
                 {enviando ? "Criando conta..." : cadastroConcluido ? "Ir para o login" : "Criar conta e entrar"} <span className="text-base leading-none">›</span>
               </button>
-              {!cadastroConcluido && <button onClick={() => { setErroCadastro(""); setStep("dados"); }} className="text-xs text-bw-areia underline">← Voltar aos dados</button>}
+              {!cadastroConcluido && <button onClick={() => { setErroCadastro(""); setStep("contato"); }} className="text-xs text-bw-areia underline">← Voltar ao contato</button>}
             </div>
           )}
 
@@ -1547,12 +1559,15 @@ function PortalCliente({ tipo, onNav }: { tipo: ClienteTipo; onNav: (s: Screen) 
 }
 
 // ─── PLATFORM SHELL ───────────────────────────────────────────────────────────
+// Keep the unfinished simulation available in code, but out of the presentation navigation.
+const isEnvironmentSimulationVisible = false;
+
 const navItems: { id: Screen; label: string; icon: React.ReactNode }[] = [
   { id: "funil", label: "Funil de Clientes", icon: <Icon.Users /> },
   { id: "financeiro", label: "Financeiro", icon: <Icon.Dollar /> },
   { id: "calendario", label: "Calendário", icon: <Icon.Cal /> },
   { id: "chatbot", label: "Chatbot IA", icon: <Icon.Bot /> },
-  { id: "simulacao", label: "Simulação de Ambiente", icon: <Icon.Layers /> },
+  ...(isEnvironmentSimulationVisible ? [{ id: "simulacao" as const, label: "Simulação de Ambiente", icon: <Icon.Layers /> }] : []),
   { id: "tabela-precos", label: "Tabela de Preços", icon: <Icon.Tag /> },
   { id: "rastreabilidade", label: "Rastreabilidade", icon: <Icon.Trend /> },
   { id: "descarte", label: "Mapa de Descarte", icon: <Icon.Map /> },
@@ -2359,7 +2374,26 @@ function TabelaPrecos() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<{id:number, desc:string, unit:string, material:string, price:number, cat:string} | null>(null);
+  const [editingPrice, setEditingPrice] = useState("");
+  const [newPrice, setNewPrice] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Referencia | null>(null);
+  const priceFormatter = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formatPrice = (value: number) => priceFormatter.format(value);
+  const normalizePriceInput = (value: string) => {
+    const sanitized = value.replace(/[^\d,]/g, "");
+    const [integer = "", decimal = ""] = sanitized.split(",", 2);
+    const integerPart = integer.replace(/^0+(?=\d)/, "").slice(0, 10);
+    return sanitized.includes(",") ? `${integerPart || "0"},${decimal.slice(0, 2)}` : integerPart;
+  };
+  const parsePrice = (value: string) => {
+    if (!value || value === ",") return null;
+    const price = Number(value.replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(price) && price >= 0 ? price : null;
+  };
+  const editablePrice = (value: string) => {
+    const price = parsePrice(value);
+    return price === null ? "" : String(price).replace(".", ",");
+  };
   const secoes = Object.entries((data?.content ?? []).reduce<Record<string, Referencia[]>>((acc, item) => {
     const categoria = item.categoria || "OUTROS";
     (acc[categoria] ??= []).push(item);
@@ -2386,7 +2420,7 @@ function TabelaPrecos() {
         <div><h1 className="text-2xl font-semibold text-bw-preto font-display">Tabela de Preços de Referência</h1><p className="text-[10px] font-mono text-bw-muted">Padronização para orçamentos</p></div>
         <div className="flex gap-2">
           <button onClick={() => { setExportError(""); setIsExportModalOpen(true); }} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors">Exportar PDF</button>
-          <button onClick={() => { setFormError(""); setIsNewItemModalOpen(true); }} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Novo item</button>
+          <button onClick={() => { setFormError(""); setNewPrice(""); setIsNewItemModalOpen(true); }} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Novo item</button>
         </div>
       </div>
       {error && !deleteTarget && <FeedbackMessage message={error.message} />}
@@ -2405,8 +2439,8 @@ function TabelaPrecos() {
                   <td className="px-4 py-3 text-bw-preto">{item.descricao}</td>
                   <td className="px-4 py-3 font-mono text-bw-muted">{item.unidade}</td>
                   <td className="px-4 py-3 text-bw-muted">{item.materialBase}</td>
-                  <td className="px-4 py-3 font-mono font-semibold text-bw-preto">R$ {Number(item.precoReferencia).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-3"><button type="button" className="text-xs text-bw-madeira underline hover:text-bw-preto" onClick={() => { setFormError(""); setEditingItem({id: item.id, desc: item.descricao, unit: item.unidade, material: item.materialBase, price: Number(item.precoReferencia), cat: item.categoria}); }}>Editar</button></td>
+                  <td className="px-4 py-3 font-mono font-semibold text-bw-preto">R$ {formatPrice(Number(item.precoReferencia))}</td>
+                  <td className="px-4 py-3"><button type="button" className="text-xs text-bw-madeira underline hover:text-bw-preto" onClick={() => { setFormError(""); setEditingPrice(formatPrice(Number(item.precoReferencia))); setEditingItem({id: item.id, desc: item.descricao, unit: item.unidade, material: item.materialBase, price: Number(item.precoReferencia), cat: item.categoria}); }}>Editar</button></td>
                   <td className="px-2 py-3 text-bw-muted">
                     <DeleteButton onClick={() => setDeleteTarget(item)} disabled={deleting} title="Excluir item" aria-label={`Excluir ${item.descricao}`} />
 
@@ -2427,7 +2461,7 @@ function TabelaPrecos() {
         <div role="dialog" aria-modal="true" aria-label="Editar referência" className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8">
             <button 
-              onClick={() => setEditingItem(null)}
+              onClick={() => { setEditingItem(null); setEditingPrice(""); }}
               className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors"
             >
               <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
@@ -2443,12 +2477,17 @@ function TabelaPrecos() {
                 if (!editingItem) return;
                 const form = e.currentTarget as HTMLFormElement;
                 const fd = new FormData(form);
+                const precoReferencia = parsePrice(editingPrice);
+                if (precoReferencia === null) {
+                  setFormError("Informe um preço de referência válido.");
+                  return;
+                }
                 const payload = {
                   categoria: (fd.get('categoria') as string) ?? editingItem.cat,
                   descricao: (fd.get('descricao') as string) ?? editingItem.desc,
                   materialBase: (fd.get('materialBase') as string) ?? editingItem.material,
                   unidade: (fd.get('unidade') as string) ?? editingItem.unit,
-                  precoReferencia: Number((fd.get('precoReferencia') as string) ?? editingItem.price)
+                  precoReferencia,
                 };
                 setSaving(true);
                 setFormError("");
@@ -2456,6 +2495,7 @@ function TabelaPrecos() {
                   await updateReferencia(editingItem.id, payload);
                   void refresh();
                   setEditingItem(null);
+                  setEditingPrice("");
                 } catch (err:any) {
                   setFormError(err?.response?.data?.message || "Não foi possível atualizar a referência. Tente novamente.");
                 } finally { setSaving(false); }
@@ -2491,13 +2531,13 @@ function TabelaPrecos() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
-                  <input name="precoReferencia" type="number" min="0" step="0.01" defaultValue={editingItem.price} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
+                  <input name="precoReferencia" type="text" inputMode="decimal" autoComplete="off" value={editingPrice} onFocus={() => setEditingPrice(editablePrice(editingPrice))} onChange={event => setEditingPrice(normalizePriceInput(event.target.value))} onBlur={() => { const price = parsePrice(editingPrice); if (price !== null) setEditingPrice(formatPrice(price)); }} placeholder="0,00" maxLength={16} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
                 </div>
               </div>
 
               {formError && <FeedbackMessage message={formError} className="!text-red-200" />}
               <div className="mt-4 flex gap-3">
-                <button type="button" disabled={saving} onClick={() => setEditingItem(null)} className="flex-1 border border-bw-dourado/30 text-bw-areia font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors">
+                <button type="button" disabled={saving} onClick={() => { setEditingItem(null); setEditingPrice(""); }} className="flex-1 border border-bw-dourado/30 text-bw-areia font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors">
                   Cancelar
                 </button>
                 <button type="submit" disabled={saving} className="flex-1 bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-50">
@@ -2513,7 +2553,7 @@ function TabelaPrecos() {
         <div role="dialog" aria-modal="true" aria-label="Nova referência" className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8">
             <button 
-              onClick={() => setIsNewItemModalOpen(false)}
+              onClick={() => { setIsNewItemModalOpen(false); setNewPrice(""); }}
               className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors"
             >
               <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
@@ -2528,12 +2568,17 @@ function TabelaPrecos() {
                 e.preventDefault();
                 const form = e.currentTarget as HTMLFormElement;
                 const fd = new FormData(form);
+                const precoReferencia = parsePrice(newPrice);
+                if (precoReferencia === null) {
+                  setFormError("Informe um preço de referência válido.");
+                  return;
+                }
                 const payload = {
                   categoria: fd.get('categoria') as string,
                   descricao: fd.get('descricao') as string,
                   materialBase: fd.get('materialBase') as string,
                   unidade: fd.get('unidade') as string,
-                  precoReferencia: Number(fd.get('precoReferencia') as string)
+                  precoReferencia,
                 };
                 setSaving(true);
                 setFormError("");
@@ -2541,6 +2586,7 @@ function TabelaPrecos() {
                   await createReferencia(payload);
                   void fetchPage({ page: 0 });
                   setIsNewItemModalOpen(false);
+                  setNewPrice("");
                 } catch (err:any) {
                   setFormError(err?.response?.data?.message || "Não foi possível criar a referência. Tente novamente.");
                 } finally { setSaving(false); }
@@ -2577,7 +2623,7 @@ function TabelaPrecos() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
-                  <input name="precoReferencia" type="number" min="0" step="0.01" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="0,00" />
+                  <input name="precoReferencia" type="text" inputMode="decimal" autoComplete="off" value={newPrice} onFocus={() => setNewPrice(editablePrice(newPrice))} onChange={event => setNewPrice(normalizePriceInput(event.target.value))} onBlur={() => { const price = parsePrice(newPrice); if (price !== null) setNewPrice(formatPrice(price)); }} placeholder="0,00" maxLength={16} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
                 </div>
               </div>
 
@@ -3292,6 +3338,15 @@ function MapaDescarte() {
 // ─── SCREEN: Configurações da Conta ──────────────────────────────────────────
 type AccountSection = "perfil" | "endereco" | "seguranca";
 
+type ViaCepResponse = {
+  erro?: boolean;
+  logradouro: string;
+  complemento: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+};
+
 const defaultAccountData = {
   empresa: "BW Arquitetura e Marcenaria",
   responsavel: "Bianca & Walmir",
@@ -3451,16 +3506,82 @@ function ConfiguracoesConta() {
   const [account, setAccount] = useState<ContaAdmin | null>(null);
   const [empresa, setEmpresa] = useState<EmpresaAdminPayload>({ nome: "", nomeFantasia: "", telefone: "" });
   const [endereco, setEndereco] = useState<EnderecoAdminPayload>({ cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "" });
+  const [cepEdited, setCepEdited] = useState(false);
+  const [cepLookupStatus, setCepLookupStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [cepLookupMessage, setCepLookupMessage] = useState("");
   const [cnpjVerification, setCnpjVerification] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const normalizeDocument = (value: string) => value.replace(/\D/g, "");
+  const cepDigits = normalizeDocument(endereco.cep);
   const maskCnpj = (value: string) => {
     const digits = normalizeDocument(value);
     return digits.length === 14 ? `${digits.slice(0, 2)}.***.***/****-${digits.slice(-2)}` : "**.***.***/****-**";
   };
-  const isCnpjVerified = Boolean(account?.empresa.cnpj) && normalizeDocument(cnpjVerification) === normalizeDocument(account?.empresa.cnpj ?? "");
+  const formatCnpj = (value: string) => {
+    const digits = normalizeDocument(value).slice(0, 14);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+    if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+    if (digits.length <= 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+    return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+  };
+  const cnpjDigits = normalizeDocument(cnpjVerification);
+  const isCnpjValid = (value: string) => {
+    if (!/^\d{14}$/.test(value) || /^(\d)\1{13}$/.test(value)) return false;
+    const calculateDigit = (base: string) => {
+      const weights = base.length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+      const remainder = base.split("").reduce((sum, digit, index) => sum + Number(digit) * weights[index], 0) % 11;
+      return remainder < 2 ? 0 : 11 - remainder;
+    };
+    return calculateDigit(value.slice(0, 12)) === Number(value[12]) && calculateDigit(value.slice(0, 13)) === Number(value[13]);
+  };
+  const cnpjIsValid = isCnpjValid(cnpjDigits);
+  const isCnpjVerified = cnpjIsValid && Boolean(account?.empresa.cnpj) && cnpjDigits === normalizeDocument(account?.empresa.cnpj ?? "");
+
+  useEffect(() => {
+    if (!cepEdited || cepDigits.length !== 8) {
+      setCepLookupStatus("idle");
+      setCepLookupMessage("");
+      return;
+    }
+
+    const controller = new AbortController();
+    const lookupCep = async () => {
+      setCepLookupStatus("loading");
+      setCepLookupMessage("Consultando CEP...");
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`, { signal: controller.signal });
+        const data = await response.json() as ViaCepResponse;
+        if (controller.signal.aborted) return;
+        if (!response.ok) throw new Error("via-cep-request-failed");
+        if (data.erro) {
+          setCepLookupStatus("error");
+          setCepLookupMessage("CEP não encontrado. Confira os números e tente novamente.");
+          return;
+        }
+        setEndereco(current => normalizeDocument(current.cep) === cepDigits ? {
+          ...current,
+          logradouro: data.logradouro,
+          complemento: data.complemento,
+          bairro: data.bairro,
+          cidade: data.localidade,
+          uf: data.uf,
+        } : current);
+        setSaved(false);
+        setCepLookupStatus("success");
+        setCepLookupMessage("Endereço preenchido automaticamente.");
+      } catch (err) {
+        if ((err as { name?: string }).name === "AbortError") return;
+        setCepLookupStatus("error");
+        setCepLookupMessage("Não foi possível consultar o CEP. Preencha o endereço manualmente.");
+      }
+    };
+
+    void lookupCep();
+    return () => controller.abort();
+  }, [cepDigits, cepEdited]);
 
   const loadConta = async () => {
     const version = ++accountRequest.current;
@@ -3472,6 +3593,7 @@ function ConfiguracoesConta() {
       setAccount(data);
       setEmpresa({ nome: data.empresa.nome ?? "", nomeFantasia: data.empresa.nomeFantasia ?? "", telefone: data.empresa.telefone ?? "" });
       setEndereco({ cep: data.endereco?.cep ?? "", logradouro: data.endereco?.logradouro ?? "", numero: data.endereco?.numero ?? "", complemento: data.endereco?.complemento ?? "", bairro: data.endereco?.bairro ?? "", cidade: data.endereco?.cidade ?? "", uf: data.endereco?.uf ?? "" });
+      setCepEdited(false);
     } catch (err) {
       if (version === accountRequest.current) setError(accountError(err));
     } finally {
@@ -3490,8 +3612,12 @@ function ConfiguracoesConta() {
     setSaved(false);
     setError("");
     if (section === "seguranca") {
+      if (!cnpjIsValid) {
+        setError("Informe um CNPJ válido com 14 dígitos.");
+        return;
+      }
       if (!isCnpjVerified) {
-        setError("Informe o CNPJ cadastrado para alterar sua senha.");
+        setError("O CNPJ informado não corresponde ao cadastro da empresa.");
         return;
       }
       if (!currentPassword || newPassword.length < 8 || newPassword.length > 72 || newPassword !== confirmPassword) {
@@ -3514,7 +3640,7 @@ function ConfiguracoesConta() {
         setAccount(data);
         setEndereco({ cep: data.endereco?.cep ?? "", logradouro: data.endereco?.logradouro ?? "", numero: data.endereco?.numero ?? "", complemento: data.endereco?.complemento ?? "", bairro: data.endereco?.bairro ?? "", cidade: data.endereco?.cidade ?? "", uf: data.endereco?.uf ?? "" });
       } else {
-        await putSegurancaAdmin({ cnpj: cnpjVerification, senhaAtual: currentPassword, novaSenha: newPassword, confirmarNovaSenha: confirmPassword });
+        await putSegurancaAdmin({ cnpj: cnpjDigits, senhaAtual: currentPassword, novaSenha: newPassword, confirmarNovaSenha: confirmPassword });
         setCnpjVerification("");
         setCurrentPassword("");
         setNewPassword("");
@@ -3531,6 +3657,7 @@ function ConfiguracoesConta() {
     if (account) {
       setEmpresa({ nome: account.empresa.nome, nomeFantasia: account.empresa.nomeFantasia ?? "", telefone: account.empresa.telefone });
       setEndereco({ cep: account.endereco?.cep ?? "", logradouro: account.endereco?.logradouro ?? "", numero: account.endereco?.numero ?? "", complemento: account.endereco?.complemento ?? "", bairro: account.endereco?.bairro ?? "", cidade: account.endereco?.cidade ?? "", uf: account.endereco?.uf ?? "" });
+      setCepEdited(false);
     }
     setCnpjVerification("");
     setCurrentPassword("");
@@ -3624,7 +3751,23 @@ function ConfiguracoesConta() {
               <div className="grid gap-x-7 gap-y-6 sm:grid-cols-6">
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
                   <span className={labelClass}>CEP</span>
-                  <input required maxLength={9} inputMode="numeric" value={endereco.cep} onChange={event => { setEndereco(current => ({ ...current, cep: event.target.value })); setSaved(false); }} placeholder="00000-000" className={fieldClass} />
+                  <input
+                    required
+                    maxLength={9}
+                    inputMode="numeric"
+                    value={endereco.cep}
+                    onChange={event => {
+                      const digits = normalizeDocument(event.target.value).slice(0, 8);
+                      const cep = digits.replace(/^(\d{5})(\d)/, "$1-$2");
+                      setEndereco(current => ({ ...current, cep }));
+                      setCepEdited(true);
+                      setSaved(false);
+                    }}
+                    placeholder="00000-000"
+                    aria-describedby={cepLookupMessage ? "cep-lookup-status" : undefined}
+                    className={fieldClass}
+                  />
+                  {cepLookupMessage && <span id="cep-lookup-status" role="status" aria-live="polite" className={`text-[9px] leading-relaxed ${cepLookupStatus === "error" ? "text-red-700" : cepLookupStatus === "success" ? "text-bw-dourado" : "text-bw-muted"}`}>{cepLookupMessage}</span>}
                 </label>
                 <label className="flex flex-col gap-1.5 sm:col-span-4">
                   <span className={labelClass}>Endereço</span>
@@ -3668,19 +3811,21 @@ function ConfiguracoesConta() {
                   <input
                     value={cnpjVerification}
                     onChange={event => {
-                      setCnpjVerification(event.target.value);
+                      setCnpjVerification(formatCnpj(event.target.value));
                       setError("");
                       setSaved(false);
                     }}
                     placeholder="00.000.000/0000-00"
                     inputMode="numeric"
+                    maxLength={18}
+                    aria-invalid={Boolean(cnpjVerification) && !cnpjIsValid}
                     className={fieldClass}
                   />
                 </label>
                 {cnpjVerification && (
-                  <div className={`mt-3 flex items-center gap-2 text-[10px] ${isCnpjVerified ? "text-bw-dourado" : "text-bw-muted"}`}>
+                  <div className={`mt-3 flex items-center gap-2 text-[10px] ${isCnpjVerified ? "text-bw-dourado" : cnpjIsValid ? "text-bw-muted" : "text-red-700"}`}>
                     {isCnpjVerified ? <Icon.Check /> : <Icon.AlertCircle />}
-                    {isCnpjVerified ? "CNPJ confirmado. A alteração de senha foi liberada." : "O CNPJ informado não corresponde ao cadastro."}
+                    {isCnpjVerified ? "CNPJ confirmado. A alteração de senha foi liberada." : cnpjIsValid ? "O CNPJ informado não corresponde ao cadastro." : "Informe um CNPJ válido com 14 dígitos."}
                   </div>
                 )}
               </div>
