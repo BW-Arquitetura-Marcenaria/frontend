@@ -8,6 +8,8 @@ import bwLoginBg from "@/assets/backgrounds/login-estante-plantas.png";
 import RastreabilidadeView from "@/views/rastreabilidade/RastreabilidadeView";
 import CalendarioView from "@/views/calendario/CalendarioView";
 import FinanceiroView from "@/views/financeiro/FinanceiroView";
+import AdminChatView from "@/views/chatbot/AdminChatView";
+import ClienteChatView from "@/views/chatbot/ClienteChatView";
 import ClienteAgendamentosView from "@/views/calendario/ClienteAgendamentosView";
 import { useMinhaContaViewModel } from "@/viewmodels/minhaConta/useMinhaContaViewModel";
 import { login as apiLogin, logout, getPerfilAtual } from "@/api/auth";
@@ -1174,87 +1176,6 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
 // ─── PORTAL DO CLIENTE ────────────────────────────────────────────────────────
 type PortalTab = "mensagens" | "agendamentos" | "conta";
 
-const clienteMsgsPF = [
-  { from: "bw", text: "Olá, Juliana! Como posso ajudar com seu projeto hoje?" },
-  { from: "cliente", text: "Oi! Queria saber como está o andamento da minha cozinha planejada." },
-  { from: "bw", text: "Seu projeto está em fase de produção. O gabinete superior foi cortado e está em pintura. Prazo estimado de entrega: 12 dias úteis. 🎉" },
-  { from: "cliente", text: "Que ótimo! E sobre as ferragens — confirmaram o modelo escolhido?" },
-  { from: "bw", text: "Sim! As ferragens Blum com amortecedor foram confirmadas. Caso queira alterar, precisa ser até amanhã para não impactar o prazo." },
-];
-
-const clienteMsgsPJ = [
-  { from: "bw", text: "Bom dia! Aqui é a equipe BW. Em que posso ajudar a sua empresa?" },
-  { from: "cliente", text: "Precisamos de uma atualização sobre o cronograma do escritório." },
-  { from: "bw", text: "O projeto do escritório está 70% concluído. Ambientes restantes: sala de reunião e recepção. Entrega prevista: 18/10." },
-  { from: "cliente", text: "Perfeito. O pagamento da segunda parcela foi confirmado?" },
-  { from: "bw", text: "Confirmado! Recebemos R$ 24.000 em 15/09. Próxima parcela: R$ 12.000 no ato da entrega." },
-];
-
-function ClienteChatbot({ tipo }: { tipo: ClienteTipo }) {
-  const initMsgs = tipo === "pf" ? clienteMsgsPF : clienteMsgsPJ;
-  const [messages, setMessages] = useState(initMsgs);
-  const [input, setInput] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  const send = () => {
-    const text = input.trim();
-    if (!text) return;
-    setMessages(m => [...m, { from: "cliente", text }]);
-    setInput("");
-    setTimeout(() => {
-      setMessages(m => [...m, { from: "bw", text: "Mensagem recebida! Nossa equipe responderá em instantes." }]);
-    }, 900);
-  };
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  return (
-    <div className="flex flex-col w-full h-full rounded-sm" style={{ background: "rgba(22,19,15,0.45)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}>
-      {/* Header */}
-      <div className="px-6 py-5 flex items-center gap-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <div className="w-10 h-10 rounded-full bg-bw-dourado/10 border border-bw-dourado/30 flex items-center justify-center text-bw-dourado flex-shrink-0">
-          <Icon.Bot />
-        </div>
-        <div>
-          <div className="text-base font-display tracking-wide text-white">Equipe BW Arquitetura</div>
-          <div className="text-[9px] font-mono text-white/40 uppercase tracking-[.18em] mt-0.5 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500/80 animate-pulse"></span> Online — Responde em até 2h</div>
-        </div>
-      </div>
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-5">
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.from === "cliente" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[75%] px-5 py-3.5 text-[13px] leading-relaxed rounded-sm ${
-              m.from === "cliente"
-                ? "bg-bw-dourado text-white"
-                : "text-white/90"
-            }`} style={m.from === "bw" ? { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" } : {}}>
-              {m.text}
-            </div>
-          </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
-      {/* Input */}
-      <div className="px-5 py-5 flex gap-3 items-end" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
-        <input
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && send()}
-          placeholder="Escreva sua mensagem…"
-          className="flex-1 bg-transparent border-0 border-b border-white/20 py-2.5 text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors"
-        />
-        <button onClick={send} className="w-10 h-10 flex items-center justify-center bg-bw-dourado/10 border border-bw-dourado/40 text-bw-dourado hover:bg-bw-dourado hover:text-white transition-colors flex-shrink-0">
-          <Icon.Send />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
   // estilos reutilizados
   const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors";
@@ -1539,7 +1460,7 @@ function PortalCliente({ tipo, onNav }: { tipo: ClienteTipo; onNav: (s: Screen) 
       {/* Main content */}
       <div className="relative z-10 flex flex-1 items-stretch justify-center overflow-hidden px-3 py-4 sm:px-4 sm:py-8 lg:px-12 lg:py-12">
         <div className="w-full max-w-4xl xl:max-w-5xl">
-          {tab === "mensagens" ? <ClienteChatbot tipo={tipo} /> : tab === "agendamentos" ? <ClienteAgendamentosView /> : <ClienteConta tipo={tipo} />}
+          {tab === "mensagens" ? <ClienteChatView /> : tab === "agendamentos" ? <ClienteAgendamentosView /> : <ClienteConta tipo={tipo} />}
         </div>
       </div>
     </div>
@@ -1568,7 +1489,7 @@ function PlatformShell({ screen, onNav }: { screen: Screen; onNav: (s: Screen) =
       case "funil": return <Funil />;
       case "financeiro": return <FinanceiroView />;
       case "calendario": return <Calendario />;
-      case "chatbot": return <Chatbot />;
+      case "chatbot": return <AdminChatView />;
       case "simulacao": return <Simulacao />;
       case "tabela-precos": return <TabelaPrecos />;
       case "rastreabilidade": return <Rastreabilidade />;
@@ -2113,117 +2034,6 @@ function CalendarioLegacy() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── SCREEN: Chatbot ──────────────────────────────────────────────────────────
-const chatHistory = [
-  {id:1, clientName:"Rafael Mendes", preview:"Gostei muito do trabalho...", time:"Agora", aiContext:"O cliente demonstrou alto interesse (Score 94) para fechamento rápido. Foco em móveis planejados (R$ 28–35k). Recomendo enviar o portfólio da linha 'Madeira Nobre' e sugerir uma visita técnica. Urgência declarada."},
-  {id:2, clientName:"Camila Furtado", preview:"Preciso do projeto arquitetônico...", time:"2h", aiContext:"Lead qualificada, busca projeto completo (R$ 80–120k). Pede opções mais clean e iluminação natural. Agendar reunião no escritório para apresentar amostras de materiais."},
-  {id:3, clientName:"Thiago Cavalcanti", preview:"Qual o valor aproximado para...", time:"Ontem", aiContext:"Aguardando resposta do orçamento de móveis planejados. Perfil analítico, focado em custo-benefício. Sugestão: oferecer um desconto de 5% à vista para acelerar o fechamento."},
-];
-
-const chatMsgs = {
-  1: [
-    {from:"client", text:"Olá! Gostei muito do trabalho de vocês no Instagram. Queria fazer os móveis do meu apartamento novo.", time:"10:30"},
-    {from:"user", text:"Olá, Rafael! Muito obrigado. Ficamos felizes com o contato. Qual o prazo que você tem em mente para a entrega?", time:"10:35"},
-    {from:"client", text:"Estou com um pouco de urgência, pego as chaves mês que vem. Vocês conseguem atender?", time:"10:36"},
-    {from:"user", text:"Conseguimos sim! Temos um encaixe perfeito na nossa produção para o próximo mês. Que tal agendarmos uma visita técnica para amanhã?", time:"10:40"},
-  ],
-  2: [
-    {from:"client", text:"Bom dia, vi que vocês fazem projetos completos. Qual o valor médio para uma casa de 200m²?", time:"09:15"},
-    {from:"user", text:"Bom dia, Camila! Para uma casa de 200m², o projeto completo costuma ficar na faixa de R$ 80–120k, dependendo dos acabamentos.", time:"09:40"},
-  ],
-  3: [
-    {from:"client", text:"Recebi o orçamento de vocês. O valor está um pouco acima do que eu esperava.", time:"14:20"},
-    {from:"user", text:"Entendo, Thiago. Podemos revisar os materiais para adequar ao seu budget. Tem preferência por alguma linha específica?", time:"15:10"},
-  ]
-};
-
-function Chatbot() {
-  const [input, setInput] = useState("");
-  const [activeChat, setActiveChat] = useState(1);
-  const currentChat = chatHistory.find(c => c.id === activeChat);
-  const currentMsgs = chatMsgs[activeChat as keyof typeof chatMsgs] || [];
-
-  return (
-    <div className="flex h-[calc(100svh-9.5rem)] min-h-[32rem] flex-col gap-0 overflow-hidden rounded-lg border border-bw-border sm:h-[calc(100vh-8rem)] sm:min-h-0 sm:flex-row">
-      {/* History */}
-      <div className="flex h-36 w-full flex-shrink-0 flex-col border-b border-bw-border bg-bw-areia sm:h-auto sm:w-64 sm:border-b-0 sm:border-r">
-        <div className="p-3 border-b border-bw-border bg-bw-preto">
-          <div className="text-bw-white font-display text-lg px-1">Mensagens</div>
-          <p className="text-[10px] text-bw-dourado font-mono uppercase tracking-wider px-1">Leads & Clientes</p>
-        </div>
-        <div className="flex-1 overflow-y-auto py-2 px-2">
-          {chatHistory.map(c=>(
-            <button key={c.id} onClick={()=>setActiveChat(c.id)} className={`w-full text-left px-3 py-3 rounded-md mb-1 transition-colors ${activeChat===c.id?"bg-bw-preto text-bw-white shadow-md":"hover:bg-bw-white text-bw-preto"}`}>
-              <div className="flex items-center gap-2 mb-1">
-                <div className={`w-2 h-2 rounded-full ${activeChat===c.id?"bg-bw-dourado":"bg-bw-madeira/40"}`}></div>
-                <div className="text-xs font-semibold truncate flex-1">{c.clientName}</div>
-              </div>
-              <div className={`text-[10px] truncate ${activeChat===c.id?"text-bw-areia":"text-bw-muted"}`}>{c.preview}</div>
-              <div className={`text-[9px] font-mono mt-1.5 ${activeChat===c.id?"text-bw-dourado/60":"text-bw-madeira/50"}`}>{c.time}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-      {/* Chat */}
-      <div className="flex-1 flex flex-col bg-bw-white">
-        <div className="z-10 flex items-center justify-between border-b border-bw-border bg-bw-white px-4 py-3 shadow-sm sm:px-6 sm:py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-bw-preto flex items-center justify-center text-bw-white text-[10px] font-mono font-bold">
-              {currentChat?.clientName.split(" ").map(n=>n[0]).join("")}
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-bw-preto">{currentChat?.clientName}</div>
-              <div className="text-[10px] font-mono text-bw-dourado">Lead Qualificado</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto bg-[#faf9f8] p-3 sm:gap-6 sm:p-6">
-          {/* AI Context Block */}
-          {currentChat?.aiContext && (
-            <div className="bg-bw-preto/95 backdrop-blur-md rounded-xl p-4 border border-bw-dourado/30 shadow-lg mb-4 self-center max-w-2xl w-full">
-              <div className="flex items-center gap-2 mb-2">
-                <Icon.Bot className="w-4 h-4 text-bw-dourado" />
-                <span className="font-mono text-[9px] uppercase tracking-widest text-bw-dourado">Resumo IA & Contexto</span>
-              </div>
-              <p className="text-xs text-bw-areia leading-relaxed">
-                {currentChat.aiContext}
-              </p>
-              <div className="mt-3 flex gap-2">
-                <button className="text-[9px] font-mono text-bw-preto bg-bw-dourado px-2 py-1 rounded hover:bg-bw-white transition-colors">Gerar proposta baseada no perfil</button>
-              </div>
-            </div>
-          )}
-
-          {/* Client & User Messages */}
-          {currentMsgs.map((m,i)=>(
-            <div key={i} className={`flex ${m.from==="user"?"justify-end":"justify-start"} gap-3`}>
-              {m.from==="client" && (
-                <div className="w-6 h-6 rounded-full bg-bw-areia border border-bw-border flex items-center justify-center flex-shrink-0 mt-1 text-bw-madeira text-[8px] font-bold">
-                  {currentChat?.clientName.split(" ").map(n=>n[0]).join("")}
-                </div>
-              )}
-              <div className={`flex flex-col ${m.from==="user"?"items-end":"items-start"}`}>
-                <div className={`max-w-sm lg:max-w-md rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${m.from==="user"?"bg-bw-preto text-bw-white rounded-tr-sm":"bg-bw-white text-bw-preto border border-bw-border rounded-tl-sm shadow-sm"}`}>
-                  {m.text}
-                </div>
-                <span className="text-[9px] font-mono text-bw-muted mt-1 mx-1">{m.time}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        <div className="border-t border-bw-border bg-bw-white p-3 sm:p-4">
-          <div className="flex gap-2 items-center border border-bw-dourado/40 focus-within:border-bw-dourado focus-within:shadow-[0_0_0_2px_rgba(197,160,89,0.1)] rounded-lg px-4 py-2 bg-bw-white transition-all">
-            <input value={input} onChange={e=>setInput(e.target.value)} placeholder="Digite sua mensagem para o cliente..." className="flex-1 bg-transparent text-sm text-bw-preto placeholder-bw-ph focus:outline-none" />
-            <button className="p-2 bg-bw-preto text-bw-dourado rounded-md hover:bg-bw-dourado hover:text-bw-preto transition-colors"><Icon.Send /></button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
