@@ -1,0 +1,53 @@
+{
+  "v1": {
+    "referencias": {
+      "content": [
+        {
+          "id": 1,
+          "categoria": "MARCENARIA_PLANEJADA",
+          "precoReferencia": "480.00",
+          "descricao": "Módulo base cozinha 60cm",
+          "materialBase": "MDF 15mm",
+          "unidade": "UNIDADE",
+          "dataAtualizacao": "2026-10-01T10:00:00"
+        },
+        {
+          "id": 2,
+          "categoria": "MARCENARIA_PLANEJADA",
+          "precoReferencia": "320.00",
+          "descricao": "Módulo aéreo cozinha 60cm",
+          "materialBase": "MDF 15mm",
+          "unidade": "UNIDADE",
+          "dataAtualizacao": "2026-10-02T11:00:00"
+        },
+        {
+          "id": 3,
+          "categoria": "MAO_DE_OBRA",
+          "precoReferencia": "120.00",
+          "descricao": "Montagem e instalação (por hora)",
+          "materialBase": "—",
+          "unidade": "HORA",
+          "dataAtualizacao": "2026-10-03T09:30:00"
+        }
+      ],
+      "totalElements": 3,
+      "totalPages": 1,
+      "size": 100,
+      "number": 0
+    },
+    "minha-conta": {
+      "nome": "Gabriel",
+      "sobrenome": "Alves",
+      "dataNascimento": "1988-07-14",
+      "email": "juliana.costa@email.com",
+      "telefone": "(11) 98765-4321",
+      "origemContato": "instagram",
+      "instagramUsername": "juliana.costa",
+      "razaoSocial": null,
+      "nomeFantasia": null,
+      "senhaAtual": null,
+      "novaSenha": null,
+      "confirmarNovaSenha": null
+    }
+  }
+}
