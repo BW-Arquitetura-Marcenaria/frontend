@@ -3473,7 +3473,18 @@ function ConfiguracoesConta() {
     const digits = normalizeDocument(value);
     return digits.length === 14 ? `${digits.slice(0, 2)}.***.***/****-${digits.slice(-2)}` : "**.***.***/****-**";
   };
-  const isCnpjVerified = Boolean(account?.empresa.cnpj) && normalizeDocument(cnpjVerification) === normalizeDocument(account?.empresa.cnpj ?? "");
+  const cnpjDigits = normalizeDocument(cnpjVerification);
+  const isCnpjValid = (value: string) => {
+    if (!/^\d{14}$/.test(value) || /^(\d)\1{13}$/.test(value)) return false;
+    const calculateDigit = (base: string) => {
+      const weights = base.length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+      const remainder = base.split("").reduce((sum, digit, index) => sum + Number(digit) * weights[index], 0) % 11;
+      return remainder < 2 ? 0 : 11 - remainder;
+    };
+    return calculateDigit(value.slice(0, 12)) === Number(value[12]) && calculateDigit(value.slice(0, 13)) === Number(value[13]);
+  };
+  const cnpjIsValid = isCnpjValid(cnpjDigits);
+  const isCnpjVerified = cnpjIsValid && Boolean(account?.empresa.cnpj) && cnpjDigits === normalizeDocument(account?.empresa.cnpj ?? "");
 
   useEffect(() => {
     if (!cepEdited || cepDigits.length !== 8) {
@@ -3547,8 +3558,12 @@ function ConfiguracoesConta() {
     setSaved(false);
     setError("");
     if (section === "seguranca") {
+      if (!cnpjIsValid) {
+        setError("Informe um CNPJ válido com 14 dígitos.");
+        return;
+      }
       if (!isCnpjVerified) {
-        setError("Informe o CNPJ cadastrado para alterar sua senha.");
+        setError("O CNPJ informado não corresponde ao cadastro da empresa.");
         return;
       }
       if (!currentPassword || newPassword.length < 8 || newPassword.length > 72 || newPassword !== confirmPassword) {
@@ -3571,7 +3586,7 @@ function ConfiguracoesConta() {
         setAccount(data);
         setEndereco({ cep: data.endereco?.cep ?? "", logradouro: data.endereco?.logradouro ?? "", numero: data.endereco?.numero ?? "", complemento: data.endereco?.complemento ?? "", bairro: data.endereco?.bairro ?? "", cidade: data.endereco?.cidade ?? "", uf: data.endereco?.uf ?? "" });
       } else {
-        await putSegurancaAdmin({ cnpj: cnpjVerification, senhaAtual: currentPassword, novaSenha: newPassword, confirmarNovaSenha: confirmPassword });
+        await putSegurancaAdmin({ cnpj: cnpjDigits, senhaAtual: currentPassword, novaSenha: newPassword, confirmarNovaSenha: confirmPassword });
         setCnpjVerification("");
         setCurrentPassword("");
         setNewPassword("");
@@ -3742,19 +3757,21 @@ function ConfiguracoesConta() {
                   <input
                     value={cnpjVerification}
                     onChange={event => {
-                      setCnpjVerification(event.target.value);
+                      setCnpjVerification(event.target.value.slice(0, 18));
                       setError("");
                       setSaved(false);
                     }}
                     placeholder="00.000.000/0000-00"
                     inputMode="numeric"
+                    maxLength={18}
+                    aria-invalid={Boolean(cnpjVerification) && !cnpjIsValid}
                     className={fieldClass}
                   />
                 </label>
                 {cnpjVerification && (
-                  <div className={`mt-3 flex items-center gap-2 text-[10px] ${isCnpjVerified ? "text-bw-dourado" : "text-bw-muted"}`}>
+                  <div className={`mt-3 flex items-center gap-2 text-[10px] ${isCnpjVerified ? "text-bw-dourado" : cnpjIsValid ? "text-bw-muted" : "text-red-700"}`}>
                     {isCnpjVerified ? <Icon.Check /> : <Icon.AlertCircle />}
-                    {isCnpjVerified ? "CNPJ confirmado. A alteração de senha foi liberada." : "O CNPJ informado não corresponde ao cadastro."}
+                    {isCnpjVerified ? "CNPJ confirmado. A alteração de senha foi liberada." : cnpjIsValid ? "O CNPJ informado não corresponde ao cadastro." : "Informe um CNPJ válido com 14 dígitos."}
                   </div>
                 )}
               </div>
