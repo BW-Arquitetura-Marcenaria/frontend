@@ -12,6 +12,8 @@ import ClienteAgendamentosView from "@/views/calendario/ClienteAgendamentosView"
 import { useMinhaContaViewModel } from "@/viewmodels/minhaConta/useMinhaContaViewModel";
 import { login as apiLogin, logout, getPerfilAtual } from "@/api/auth";
 import { cadastrarCliente, validarLinkCadastro, type CadastroPayload } from "@/api/cadastro";
+import UsuariosAdminView from "@/views/administradores/UsuariosAdminView";
+import ConviteAdminView from "@/views/administradores/ConviteAdminView";
 import { getContaAdmin, putEmpresaAdmin, putEnderecoAdmin, putSegurancaAdmin, type ContaAdmin, type EmpresaAdminPayload, type EnderecoAdminPayload } from "@/api/contaAdmin";
 import { ecopontosPrefeitura } from "@/data/ecopontosPrefeitura";
 import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
@@ -32,6 +34,7 @@ type Screen =
   | "institucional"
   | "login"
   | "cadastro"
+  | "convite-admin"
   | "portal-cliente"
   | "funil"
   | "financeiro"
@@ -644,7 +647,7 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
 type LoginTab = "pf" | "pj";
 type LoginStep = "form" | "verify";
 
-function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientLogin: (tipo: ClienteTipo) => void }) {
+export function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientLogin: (tipo: ClienteTipo) => void }) {
   const [tab, setTab] = useState<LoginTab>("pf");
   const [step, setStep] = useState<LoginStep>("form");
   const [cnpj, setCnpj] = useState("");
@@ -886,7 +889,7 @@ function ComoConheceuFields({ comoConheceu, setComoConheceu, instagramUser, setI
   );
 }
 
-function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientLogin: (tipo: ClienteTipo) => void }) {
+export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientLogin: (tipo: ClienteTipo) => void }) {
   const token = new URLSearchParams(window.location.search).get("token") ?? "";
   const [linkValido, setLinkValido] = useState(false);
   const [validando, setValidando] = useState(Boolean(token));
@@ -3343,6 +3346,10 @@ const initialAdminUsers: AdminUser[] = [
 ];
 
 function UsuariosAdmin() {
+  return <UsuariosAdminView />;
+}
+
+function UsuariosAdminLegacy() {
   const [users, setUsers] = useState<AdminUser[]>(initialAdminUsers);
   const [form, setForm] = useState({ nome: "", email: "", cpf: "", funcao: "Administradora" });
   const [message, setMessage] = useState("");
@@ -3418,7 +3425,7 @@ function UsuariosAdmin() {
             <label className="flex flex-col gap-1.5"><span className="font-mono text-[9px] uppercase tracking-[.14em] text-bw-areia/55">Nome completo</span><input value={form.nome} onChange={event => { setForm(current => ({ ...current, nome: event.target.value })); setMessage(""); }} placeholder="Nome da pessoa" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-bw-dourado" /></label>
             <label className="flex flex-col gap-1.5"><span className="font-mono text-[9px] uppercase tracking-[.14em] text-bw-areia/55">E-mail profissional</span><input type="email" value={form.email} onChange={event => { setForm(current => ({ ...current, email: event.target.value })); setMessage(""); }} placeholder="nome@empresa.com" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-bw-dourado" /></label>
             <label className="flex flex-col gap-1.5"><span className="font-mono text-[9px] uppercase tracking-[.14em] text-bw-areia/55">CPF</span><input inputMode="numeric" value={form.cpf} onChange={event => { setForm(current => ({ ...current, cpf: formatCpf(event.target.value) })); setMessage(""); }} placeholder="000.000.000-00" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-bw-dourado" /><span className="text-[9px] leading-relaxed text-bw-areia/45">CPF é obrigatório para vincular uma pessoa ao acesso interno.</span></label>
-            <label className="flex flex-col gap-1.5"><span className="font-mono text-[9px] uppercase tracking-[.14em] text-bw-areia/55">Área de atuação</span><select value={form.funcao} onChange={event => setForm(current => ({ ...current, funcao: event.target.value }))} className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none focus:border-bw-dourado"><option className="bg-bw-preto" value="Administradora">Administradora</option><option className="bg-bw-preto" value="Administrador">Administrador</option><option className="bg-bw-preto" value="Operações">Operações</option></select></label>
+
             {message && <div role="status" className={`flex items-start gap-2 border px-3 py-2.5 text-[10px] leading-relaxed ${message.startsWith("Convite") ? "border-bw-dourado/40 bg-bw-dourado/10 text-bw-areia" : "border-white/20 bg-white/5 text-bw-areia/75"}`}>{message.startsWith("Convite") ? <Icon.Check /> : <Icon.AlertCircle />}{message}</div>}
             <button type="submit" className="mt-1 bg-bw-dourado px-4 py-3 text-[10px] font-medium uppercase tracking-[.16em] text-white transition-colors hover:bg-[#c19d65]">Enviar convite ↗</button>
           </form>
@@ -3710,6 +3717,8 @@ const platformScreens: Screen[] = ["funil","financeiro","calendario","chatbot","
 export default function App() {
   const [perfil, setPerfil] = useState(() => getPerfilAtual());
   const [screen, setScreen] = useState<Screen>(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (window.location.pathname === "/convite-admin" || params.get("acao") === "recusar") return "convite-admin";
     const atual = getPerfilAtual();
     if (atual === "ADMIN") return "funil";
     if (atual === "CLIENTE") return "portal-cliente";
@@ -3724,8 +3733,9 @@ export default function App() {
       setPerfil(null);
     }
     if (destino === "cadastro" && window.location.pathname === "/cadastro") window.history.replaceState(null, "", "/");
-    if (destino === "portal-cliente" && perfil !== "CLIENTE" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
-    if (platformScreens.includes(destino) && perfil !== "ADMIN" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
+    if (destino !== "convite-admin" && window.location.pathname === "/convite-admin") window.history.replaceState(null, "", "/");
+    if (destino === "portal-cliente" && (perfil ?? getPerfilAtual()) !== "CLIENTE" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
+    if (platformScreens.includes(destino) && (perfil ?? getPerfilAtual()) !== "ADMIN" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
     setScreen(destino);
   }
 
@@ -3744,6 +3754,7 @@ export default function App() {
   if (screen === "institucional") return <SiteInstitucionalPremium onNav={navegar} />;
   if (screen === "login") return <Login onNav={handleLoginNav} onClientLogin={handleClientLogin} />;
   if (screen === "cadastro") return <Cadastro onNav={navegar} onClientLogin={handleClientLogin} />;
+  if (screen === "convite-admin") return <ConviteAdminView onGoLogin={() => navegar("login")} onGoHome={() => navegar("institucional")} onAdminAuthenticated={() => handleLoginNav("funil")} />;
   if (screen === "portal-cliente") return <PortalCliente tipo={clienteTipo} onNav={navegar} />;
   if (platformScreens.includes(screen)) return <PlatformShell screen={screen} onNav={navegar} />;
   return <SiteInstitucionalPremium onNav={navegar} />;
