@@ -1734,7 +1734,7 @@ function CalendarioLegacy() {
                 </label>
                 <select value={form.leadId} onChange={e => setForm({ ...form, leadId: e.target.value ? Number(e.target.value) : "" })} className={`${inputCls} appearance-none rounded-none`}>
                   <option value="" className="bg-bw-preto text-bw-white">Nenhum (Evento interno)</option>
-                  {[].map((lead: { id: number; nome: string }) => (
+                  {([] as { id: number; nome: string; etapa: string; score: number }[]).map(lead => (
                     <option key={lead.id} value={lead.id} className="bg-bw-preto text-bw-white">
                       {lead.nome} — {lead.etapa} ({lead.score} pts)
                     </option>
