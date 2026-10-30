@@ -49,6 +49,7 @@ export default function UsuariosAdminView() {
   const [actionError, setActionError] = useState("");
   const [inviting, setInviting] = useState(false);
   const [deactivatingId, setDeactivatingId] = useState<number | null>(null);
+  const [userToDeactivate, setUserToDeactivate] = useState<AdministradorItem | null>(null);
   const [form, setForm] = useState({ nome: "", email: "", cpf: "" });
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -160,6 +161,7 @@ export default function UsuariosAdminView() {
     setDeactivatingId(user.id);
     try {
       await desativarAdministrador(user.id);
+      setUserToDeactivate(null);
       await carregarAdministradores(true);
     } catch (err) {
       setActionError(extrairMensagemErro(err, "Não foi possível desativar o administrador."));
@@ -267,7 +269,10 @@ export default function UsuariosAdminView() {
                         <button
                           type="button"
                           disabled={deactivatingId === user.id}
-                          onClick={() => void handleDeactivate(user)}
+                          onClick={() => {
+                            setActionError("");
+                            setUserToDeactivate(user);
+                          }}
                           className="border border-bw-border px-3 py-2 text-[10px] font-medium uppercase tracking-wider text-bw-madeira transition-colors hover:border-bw-dourado hover:bg-bw-hover disabled:opacity-50"
                         >
                           {deactivatingId === user.id ? "Desativando..." : "Desativar"}
@@ -368,6 +373,80 @@ export default function UsuariosAdminView() {
           </form>
         </aside>
       </div>
+
+      {userToDeactivate && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-desativar-titulo"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 p-4 backdrop-blur-sm"
+        >
+          <div className="relative w-full max-w-md border border-bw-dourado/20 bg-bw-preto/95 p-6 text-bw-white shadow-2xl backdrop-blur-md sm:p-8">
+            <button
+              type="button"
+              disabled={deactivatingId !== null}
+              onClick={() => {
+                setUserToDeactivate(null);
+                setActionError("");
+              }}
+              className="absolute right-5 top-4 text-bw-areia transition-colors hover:text-white disabled:opacity-50"
+            >
+              <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
+            </button>
+
+            <div className="mb-5">
+              <div className="mb-1.5 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">
+                Confirmação de segurança
+              </div>
+              <h2 id="modal-desativar-titulo" className="font-display text-2xl text-bw-white">
+                Desativar administrador
+              </h2>
+              <p className="mt-2 text-xs leading-relaxed text-bw-areia/70">
+                Tem certeza que deseja desativar o acesso administrativo abaixo? Essa pessoa perderá o acesso ao painel imediatamente.
+              </p>
+            </div>
+
+            <div className="mb-6 border border-white/10 bg-white/5 p-3.5">
+              <div className="text-sm font-medium text-white">{userToDeactivate.nomeCompleto}</div>
+              <div className="mt-0.5 text-xs text-bw-areia/65">{userToDeactivate.email}</div>
+              <div className="mt-1.5 font-mono text-[9px] uppercase tracking-[.14em] text-bw-dourado">
+                CPF {maskCpf(userToDeactivate.cpf)}
+              </div>
+            </div>
+
+            {actionError && (
+              <div
+                role="alert"
+                className="mb-5 border border-red-400/40 bg-red-500/10 px-3 py-2 font-mono text-xs text-red-300"
+              >
+                {actionError}
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                disabled={deactivatingId !== null}
+                onClick={() => {
+                  setUserToDeactivate(null);
+                  setActionError("");
+                }}
+                className="flex-1 border border-white/15 py-2.5 font-mono text-[10px] uppercase tracking-[.16em] text-bw-areia transition-colors hover:border-white/35 hover:text-white disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={deactivatingId !== null}
+                onClick={() => void handleDeactivate(userToDeactivate)}
+                className="flex-1 bg-bw-dourado py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[.16em] text-bw-preto transition-colors hover:bg-bw-areia disabled:opacity-50"
+              >
+                {deactivatingId === userToDeactivate.id ? "Desativando..." : "Confirmar desativação"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
