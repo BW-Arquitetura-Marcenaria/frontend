@@ -8,6 +8,7 @@
     "mock:api": "json-server --watch mock/db.json --port 4000",
     "mock:server": "node mock/server.js",
     "mock:financeiro": "node mock/financeiro-server.js",
+    "mock:chat": "node mock/chat-server.js",
     "build": "vite build",
     "preview": "vite preview",
     "format": "oxfmt"
