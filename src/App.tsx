@@ -1547,12 +1547,15 @@ function PortalCliente({ tipo, onNav }: { tipo: ClienteTipo; onNav: (s: Screen) 
 }
 
 // ─── PLATFORM SHELL ───────────────────────────────────────────────────────────
+// Keep the unfinished simulation available in code, but out of the presentation navigation.
+const isEnvironmentSimulationVisible = false;
+
 const navItems: { id: Screen; label: string; icon: React.ReactNode }[] = [
   { id: "funil", label: "Funil de Clientes", icon: <Icon.Users /> },
   { id: "financeiro", label: "Financeiro", icon: <Icon.Dollar /> },
   { id: "calendario", label: "Calendário", icon: <Icon.Cal /> },
   { id: "chatbot", label: "Chatbot IA", icon: <Icon.Bot /> },
-  { id: "simulacao", label: "Simulação de Ambiente", icon: <Icon.Layers /> },
+  ...(isEnvironmentSimulationVisible ? [{ id: "simulacao" as const, label: "Simulação de Ambiente", icon: <Icon.Layers /> }] : []),
   { id: "tabela-precos", label: "Tabela de Preços", icon: <Icon.Tag /> },
   { id: "rastreabilidade", label: "Rastreabilidade", icon: <Icon.Trend /> },
   { id: "descarte", label: "Mapa de Descarte", icon: <Icon.Map /> },
