@@ -3473,6 +3473,14 @@ function ConfiguracoesConta() {
     const digits = normalizeDocument(value);
     return digits.length === 14 ? `${digits.slice(0, 2)}.***.***/****-${digits.slice(-2)}` : "**.***.***/****-**";
   };
+  const formatCnpj = (value: string) => {
+    const digits = normalizeDocument(value).slice(0, 14);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+    if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+    if (digits.length <= 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+    return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+  };
   const cnpjDigits = normalizeDocument(cnpjVerification);
   const isCnpjValid = (value: string) => {
     if (!/^\d{14}$/.test(value) || /^(\d)\1{13}$/.test(value)) return false;
@@ -3757,7 +3765,7 @@ function ConfiguracoesConta() {
                   <input
                     value={cnpjVerification}
                     onChange={event => {
-                      setCnpjVerification(event.target.value.slice(0, 18));
+                      setCnpjVerification(formatCnpj(event.target.value));
                       setError("");
                       setSaved(false);
                     }}
