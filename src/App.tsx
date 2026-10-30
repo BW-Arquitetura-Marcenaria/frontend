@@ -834,7 +834,7 @@ export function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; on
 
 // ─── SCREEN: Cadastro ─────────────────────────────────────────────────────────
 type CadTab = "pf" | "pj";
-type CadStep = "dados" | "confirmacao";
+type CadStep = "dados" | "contato" | "confirmacao";
 
 const COMO_CONHECEU_OPTIONS = [
   { value: "instagram", label: "Instagram" },
@@ -970,7 +970,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
     } finally { setEnviando(false); }
   }
 
-  const steps: CadStep[] = ["dados", "confirmacao"];
+  const steps: CadStep[] = ["dados", "contato", "confirmacao"];
 
   const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors pr-8";
   const glassLabel = "block text-[10px] font-mono uppercase tracking-[.18em] text-white/40 mb-1";
@@ -1020,12 +1020,12 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
           {validando && <p role="status" className="mb-5 text-sm text-white">Validando seu link de cadastro...</p>}
           {!validando && !linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroCadastro || "Para criar uma conta, utilize o link de cadastro enviado pela equipe BW."}</p>}
           {erroCadastro && linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroCadastro}</p>}
-          {/* STEP 1: Dados */}
+          {/* STEP 1: Dados pessoais ou da empresa */}
           {linkValido && step === "dados" && (
             <>
               <div className="mb-7">
-                <h2 className="font-display text-3xl text-white leading-tight">Seus dados</h2>
-                <p className="text-[11px] font-mono text-white/35 mt-1">Escolha o tipo de conta</p>
+                <h2 className="font-display text-3xl text-white leading-tight">{tab === "pf" ? "Seus dados" : "Dados da empresa"}</h2>
+                <p className="text-[11px] font-mono text-white/35 mt-1">Etapa 1 de {steps.length}</p>
               </div>
 
               {/* PF / PJ tabs */}
@@ -1058,16 +1058,6 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
                     <label className={glassLabel}>Data de nascimento</label>
                     <input type="date" value={dataNascimento} onChange={e => setDataNascimento(e.target.value)} className={glassInput + " font-mono"} />
                   </div>
-                  <div>
-                    <label className={glassLabel}>E-mail</label>
-                    <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
-                  </div>
-                  <div>
-                    <label className={glassLabel}>Celular / WhatsApp</label>
-                    <input type="tel" placeholder="(11) 99999-9999" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-mono"} />
-                  </div>
-                  <ComoConheceuFields comoConheceu={comoConheceu} setComoConheceu={setComoConheceu} instagramUser={instagramUser} setInstagramUser={setInstagramUser} glassInput={glassInput} glassLabel={glassLabel} />
                 </div>
               ) : (
                 <div key="pj" className="flex flex-col gap-5">
@@ -1084,41 +1074,63 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
                     <label className={glassLabel}>Nome fantasia</label>
                     <input type="text" placeholder="BW Arquitetura" value={nomeFantasia} onChange={e => setNomeFantasia(e.target.value)} className={glassInput} />
                   </div>
-                  <div>
-                    <label className={glassLabel}>E-mail corporativo</label>
-                    <input type="email" placeholder="contato@empresa.com.br" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
-                  </div>
-                  <div>
-                    <label className={glassLabel}>Telefone comercial</label>
-                    <input type="tel" placeholder="(11) 3000-0000" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-mono"} />
-                  </div>
-                  <div>
-                    <label className={glassLabel}>Nome do responsável</label>
-                    <input type="text" placeholder="Nome do responsável" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} />
-                     <input type="text" placeholder="Sobrenome do responsável" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} />
-                  </div>
-                  <div>
-                    <label className={glassLabel}>CPF do responsável</label>
-                    <input type="text" placeholder="000.000.000-00" value={cpf} onChange={e => setCpf(formatCPF(e.target.value))} className={glassInput + " font-mono"} />
-                  </div>
-                  <ComoConheceuFields comoConheceu={comoConheceu} setComoConheceu={setComoConheceu} instagramUser={instagramUser} setInstagramUser={setInstagramUser} glassInput={glassInput} glassLabel={glassLabel} />
                 </div>
               )}
 
               <button onClick={() => {
-                 if (!nome.trim() || !sobrenome.trim() || cpf.replace(/\D/g, "").length !== 11 || !email.includes("@") || phone.replace(/\D/g, "").length < 10 || !comoConheceu || (tab === "pj" && (cnpj.replace(/\D/g, "").length !== 14 || !razaoSocial.trim()))) {
-                   setErroCadastro("Preencha nome, sobrenome, CPF, e-mail, telefone e origem do contato. Para empresas, informe CNPJ e razão social.");
+                 if ((tab === "pf" && (!nome.trim() || !sobrenome.trim() || cpf.replace(/\D/g, "").length !== 11)) || (tab === "pj" && (cnpj.replace(/\D/g, "").length !== 14 || !razaoSocial.trim()))) {
+                   setErroCadastro(tab === "pf" ? "Preencha nome, sobrenome e um CPF válido." : "Preencha CNPJ e razão social.");
                    return;
                  }
-                 setErroCadastro(""); setStep("confirmacao");
+                 setErroCadastro(""); setStep("contato");
                }} className="mt-8 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
                 Continuar <span className="text-base leading-none">›</span>
               </button>
             </>
           )}
 
-          {/* STEP 2: Senha */}
+          {/* STEP 2: Contato */}
+          {linkValido && step === "contato" && (
+            <div className="flex flex-col gap-5">
+              <div>
+                <div className="flex items-center gap-2 text-[10px] font-mono text-bw-dourado/70 border-b border-white/10 pb-4 mb-2">
+                  <Icon.Check /> {tab === "pf" ? "Dados pessoais preenchidos" : "Dados da empresa preenchidos"}
+                </div>
+                <h2 className="font-display text-3xl text-white leading-tight mt-4">Contato</h2>
+                <p className="text-[11px] font-mono text-white/35 mt-1">Etapa 2 de {steps.length}</p>
+              </div>
+              {tab === "pj" && (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div><label className={glassLabel}>Nome do responsável</label><input type="text" placeholder="Nome" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} /></div>
+                    <div><label className={glassLabel}>Sobrenome do responsável</label><input type="text" placeholder="Sobrenome" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} /></div>
+                  </div>
+                  <div><label className={glassLabel}>CPF do responsável</label><input type="text" placeholder="000.000.000-00" value={cpf} onChange={e => setCpf(formatCPF(e.target.value))} className={glassInput + " font-mono"} /></div>
+                </>
+              )}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={glassLabel}>{tab === "pf" ? "E-mail" : "E-mail corporativo"}</label>
+                  <input type="email" placeholder={tab === "pf" ? "seu@email.com" : "contato@empresa.com.br"} value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
+                  <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
+                </div>
+                <div><label className={glassLabel}>{tab === "pf" ? "Celular / WhatsApp" : "Telefone comercial"}</label><input type="tel" placeholder={tab === "pf" ? "(11) 99999-9999" : "(11) 3000-0000"} value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-mono"} /></div>
+              </div>
+              <ComoConheceuFields comoConheceu={comoConheceu} setComoConheceu={setComoConheceu} instagramUser={instagramUser} setInstagramUser={setInstagramUser} glassInput={glassInput} glassLabel={glassLabel} />
+              <button onClick={() => {
+                if (!nome.trim() || !sobrenome.trim() || cpf.replace(/\D/g, "").length !== 11 || !email.includes("@") || phone.replace(/\D/g, "").length < 10 || !comoConheceu) {
+                  setErroCadastro("Preencha nome, sobrenome, CPF, e-mail, telefone e origem do contato.");
+                  return;
+                }
+                setErroCadastro(""); setStep("confirmacao");
+              }} className="mt-3 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
+                Continuar <span className="text-base leading-none">›</span>
+              </button>
+              <button onClick={() => { setErroCadastro(""); setStep("dados"); }} className="text-xs text-bw-areia underline">← Voltar</button>
+            </div>
+          )}
+
+          {/* STEP 3: Senha */}
           {linkValido && step === "confirmacao" && (
             <div className="flex flex-col gap-5">
               <div>
@@ -1126,7 +1138,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
                   <Icon.Check /> Link de cadastro validado
                 </div>
                 <h2 className="font-display text-3xl text-white leading-tight mt-4">Definir senha</h2>
-                <p className="text-[11px] font-mono text-white/35 mt-1">Mínimo 8 caracteres</p>
+                <p className="text-[11px] font-mono text-white/35 mt-1">Etapa 3 de {steps.length} · mínimo 8 caracteres</p>
               </div>
               <div>
                 <label className={glassLabel}>Senha</label>
@@ -1155,7 +1167,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
               <button onClick={() => void concluirCadastro()} disabled={enviando} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50">
                 {enviando ? "Criando conta..." : cadastroConcluido ? "Ir para o login" : "Criar conta e entrar"} <span className="text-base leading-none">›</span>
               </button>
-              {!cadastroConcluido && <button onClick={() => { setErroCadastro(""); setStep("dados"); }} className="text-xs text-bw-areia underline">← Voltar aos dados</button>}
+              {!cadastroConcluido && <button onClick={() => { setErroCadastro(""); setStep("contato"); }} className="text-xs text-bw-areia underline">← Voltar ao contato</button>}
             </div>
           )}
 
