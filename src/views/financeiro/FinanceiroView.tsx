@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { isAxiosError } from "axios";
+import DeleteButton from "@/components/DeleteButton";
+import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
 import {
   atualizarFinanceiro,
   criarFinanceiro,
@@ -294,7 +296,7 @@ export default function FinanceiroView() {
           <td className="px-3 py-3"><strong className="font-medium text-bw-preto">{registro.descricao || "Sem descrição"}</strong><span className="block text-bw-muted">{registro.contatoCliente || "Cliente não informado"}</span></td>
           <td className="px-3 py-3 font-mono">{dataLocal(registro.dataPedido)}</td><td className="px-3 py-3 font-mono">{registro.quantidade}</td>
           <td className="px-3 py-3 font-mono">{moeda(registro.valorTotal)}</td><td className="px-3 py-3 font-mono">{moeda(registro.valorRecebidoFinal)}</td><td className="px-3 py-3 font-mono">{moeda(registro.frete)}</td>
-          <td className="whitespace-nowrap px-3 py-3"><button className="mr-3 text-bw-madeira underline" onClick={() => abrirRegistro(registro)}>Editar</button><button className="text-red-700 underline" onClick={() => { setErroAcao(""); setExcluindo(registro); }}>Excluir</button></td>
+          <td className="whitespace-nowrap px-3 py-3"><div className="flex items-center gap-2"><button type="button" className="text-bw-madeira underline disabled:opacity-40" disabled={ocupado} onClick={() => abrirRegistro(registro)}>Editar</button><DeleteButton onClick={() => { setErroAcao(""); setExcluindo(registro); }} disabled={ocupado} title="Excluir registro" aria-label={`Excluir ${registro.descricao || `registro #${registro.id}`}`} /></div></td>
         </tr>)}</tbody>
       </table></div> : !erroLista && <p className="p-4 text-sm text-bw-muted">Nenhum registro encontrado. Cadastre um pedido ou importe uma planilha.</p>}
       {pagina && pagina.totalPages > 1 && <div className="flex items-center justify-between gap-3 border-t border-bw-border p-4 font-mono text-xs text-bw-madeira">
@@ -336,6 +338,14 @@ export default function FinanceiroView() {
       {resultadoImportacao && <div role="status" className="mt-4 border-t border-bw-dourado/30 pt-3 text-xs text-bw-white"><p>{resultadoImportacao.totalImportado} de {resultadoImportacao.totalLinhasProcessadas} linhas importadas.</p>{resultadoImportacao.erros.length > 0 && <><p className="mt-2 text-bw-areia">Erros por linha:</p><ul className="list-inside list-disc">{resultadoImportacao.erros.map((erro, indice) => <li key={indice}>{erro}</li>)}</ul></>}</div>}
     </div></div>}
 
-    {excluindo && <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/70 p-4"><div role="alertdialog" aria-modal="true" aria-labelledby="titulo-excluir" className="w-full max-w-sm border border-bw-dourado/30 bg-bw-preto p-6 text-bw-white shadow-2xl"><h2 id="titulo-excluir" className="font-display text-xl">Excluir registro?</h2><p className="my-4 text-sm text-bw-areia">O pedido “{excluindo.descricao || `#${excluindo.id}`}” será excluído permanentemente.</p>{erroAcao && <p role="alert" className="mb-3 text-sm text-red-300">{erroAcao}</p>}<div className="flex gap-3"><button className="border border-bw-areia px-4 py-2 text-xs disabled:opacity-50" disabled={ocupado} onClick={() => setExcluindo(null)}>Cancelar</button><button className="bg-bw-dourado px-4 py-2 text-xs text-bw-preto disabled:opacity-50" disabled={ocupado} onClick={() => void confirmarExclusao()}>{ocupado ? "Excluindo..." : "Excluir"}</button></div></div></div>}
+    {excluindo && <ConfirmDeleteModal
+      title="Excluir registro financeiro?"
+      itemName={excluindo.descricao || `Registro #${excluindo.id}`}
+      description="O pedido financeiro será excluído permanentemente. Esta ação não pode ser desfeita."
+      loading={ocupado}
+      error={erroAcao}
+      onCancel={() => { setExcluindo(null); setErroAcao(""); }}
+      onConfirm={() => void confirmarExclusao()}
+    />}
   </div>;
 }
