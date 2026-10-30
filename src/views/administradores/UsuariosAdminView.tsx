@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { decodeJwt } from "@/api/auth";
 import {
   convidarAdministrador,
   desativarAdministrador,
@@ -6,6 +7,21 @@ import {
   type AdministradorItem,
   type AdministradorStatus,
 } from "@/api/administradores";
+
+function getCurrentAdminIdentity(): { id: number | null; email: string | null } {
+  try {
+    const rawId = localStorage.getItem("authUsuarioId") || sessionStorage.getItem("authUsuarioId");
+    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    const payload = token ? decodeJwt(token) : null;
+    const parsedId = Number(rawId || payload?.sub);
+    return {
+      id: Number.isFinite(parsedId) && parsedId > 0 ? parsedId : null,
+      email: payload?.email ? payload.email.toLowerCase() : null,
+    };
+  } catch {
+    return { id: null, email: null };
+  }
+}
 
 function extrairMensagemErro(error: unknown, fallback: string): string {
   const response = (error as { response?: { status?: number; data?: { message?: string; detalhes?: string[] } } })?.response;
@@ -207,8 +223,13 @@ export default function UsuariosAdminView() {
           ) : (
             <div className="divide-y divide-bw-border-sub">
               {users.map(user => {
+                const currentAdmin = getCurrentAdminIdentity();
+                const isCurrentUser =
+                  user.tipo === "USUARIO" &&
+                  ((currentAdmin.id !== null && user.id === currentAdmin.id) ||
+                    (currentAdmin.email !== null && user.email.toLowerCase() === currentAdmin.email));
                 const isAtivo = user.status === "ATIVO";
-                const canDeactivate = user.tipo === "USUARIO" && isAtivo;
+                const canDeactivate = user.tipo === "USUARIO" && isAtivo && !isCurrentUser;
                 return (
                   <article
                     key={`${user.tipo}-${user.id}`}
@@ -219,7 +240,14 @@ export default function UsuariosAdminView() {
                         {getInitials(user.nomeCompleto)}
                       </div>
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-bw-preto">{user.nomeCompleto}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium text-bw-preto">{user.nomeCompleto}</span>
+                          {isCurrentUser && (
+                            <span className="shrink-0 border border-bw-dourado/40 bg-bw-dourado/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[.12em] text-bw-dourado">
+                              (Você)
+                            </span>
+                          )}
+                        </div>
                         <div className="mt-0.5 truncate text-[11px] text-bw-muted">{user.email}</div>
                         <div className="mt-1 font-mono text-[9px] uppercase tracking-[.12em] text-bw-madeira">
                           CPF {maskCpf(user.cpf)}

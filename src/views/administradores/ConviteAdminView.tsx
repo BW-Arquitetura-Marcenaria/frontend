@@ -365,10 +365,11 @@ export default function ConviteAdminView({ onGoLogin, onGoHome, onAdminAuthentic
                   <input
                     type="text"
                     value={token}
+                    readOnly={Boolean(urlToken && dadosConvite)}
                     onChange={e => handleChangeToken(e.target.value)}
                     onBlur={() => void handleBlurToken()}
                     placeholder="Informe o token recebido no e-mail"
-                    className={`${glassInput} font-mono text-xs`}
+                    className={`${glassInput} font-mono text-xs read-only:cursor-default read-only:opacity-70`}
                     required
                   />
                 </div>
