@@ -3292,6 +3292,15 @@ function MapaDescarte() {
 // ─── SCREEN: Configurações da Conta ──────────────────────────────────────────
 type AccountSection = "perfil" | "endereco" | "seguranca";
 
+type ViaCepResponse = {
+  erro?: boolean;
+  logradouro: string;
+  complemento: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+};
+
 const defaultAccountData = {
   empresa: "BW Arquitetura e Marcenaria",
   responsavel: "Bianca & Walmir",
@@ -3451,16 +3460,63 @@ function ConfiguracoesConta() {
   const [account, setAccount] = useState<ContaAdmin | null>(null);
   const [empresa, setEmpresa] = useState<EmpresaAdminPayload>({ nome: "", nomeFantasia: "", telefone: "" });
   const [endereco, setEndereco] = useState<EnderecoAdminPayload>({ cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "" });
+  const [cepEdited, setCepEdited] = useState(false);
+  const [cepLookupStatus, setCepLookupStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [cepLookupMessage, setCepLookupMessage] = useState("");
   const [cnpjVerification, setCnpjVerification] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const normalizeDocument = (value: string) => value.replace(/\D/g, "");
+  const cepDigits = normalizeDocument(endereco.cep);
   const maskCnpj = (value: string) => {
     const digits = normalizeDocument(value);
     return digits.length === 14 ? `${digits.slice(0, 2)}.***.***/****-${digits.slice(-2)}` : "**.***.***/****-**";
   };
   const isCnpjVerified = Boolean(account?.empresa.cnpj) && normalizeDocument(cnpjVerification) === normalizeDocument(account?.empresa.cnpj ?? "");
+
+  useEffect(() => {
+    if (!cepEdited || cepDigits.length !== 8) {
+      setCepLookupStatus("idle");
+      setCepLookupMessage("");
+      return;
+    }
+
+    const controller = new AbortController();
+    const lookupCep = async () => {
+      setCepLookupStatus("loading");
+      setCepLookupMessage("Consultando CEP...");
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`, { signal: controller.signal });
+        const data = await response.json() as ViaCepResponse;
+        if (controller.signal.aborted) return;
+        if (!response.ok) throw new Error("via-cep-request-failed");
+        if (data.erro) {
+          setCepLookupStatus("error");
+          setCepLookupMessage("CEP não encontrado. Confira os números e tente novamente.");
+          return;
+        }
+        setEndereco(current => normalizeDocument(current.cep) === cepDigits ? {
+          ...current,
+          logradouro: data.logradouro,
+          complemento: data.complemento,
+          bairro: data.bairro,
+          cidade: data.localidade,
+          uf: data.uf,
+        } : current);
+        setSaved(false);
+        setCepLookupStatus("success");
+        setCepLookupMessage("Endereço preenchido automaticamente.");
+      } catch (err) {
+        if ((err as { name?: string }).name === "AbortError") return;
+        setCepLookupStatus("error");
+        setCepLookupMessage("Não foi possível consultar o CEP. Preencha o endereço manualmente.");
+      }
+    };
+
+    void lookupCep();
+    return () => controller.abort();
+  }, [cepDigits, cepEdited]);
 
   const loadConta = async () => {
     const version = ++accountRequest.current;
@@ -3472,6 +3528,7 @@ function ConfiguracoesConta() {
       setAccount(data);
       setEmpresa({ nome: data.empresa.nome ?? "", nomeFantasia: data.empresa.nomeFantasia ?? "", telefone: data.empresa.telefone ?? "" });
       setEndereco({ cep: data.endereco?.cep ?? "", logradouro: data.endereco?.logradouro ?? "", numero: data.endereco?.numero ?? "", complemento: data.endereco?.complemento ?? "", bairro: data.endereco?.bairro ?? "", cidade: data.endereco?.cidade ?? "", uf: data.endereco?.uf ?? "" });
+      setCepEdited(false);
     } catch (err) {
       if (version === accountRequest.current) setError(accountError(err));
     } finally {
@@ -3531,6 +3588,7 @@ function ConfiguracoesConta() {
     if (account) {
       setEmpresa({ nome: account.empresa.nome, nomeFantasia: account.empresa.nomeFantasia ?? "", telefone: account.empresa.telefone });
       setEndereco({ cep: account.endereco?.cep ?? "", logradouro: account.endereco?.logradouro ?? "", numero: account.endereco?.numero ?? "", complemento: account.endereco?.complemento ?? "", bairro: account.endereco?.bairro ?? "", cidade: account.endereco?.cidade ?? "", uf: account.endereco?.uf ?? "" });
+      setCepEdited(false);
     }
     setCnpjVerification("");
     setCurrentPassword("");
@@ -3624,7 +3682,23 @@ function ConfiguracoesConta() {
               <div className="grid gap-x-7 gap-y-6 sm:grid-cols-6">
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
                   <span className={labelClass}>CEP</span>
-                  <input required maxLength={9} inputMode="numeric" value={endereco.cep} onChange={event => { setEndereco(current => ({ ...current, cep: event.target.value })); setSaved(false); }} placeholder="00000-000" className={fieldClass} />
+                  <input
+                    required
+                    maxLength={9}
+                    inputMode="numeric"
+                    value={endereco.cep}
+                    onChange={event => {
+                      const digits = normalizeDocument(event.target.value).slice(0, 8);
+                      const cep = digits.replace(/^(\d{5})(\d)/, "$1-$2");
+                      setEndereco(current => ({ ...current, cep }));
+                      setCepEdited(true);
+                      setSaved(false);
+                    }}
+                    placeholder="00000-000"
+                    aria-describedby={cepLookupMessage ? "cep-lookup-status" : undefined}
+                    className={fieldClass}
+                  />
+                  {cepLookupMessage && <span id="cep-lookup-status" role="status" aria-live="polite" className={`text-[9px] leading-relaxed ${cepLookupStatus === "error" ? "text-red-700" : cepLookupStatus === "success" ? "text-bw-dourado" : "text-bw-muted"}`}>{cepLookupMessage}</span>}
                 </label>
                 <label className="flex flex-col gap-1.5 sm:col-span-4">
                   <span className={labelClass}>Endereço</span>
