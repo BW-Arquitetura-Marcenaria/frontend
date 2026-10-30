@@ -3529,6 +3529,10 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>(() => {
     const params = new URLSearchParams(window.location.search);
     if (window.location.pathname === "/convite-admin" || params.get("acao") === "recusar") return "convite-admin";
+    if (import.meta.env.VITE_USE_MOCK === "true") {
+      const tela = sessionStorage.getItem("mockTelaAtual") as Screen | null;
+      if (tela === "portal-cliente" || (tela !== null && platformScreens.includes(tela))) return tela;
+    }
     const atual = getPerfilAtual();
     if (atual === "ADMIN") return "funil";
     if (atual === "CLIENTE") return "portal-cliente";
@@ -3546,6 +3550,10 @@ export default function App() {
     if (destino !== "convite-admin" && window.location.pathname === "/convite-admin") window.history.replaceState(null, "", "/");
     if (destino === "portal-cliente" && (perfil ?? getPerfilAtual()) !== "CLIENTE" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
     if (platformScreens.includes(destino) && (perfil ?? getPerfilAtual()) !== "ADMIN" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
+    if (import.meta.env.VITE_USE_MOCK === "true") {
+      if (destino === "portal-cliente" || platformScreens.includes(destino)) sessionStorage.setItem("mockTelaAtual", destino);
+      else sessionStorage.removeItem("mockTelaAtual");
+    }
     setScreen(destino);
   }
 
@@ -3553,6 +3561,7 @@ export default function App() {
     setClienteTipo(tipo);
     if (getPerfilAtual() === "CLIENTE") sessionStorage.setItem("authClienteTipo", tipo);
     setPerfil(getPerfilAtual());
+    if (import.meta.env.VITE_USE_MOCK === "true") sessionStorage.setItem("mockTelaAtual", "portal-cliente");
     setScreen("portal-cliente");
   }
 
