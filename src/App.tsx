@@ -2359,7 +2359,26 @@ function TabelaPrecos() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<{id:number, desc:string, unit:string, material:string, price:number, cat:string} | null>(null);
+  const [editingPrice, setEditingPrice] = useState("");
+  const [newPrice, setNewPrice] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Referencia | null>(null);
+  const priceFormatter = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formatPrice = (value: number) => priceFormatter.format(value);
+  const normalizePriceInput = (value: string) => {
+    const sanitized = value.replace(/[^\d,]/g, "");
+    const [integer = "", decimal = ""] = sanitized.split(",", 2);
+    const integerPart = integer.replace(/^0+(?=\d)/, "").slice(0, 10);
+    return sanitized.includes(",") ? `${integerPart || "0"},${decimal.slice(0, 2)}` : integerPart;
+  };
+  const parsePrice = (value: string) => {
+    if (!value || value === ",") return null;
+    const price = Number(value.replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(price) && price >= 0 ? price : null;
+  };
+  const editablePrice = (value: string) => {
+    const price = parsePrice(value);
+    return price === null ? "" : String(price).replace(".", ",");
+  };
   const secoes = Object.entries((data?.content ?? []).reduce<Record<string, Referencia[]>>((acc, item) => {
     const categoria = item.categoria || "OUTROS";
     (acc[categoria] ??= []).push(item);
@@ -2386,7 +2405,7 @@ function TabelaPrecos() {
         <div><h1 className="text-2xl font-semibold text-bw-preto font-display">Tabela de Preços de Referência</h1><p className="text-[10px] font-mono text-bw-muted">Padronização para orçamentos</p></div>
         <div className="flex gap-2">
           <button onClick={() => { setExportError(""); setIsExportModalOpen(true); }} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors">Exportar PDF</button>
-          <button onClick={() => { setFormError(""); setIsNewItemModalOpen(true); }} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Novo item</button>
+          <button onClick={() => { setFormError(""); setNewPrice(""); setIsNewItemModalOpen(true); }} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Novo item</button>
         </div>
       </div>
       {error && !deleteTarget && <FeedbackMessage message={error.message} />}
@@ -2405,8 +2424,8 @@ function TabelaPrecos() {
                   <td className="px-4 py-3 text-bw-preto">{item.descricao}</td>
                   <td className="px-4 py-3 font-mono text-bw-muted">{item.unidade}</td>
                   <td className="px-4 py-3 text-bw-muted">{item.materialBase}</td>
-                  <td className="px-4 py-3 font-mono font-semibold text-bw-preto">R$ {Number(item.precoReferencia).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-3"><button type="button" className="text-xs text-bw-madeira underline hover:text-bw-preto" onClick={() => { setFormError(""); setEditingItem({id: item.id, desc: item.descricao, unit: item.unidade, material: item.materialBase, price: Number(item.precoReferencia), cat: item.categoria}); }}>Editar</button></td>
+                  <td className="px-4 py-3 font-mono font-semibold text-bw-preto">R$ {formatPrice(Number(item.precoReferencia))}</td>
+                  <td className="px-4 py-3"><button type="button" className="text-xs text-bw-madeira underline hover:text-bw-preto" onClick={() => { setFormError(""); setEditingPrice(formatPrice(Number(item.precoReferencia))); setEditingItem({id: item.id, desc: item.descricao, unit: item.unidade, material: item.materialBase, price: Number(item.precoReferencia), cat: item.categoria}); }}>Editar</button></td>
                   <td className="px-2 py-3 text-bw-muted">
                     <DeleteButton onClick={() => setDeleteTarget(item)} disabled={deleting} title="Excluir item" aria-label={`Excluir ${item.descricao}`} />
 
@@ -2427,7 +2446,7 @@ function TabelaPrecos() {
         <div role="dialog" aria-modal="true" aria-label="Editar referência" className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8">
             <button 
-              onClick={() => setEditingItem(null)}
+              onClick={() => { setEditingItem(null); setEditingPrice(""); }}
               className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors"
             >
               <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
@@ -2443,12 +2462,17 @@ function TabelaPrecos() {
                 if (!editingItem) return;
                 const form = e.currentTarget as HTMLFormElement;
                 const fd = new FormData(form);
+                const precoReferencia = parsePrice(editingPrice);
+                if (precoReferencia === null) {
+                  setFormError("Informe um preço de referência válido.");
+                  return;
+                }
                 const payload = {
                   categoria: (fd.get('categoria') as string) ?? editingItem.cat,
                   descricao: (fd.get('descricao') as string) ?? editingItem.desc,
                   materialBase: (fd.get('materialBase') as string) ?? editingItem.material,
                   unidade: (fd.get('unidade') as string) ?? editingItem.unit,
-                  precoReferencia: Number((fd.get('precoReferencia') as string) ?? editingItem.price)
+                  precoReferencia,
                 };
                 setSaving(true);
                 setFormError("");
@@ -2456,6 +2480,7 @@ function TabelaPrecos() {
                   await updateReferencia(editingItem.id, payload);
                   void refresh();
                   setEditingItem(null);
+                  setEditingPrice("");
                 } catch (err:any) {
                   setFormError(err?.response?.data?.message || "Não foi possível atualizar a referência. Tente novamente.");
                 } finally { setSaving(false); }
@@ -2491,13 +2516,13 @@ function TabelaPrecos() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
-                  <input name="precoReferencia" type="number" min="0" step="0.01" defaultValue={editingItem.price} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
+                  <input name="precoReferencia" type="text" inputMode="decimal" autoComplete="off" value={editingPrice} onFocus={() => setEditingPrice(editablePrice(editingPrice))} onChange={event => setEditingPrice(normalizePriceInput(event.target.value))} onBlur={() => { const price = parsePrice(editingPrice); if (price !== null) setEditingPrice(formatPrice(price)); }} placeholder="0,00" maxLength={16} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
                 </div>
               </div>
 
               {formError && <FeedbackMessage message={formError} className="!text-red-200" />}
               <div className="mt-4 flex gap-3">
-                <button type="button" disabled={saving} onClick={() => setEditingItem(null)} className="flex-1 border border-bw-dourado/30 text-bw-areia font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors">
+                <button type="button" disabled={saving} onClick={() => { setEditingItem(null); setEditingPrice(""); }} className="flex-1 border border-bw-dourado/30 text-bw-areia font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors">
                   Cancelar
                 </button>
                 <button type="submit" disabled={saving} className="flex-1 bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-50">
@@ -2513,7 +2538,7 @@ function TabelaPrecos() {
         <div role="dialog" aria-modal="true" aria-label="Nova referência" className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8">
             <button 
-              onClick={() => setIsNewItemModalOpen(false)}
+              onClick={() => { setIsNewItemModalOpen(false); setNewPrice(""); }}
               className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors"
             >
               <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
@@ -2528,12 +2553,17 @@ function TabelaPrecos() {
                 e.preventDefault();
                 const form = e.currentTarget as HTMLFormElement;
                 const fd = new FormData(form);
+                const precoReferencia = parsePrice(newPrice);
+                if (precoReferencia === null) {
+                  setFormError("Informe um preço de referência válido.");
+                  return;
+                }
                 const payload = {
                   categoria: fd.get('categoria') as string,
                   descricao: fd.get('descricao') as string,
                   materialBase: fd.get('materialBase') as string,
                   unidade: fd.get('unidade') as string,
-                  precoReferencia: Number(fd.get('precoReferencia') as string)
+                  precoReferencia,
                 };
                 setSaving(true);
                 setFormError("");
@@ -2541,6 +2571,7 @@ function TabelaPrecos() {
                   await createReferencia(payload);
                   void fetchPage({ page: 0 });
                   setIsNewItemModalOpen(false);
+                  setNewPrice("");
                 } catch (err:any) {
                   setFormError(err?.response?.data?.message || "Não foi possível criar a referência. Tente novamente.");
                 } finally { setSaving(false); }
@@ -2577,7 +2608,7 @@ function TabelaPrecos() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
-                  <input name="precoReferencia" type="number" min="0" step="0.01" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="0,00" />
+                  <input name="precoReferencia" type="text" inputMode="decimal" autoComplete="off" value={newPrice} onFocus={() => setNewPrice(editablePrice(newPrice))} onChange={event => setNewPrice(normalizePriceInput(event.target.value))} onBlur={() => { const price = parsePrice(newPrice); if (price !== null) setNewPrice(formatPrice(price)); }} placeholder="0,00" maxLength={16} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
                 </div>
               </div>
 
