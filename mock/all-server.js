@@ -6,6 +6,7 @@ const services = [
   { name: 'referências', script: 'server.js', port: 4101 },
   { name: 'financeiro', script: 'financeiro-server.js', port: 4102 },
   { name: 'chat', script: 'chat-server.js', port: 4103 },
+  { name: 'funil', script: 'funil-server.js', port: 4104 },
 ];
 const children = services.map(service => {
   const child = spawn(process.execPath, [fileURLToPath(new URL(service.script, import.meta.url))], {
@@ -20,7 +21,8 @@ let stopping = false;
 
 const porta = Number(process.env.PORT || 4000);
 const proxy = http.createServer((req, res) => {
-  const service = req.url?.startsWith('/v1/admin/chat') || req.url?.startsWith('/v1/chat/') ? services[2]
+  const service = req.url?.startsWith('/v1/admin/funil') ? services[3]
+    : req.url?.startsWith('/v1/admin/chat') || req.url?.startsWith('/v1/chat/') ? services[2]
     : req.url?.startsWith('/v1/financeiros') ? services[1]
       : services[0];
   const forwarded = http.request({ hostname: '127.0.0.1', port: service.port, path: req.url, method: req.method, headers: req.headers }, response => {
@@ -42,4 +44,4 @@ function stop() {
 }
 process.on('SIGINT', stop);
 process.on('SIGTERM', stop);
-proxy.listen(porta, () => console.log(`Mocks unificados em http://localhost:${porta} (referências, financeiro e chat)`));
+proxy.listen(porta, () => console.log(`Mocks unificados em http://localhost:${porta} (referências, financeiro, chat e funil)`));
