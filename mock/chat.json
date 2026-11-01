@@ -1,0 +1,19 @@
+{
+  "clientes": [
+    { "id": 1, "nome": "Rafael Mendes" },
+    { "id": 2, "nome": "Camila Furtado" },
+    { "id": 3, "nome": "Thiago Cavalcanti" }
+  ],
+  "mensagens": [
+    { "id": 1, "clienteId": 1, "remetente": "CLIENTE", "conteudo": "Olá! Gostei do trabalho de vocês. Queria fazer os móveis do meu apartamento.", "criadoEm": "2026-10-30T10:30:00", "lida": false },
+    { "id": 2, "clienteId": 1, "remetente": "ADMIN", "conteudo": "Olá, Rafael! Qual é o prazo para a entrega?", "criadoEm": "2026-10-30T10:35:00", "lida": false },
+    { "id": 3, "clienteId": 1, "remetente": "CLIENTE", "conteudo": "Pego as chaves mês que vem. Podemos agendar uma visita?", "criadoEm": "2026-10-30T10:36:00", "lida": false },
+    { "id": 4, "clienteId": 2, "remetente": "CLIENTE", "conteudo": "Bom dia! Vocês fazem projetos para casas?", "criadoEm": "2026-10-30T09:15:00", "lida": false },
+    { "id": 5, "clienteId": 2, "remetente": "ADMIN", "conteudo": "Bom dia, Camila! Sim, trabalhamos com projetos residenciais.", "criadoEm": "2026-10-30T09:40:00", "lida": false },
+    { "id": 6, "clienteId": 3, "remetente": "CLIENTE", "conteudo": "Recebi o orçamento e gostaria de conversar sobre os materiais.", "criadoEm": "2026-10-29T14:20:00", "lida": false }
+  ],
+  "resumos": {
+    "1": { "resumo": "Interesse em móveis planejados para apartamento. Precisa de visita técnica antes da entrega das chaves.", "ambiente": "Apartamento", "movel": "Móveis planejados", "cor": null, "material": "Madeira", "orcamento": "R$ 28.000 a R$ 35.000", "situacaoProjeto": "Planejamento", "precisaVisitaTecnica": true, "saoPaulo": true, "atendidoEm": "2026-10-30T10:30:00" },
+    "2": { "resumo": "Cliente interessada em projeto residencial completo.", "ambiente": "Casa", "movel": null, "cor": null, "material": null, "orcamento": null, "situacaoProjeto": "Inicial", "precisaVisitaTecnica": null, "saoPaulo": null, "atendidoEm": "2026-10-30T09:15:00" }
+  }
+}
