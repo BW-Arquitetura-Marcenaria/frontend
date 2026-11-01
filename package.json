@@ -11,6 +11,7 @@
     "mock:chat": "node mock/chat-server.js",
     "mock:all": "node mock/all-server.js",
     "mock:funil": "node mock/funil-server.js",
+    "mock:cadastro": "node mock/cadastro-server.js",
     "build": "vite build",
     "preview": "vite preview",
     "format": "oxfmt"
