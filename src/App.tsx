@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, type DragEvent } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import bwLogo from "@/assets/brand/logo-bw-arquitetura-marcenaria.png";
 import sobrePhoto from "@/assets/team/fundadores-bianca-walmir.jpeg";
 import bwProject1 from "@/assets/portfolio/casa-aroeira-estante-residencial.png";
@@ -9,6 +9,8 @@ import RastreabilidadeView from "@/views/rastreabilidade/RastreabilidadeView";
 import CalendarioView from "@/views/calendario/CalendarioView";
 import FinanceiroView from "@/views/financeiro/FinanceiroView";
 import AdminChatView from "@/views/chatbot/AdminChatView";
+import FunilView from "@/views/funil/FunilView";
+import { obterFunil, type CardFunil } from "@/api/funil";
 import ClienteChatView from "@/views/chatbot/ClienteChatView";
 import ClienteAgendamentosView from "@/views/calendario/ClienteAgendamentosView";
 import { useMinhaContaViewModel } from "@/viewmodels/minhaConta/useMinhaContaViewModel";
@@ -895,6 +897,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
   const token = new URLSearchParams(window.location.search).get("token") ?? "";
   const [linkValido, setLinkValido] = useState(false);
   const [validando, setValidando] = useState(Boolean(token));
+  const [erroLink, setErroLink] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erroCadastro, setErroCadastro] = useState("");
   const [nome, setNome] = useState("");
@@ -907,6 +910,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
   const [confirmarSenha, setConfirmarSenha] = useState("");
   const [aceitou, setAceitou] = useState(false);
   const [cadastroConcluido, setCadastroConcluido] = useState(false);
+  const enviandoRef = useRef(false);
   const [tab, setTab] = useState<CadTab>("pf");
   const [step, setStep] = useState<CadStep>("dados");
   const [cnpj, setCnpj] = useState("");
@@ -933,17 +937,19 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
     let ativo = true;
     validarLinkCadastro(token).then(dados => {
       if (ativo) { setLinkValido(true); if (dados.nome) setNome(dados.nome); }
-    }).catch(() => { if (ativo) setErroCadastro("Este link de cadastro é inválido, expirou ou já foi utilizado. Solicite um novo link à equipe BW."); })
+    }).catch(() => { if (ativo) setErroLink("Este link de cadastro é inválido, expirou ou já foi utilizado. Solicite um novo link à equipe BW."); })
       .finally(() => { if (ativo) setValidando(false); });
     return () => { ativo = false; };
   }, [token]);
 
   async function concluirCadastro() {
-    if (cadastroConcluido) { window.history.replaceState(null, "", "/"); onNav("login"); return; }
-    if (!cadastroConcluido && (senha.length < 8 || senha !== confirmarSenha || !aceitou)) {
-      setErroCadastro("Confira a senha (mínimo de 8 caracteres), a confirmação e o aceite dos termos.");
+    if (cadastroConcluido) { onNav("login"); return; }
+    if (enviandoRef.current) return;
+    if (!cadastroConcluido && (senha.length < 8 || senha.length > 72 || senha !== confirmarSenha || !aceitou)) {
+      setErroCadastro("Confira a senha (entre 8 e 72 caracteres), a confirmação e o aceite dos termos.");
       return;
     }
+    enviandoRef.current = true;
     setEnviando(true);
     setErroCadastro("");
     const payload: CadastroPayload = {
@@ -960,16 +966,14 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
       }
       try {
         const { perfil } = await apiLogin(payload.email, senha);
-        window.history.replaceState(null, "", "/");
         if (perfil === "CLIENTE") onClientLogin(tab);
         else onNav("login");
       } catch {
-        window.history.replaceState(null, "", "/");
         setErroCadastro("Cadastro concluído! O login automático não foi possível. Acesse com seu e-mail e senha.");
       }
     } catch (erro: any) {
       setErroCadastro(erro?.response?.data?.message || "Não foi possível concluir o cadastro. Confira os dados e tente novamente.");
-    } finally { setEnviando(false); }
+    } finally { enviandoRef.current = false; setEnviando(false); }
   }
 
   const steps: CadStep[] = ["dados", "contato", "confirmacao"];
@@ -1020,7 +1024,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
           </div>
 
           {validando && <p role="status" className="mb-5 text-sm text-white">Validando seu link de cadastro...</p>}
-          {!validando && !linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroCadastro || "Para criar uma conta, utilize o link de cadastro enviado pela equipe BW."}</p>}
+          {!validando && !linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroLink || "Para criar uma conta, utilize o link de cadastro enviado pela equipe BW."}</p>}
           {erroCadastro && linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroCadastro}</p>}
           {/* STEP 1: Dados pessoais ou da empresa */}
           {linkValido && step === "dados" && (
@@ -1045,11 +1049,11 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className={glassLabel}>Nome</label>
-                      <input type="text" placeholder="Nome" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} />
+                      <input type="text" maxLength={100} placeholder="Nome" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} />
                     </div>
                     <div>
                       <label className={glassLabel}>Sobrenome</label>
-                      <input type="text" placeholder="Sobrenome" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} />
+                      <input type="text" maxLength={100} placeholder="Sobrenome" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} />
                     </div>
                   </div>
                   <div>
@@ -1070,11 +1074,11 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
                   </div>
                   <div>
                     <label className={glassLabel}>Razão social</label>
-                    <input type="text" placeholder="Nome da empresa Ltda." value={razaoSocial} onChange={e => setRazaoSocial(e.target.value)} className={glassInput} />
+                    <input type="text" maxLength={150} placeholder="Nome da empresa Ltda." value={razaoSocial} onChange={e => setRazaoSocial(e.target.value)} className={glassInput} />
                   </div>
                   <div>
                     <label className={glassLabel}>Nome fantasia</label>
-                    <input type="text" placeholder="BW Arquitetura" value={nomeFantasia} onChange={e => setNomeFantasia(e.target.value)} className={glassInput} />
+                    <input type="text" maxLength={150} placeholder="BW Arquitetura" value={nomeFantasia} onChange={e => setNomeFantasia(e.target.value)} className={glassInput} />
                   </div>
                 </div>
               )}
@@ -1104,8 +1108,8 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
               {tab === "pj" && (
                 <>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div><label className={glassLabel}>Nome do responsável</label><input type="text" placeholder="Nome" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} /></div>
-                    <div><label className={glassLabel}>Sobrenome do responsável</label><input type="text" placeholder="Sobrenome" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} /></div>
+                    <div><label className={glassLabel}>Nome do responsável</label><input type="text" maxLength={100} placeholder="Nome" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} /></div>
+                    <div><label className={glassLabel}>Sobrenome do responsável</label><input type="text" maxLength={100} placeholder="Sobrenome" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} /></div>
                   </div>
                   <div><label className={glassLabel}>CPF do responsável</label><input type="text" placeholder="000.000.000-00" value={cpf} onChange={e => setCpf(formatCPF(e.target.value))} className={glassInput + " font-mono"} /></div>
                 </>
@@ -1113,7 +1117,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className={glassLabel}>{tab === "pf" ? "E-mail" : "E-mail corporativo"}</label>
-                  <input type="email" placeholder={tab === "pf" ? "seu@email.com" : "contato@empresa.com.br"} value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
+                  <input type="email" maxLength={150} placeholder={tab === "pf" ? "seu@email.com" : "contato@empresa.com.br"} value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
                   <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
                 </div>
                 <div><label className={glassLabel}>{tab === "pf" ? "Celular / WhatsApp" : "Telefone comercial"}</label><input type="tel" placeholder={tab === "pf" ? "(11) 99999-9999" : "(11) 3000-0000"} value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-mono"} /></div>
@@ -1144,7 +1148,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
               </div>
               <div>
                 <label className={glassLabel}>Senha</label>
-                <PasswordInput placeholder="Mínimo 8 caracteres" value={senha} onChange={e => setSenha(e.target.value)} className={glassInput} />
+                <PasswordInput maxLength={72} placeholder="Entre 8 e 72 caracteres" value={senha} onChange={e => setSenha(e.target.value)} className={glassInput} />
                 <div className="flex gap-1 mt-3">
                   {["","","",""].map((_, i) => (
                     <div key={i} className="flex-1 h-px bg-white/10" />
@@ -1160,7 +1164,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
               </div>
               <div>
                 <label className={glassLabel}>Confirmar senha</label>
-                <PasswordInput placeholder="Repita a senha" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} className={glassInput} />
+                <PasswordInput maxLength={72} placeholder="Repita a senha" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} className={glassInput} />
               </div>
               <div className="flex items-start gap-2.5 pt-1">
                 <input type="checkbox" checked={aceitou} onChange={e => setAceitou(e.target.checked)} className="mt-0.5 accent-bw-dourado" />
@@ -1501,7 +1505,7 @@ function PlatformShell({ screen, onNav }: { screen: Screen; onNav: (s: Screen) =
 
   const renderScreen = () => {
     switch (screen) {
-      case "funil": return <Funil />;
+      case "funil": return <FunilView />;
       case "financeiro": return <FinanceiroView />;
       case "calendario": return <Calendario />;
       case "chatbot": return <AdminChatView />;
@@ -1511,7 +1515,7 @@ function PlatformShell({ screen, onNav }: { screen: Screen; onNav: (s: Screen) =
       case "descarte": return <MapaDescarte />;
       case "usuarios-admin": return <UsuariosAdmin />;
       case "configuracoes": return <ConfiguracoesConta />;
-      default: return <Funil />;
+      default: return <FunilView />;
     }
   };
 
@@ -1562,287 +1566,26 @@ function PlatformShell({ screen, onNav }: { screen: Screen; onNav: (s: Screen) =
   );
 }
 
-// ─── SCREEN: Funil ────────────────────────────────────────────────────────────
-type Lead = { id:number; nome:string; ini:string; score:number; fonte:string; tempo:string; tipo:string; faixa:string; urgencia:string; etapa:string };
-
-const leadsData: Lead[] = [
-  { id:1, nome:"Rafael Mendes", ini:"RM", score:94, fonte:"Indicação", tempo:"há 12 min", tipo:"Móveis planejados", faixa:"R$ 28–35k", urgencia:"urgente", etapa:"Novo lead" },
-  { id:2, nome:"Camila Furtado", ini:"CF", score:88, fonte:"Indicação", tempo:"há 34 min", tipo:"Projeto arq.", faixa:"R$ 80–120k", urgencia:"1–2 meses", etapa:"Novo lead" },
-  { id:3, nome:"Bruno Lacerda", ini:"BL", score:72, fonte:"Indicação", tempo:"há 1h", tipo:"Móveis planejados", faixa:"R$ 12–18k", urgencia:"urgente", etapa:"Em qualificação" },
-  { id:4, nome:"Juliana Rocha", ini:"JR", score:55, fonte:"Instagram", tempo:"ontem", tipo:"Móveis planejados", faixa:"R$ 22–30k", urgencia:"sem urgência", etapa:"Em qualificação" },
-  { id:5, nome:"Thiago Cavalcanti", ini:"TC", score:91, fonte:"Indicação", tempo:"há 2h", tipo:"Móveis planejados", faixa:"R$ 35–55k", urgencia:"urgente", etapa:"Qualificado" },
-  { id:6, nome:"Priscila Andrade", ini:"PA", score:76, fonte:"Instagram", tempo:"ontem", tipo:"Reforma", faixa:"R$ 45–60k", urgencia:"1–2 meses", etapa:"Qualificado" },
-  { id:7, nome:"Fernanda Braga", ini:"FB", score:97, fonte:"Indicação", tempo:"4 dias", tipo:"Projeto arq.", faixa:"R$ 150–200k", urgencia:"1–2 meses", etapa:"Orçamento enviado" },
-  { id:8, nome:"Eduardo Siqueira", ini:"ES", score:83, fonte:"Instagram", tempo:"4 dias", tipo:"Projeto arq.", faixa:"R$ 90–130k", urgencia:"1–2 meses", etapa:"Orçamento enviado" },
-  { id:9, nome:"André Fonseca", ini:"AF", score:89, fonte:"Indicação", tempo:"1 semana", tipo:"Reforma", faixa:"R$ 65–90k", urgencia:"urgente", etapa:"Em negociação" },
-  { id:10, nome:"Natália Guimarães", ini:"NG", score:72, fonte:"Indicação", tempo:"1 semana", tipo:"Móveis planejados", faixa:"R$ 40–55k", urgencia:"1–2 meses", etapa:"Em negociação" },
-  { id:11, nome:"Gustavo Melo", ini:"GM", score:98, fonte:"Indicação", tempo:"2 semanas", tipo:"Projeto arq.", faixa:"R$ 200k+", urgencia:"urgente", etapa:"Fechado" },
-  { id:12, nome:"Isabela Torres", ini:"IT", score:81, fonte:"Instagram", tempo:"3 semanas", tipo:"Reforma", faixa:"R$ 55–70k", urgencia:"1–2 meses", etapa:"Fechado" },
-];
-
-const colunas = ["Novo lead","Em qualificação","Qualificado","Orçamento enviado","Em negociação","Fechado"]; const colunasOcultas = ["Novo lead","Em qualificação"]; // Etapas ocultas nesta sprint (usadas depois). Para reativar, remova da lista.
-const colunasVisiveis = colunas.filter(c => !colunasOcultas.includes(c));
-// Filtros de origem ocultos nesta sprint (foco só no Instagram). Para reativar, remova da lista.
-const filtrosOcultos = ["todos","indicação"];
-// Botão "+ Novo lead" oculto nesta sprint (sem cadastro de leads por enquanto). Para reativar, use true.
-const mostrarNovoLead = false;
-
-function LeadCard({ lead, onSelect, onDragStart, onDragEnd }: { lead: Lead; onSelect: () => void; onDragStart: (event: DragEvent<HTMLButtonElement>) => void; onDragEnd: () => void }) {
-  const scoreStyle = lead.score >= 90 ? "bg-bw-dourado text-white" : lead.score >= 75 ? "bg-bw-madeira text-white" : "bg-bw-areia text-bw-madeira";
-  const urgStyle = lead.urgencia === "urgente" ? "!" : lead.urgencia === "1–2 meses" ? "~" : "–";
-
-  return (
-    <button
-      draggable
-      onClick={onSelect}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      className="group w-full cursor-grab bg-bw-white border border-bw-border p-2.5 text-left hover:border-bw-dourado hover:shadow-[0_5px_16px_rgba(111,78,55,0.08)] transition-all focus:outline-none focus:ring-2 focus:ring-bw-dourado/40 active:cursor-grabbing"
-    >
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="w-6 h-6 shrink-0 bg-bw-areia border border-bw-border flex items-center justify-center text-[9px] font-mono font-medium text-bw-madeira">{lead.ini}</div>
-          <span className="truncate text-[11px] font-semibold text-bw-preto leading-tight">{lead.nome}</span>
-        </div>
-        <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${scoreStyle}`}>{lead.score}</span>
-      </div>
-      <div className="text-[9px] font-mono text-bw-muted mb-1 uppercase tracking-wide">{lead.fonte} · {lead.tempo}</div>
-      <div className="truncate text-[10px] text-bw-madeira mb-1.5">{lead.tipo}</div>
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-mono text-bw-preto">{lead.faixa}</span>
-        <span className="text-[9px] font-mono text-bw-madeira">{urgStyle} {lead.urgencia}</span>
-      </div>
-    </button>
-  );
-}
-
-function Funil() {
-  const [filtro, setFiltro] = useState("instagram");
-  const [leads, setLeads] = useState(leadsData);
-  const [selectedLeadId, setSelectedLeadId] = useState(leadsData[0].id);
-  const [detailsLeadId, setDetailsLeadId] = useState<number | null>(null);
-  const [draggedLeadId, setDraggedLeadId] = useState<number | null>(null);
-  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
-  const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
-  const filtered = filtro === "todos" ? leads : leads.filter(l => l.fonte.toLowerCase() === filtro);
-  const selectedLead = leads.find(lead => lead.id === selectedLeadId) ?? leads[0];
-  const detailsLead = leads.find(lead => lead.id === detailsLeadId);
-  const scoreMedio = Math.round(filtered.reduce((s, l) => s + l.score, 0) / filtered.length);
-  const pipelineValue = filtered.reduce((total, lead) => total + (lead.faixa.includes("200") ? 200 : Number(lead.faixa.match(/\d+/)?.[0] ?? 0)), 0);
-  const moveLead = (leadId: number, etapa: string) => {
-    setLeads(current => current.map(lead => lead.id === leadId ? { ...lead, etapa } : lead));
-    setSelectedLeadId(leadId);
-  };
-  const openLeadDetails = (leadId: number) => {
-    setSelectedLeadId(leadId);
-    setDetailsLeadId(leadId);
-  };
-
-  return (
-    <div className="mx-auto flex min-h-[42rem] w-full max-w-[1480px] flex-col overflow-hidden sm:h-full sm:min-h-0">
-      <div className="flex shrink-0 flex-col gap-4 border-b border-bw-border pb-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
-        <div className="flex items-end gap-5">
-          <div>
-            <div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">Relacionamento comercial</div>
-            <h1 className="font-display text-4xl leading-none tracking-[-.04em] text-bw-preto">Funil de clientes</h1>
-          </div>
-          <p className="hidden max-w-[250px] border-l border-bw-border pl-5 text-[11px] leading-relaxed text-bw-muted xl:block">Priorize conversas que aproximam o projeto da decisão.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:gap-3">
-          <div className="hidden items-baseline gap-5 border-r border-bw-border pr-5 sm:flex">
-            <div className="flex items-baseline gap-2 whitespace-nowrap">
-              <span className="font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted">Pipeline</span>
-              <span className="text-lg font-semibold leading-none tabular-nums text-bw-preto">R$ {pipelineValue}k</span>
-            </div>
-            <div className="flex items-baseline gap-2 whitespace-nowrap">
-              <span className="font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted">Score médio</span>
-              <span className="text-lg font-semibold leading-none tabular-nums text-bw-preto">{scoreMedio}</span>
-            </div>
-          </div>
-          <div className="flex border border-bw-border bg-bw-white text-[10px]">
-            {[["todos","Todos"],["instagram","Instagram"],["indicação","Indicação"]].filter(([k]) => !filtrosOcultos.includes(k)).map(([k,l]) => (
-              <button key={k} onClick={() => setFiltro(k)} className={`px-2.5 py-2 transition-colors border-l border-bw-border first:border-l-0 ${filtro === k ? "bg-bw-preto text-bw-white" : "text-bw-madeira hover:bg-bw-hover"}`}>{l}</button>
-            ))}
-          </div>
-          {mostrarNovoLead && <button onClick={() => setIsNewLeadModalOpen(true)} className="bg-bw-dourado px-3 py-2 text-[10px] font-medium text-white hover:bg-bw-madeira transition-colors">+ Novo lead</button>}
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 pt-4">
-        <div className="mb-3 flex items-center justify-between rounded-sm border border-bw-border-sub bg-bw-white/50 px-3 py-2">
-          <span className="font-mono text-[9px] uppercase tracking-[.16em] text-bw-muted">{filtered.length} oportunidades ativas</span>
-          <span className="text-[10px] text-bw-madeira">Em foco: <button onClick={() => setDetailsLeadId(selectedLead.id)} className="font-semibold underline decoration-bw-dourado underline-offset-4">{selectedLead.nome}</button></span>
-        </div>
-      <div className="grid h-[32rem] gap-2.5 overflow-x-auto pb-2 sm:h-[calc(100%-38px)]" style={{ gridTemplateColumns: `repeat(${colunasVisiveis.length},minmax(15rem,1fr))` }}>
-        {colunasVisiveis.map(col => {
-          const cards = filtered.filter(l => l.etapa === col);
-          return (
-            <section
-              key={col}
-              onDragOver={event => {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-                setDragOverColumn(col);
-              }}
-              onDrop={event => {
-                event.preventDefault();
-                if (draggedLeadId !== null) moveLead(draggedLeadId, col);
-                setDraggedLeadId(null);
-                setDragOverColumn(null);
-              }}
-              className={`flex min-w-0 flex-col border transition-colors ${dragOverColumn === col ? "border-bw-dourado bg-bw-dourado/10" : "border-transparent bg-bw-white/30"}`}
-            >
-              <div className="flex min-h-10 items-center justify-between border-y border-bw-border px-2">
-                <span className="text-[9px] font-mono uppercase tracking-[.09em] text-bw-madeira">{col}</span>
-                <span className="flex h-4 min-w-4 items-center justify-center bg-bw-areia px-1 font-mono text-[9px] text-bw-madeira">{cards.length}</span>
-              </div>
-              <div className="flex flex-col gap-2 p-2">
-                {cards.map(lead => (
-                  <LeadCard
-                    key={lead.id}
-                    lead={lead}
-                    onSelect={() => openLeadDetails(lead.id)}
-                    onDragStart={event => {
-                      event.dataTransfer.effectAllowed = "move";
-                      event.dataTransfer.setData("text/plain", String(lead.id));
-                      setDraggedLeadId(lead.id);
-                      setSelectedLeadId(lead.id);
-                    }}
-                    onDragEnd={() => {
-                      setDraggedLeadId(null);
-                      setDragOverColumn(null);
-                    }}
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })}
-      </div>
-      </div>
-
-      {detailsLead && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4" onClick={() => setDetailsLeadId(null)}>
-          <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-lg overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8" onClick={event => event.stopPropagation()}>
-            <button onClick={() => setDetailsLeadId(null)} className="absolute right-5 top-4 text-bw-areia transition-colors hover:text-white">
-              <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
-            </button>
-
-            <div className="mb-7 flex items-center gap-4 border-b border-bw-dourado/20 pb-6">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-bw-dourado/40 bg-bw-areia/10 font-mono text-sm text-bw-areia">{detailsLead.ini}</div>
-              <div>
-                <div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">Detalhes da oportunidade</div>
-                <h2 className="font-display text-3xl leading-none text-bw-white">{detailsLead.nome}</h2>
-              </div>
-            </div>
-
-            <div className="mb-7 grid gap-x-8 gap-y-5 sm:grid-cols-2">
-              {[
-                ["Tipo de projeto", detailsLead.tipo],
-                ["Faixa de valor", detailsLead.faixa],
-                ["Origem", detailsLead.fonte],
-                ["Recebido", detailsLead.tempo],
-                ["Urgência", detailsLead.urgencia],
-                ["Score", String(detailsLead.score)],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <div className="mb-1 font-mono text-[9px] uppercase tracking-wider text-bw-areia/60">{label}</div>
-                  <div className="text-sm text-bw-white">{value}</div>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-bw-dourado/20 pt-6">
-              <label className="mb-2 block font-mono text-[9px] uppercase tracking-wider text-bw-areia">Etapa do funil</label>
-              <select
-                value={detailsLead.etapa}
-                onChange={event => moveLead(detailsLead.id, event.target.value)}
-                className="w-full border-b border-bw-dourado/40 bg-transparent py-2 text-sm text-bw-white outline-none transition-colors focus:border-bw-dourado"
-              >
-                {colunasVisiveis.map(coluna => <option key={coluna} value={coluna} className="bg-bw-preto text-bw-white">{coluna}</option>)}
-              </select>
-              <p className="mt-3 text-[10px] leading-relaxed text-bw-areia/60">Altere a etapa aqui ou arraste o card diretamente entre as colunas do funil.</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isNewLeadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
-          <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8">
-            <button 
-              onClick={() => setIsNewLeadModalOpen(false)}
-              className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors"
-            >
-              <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
-            </button>
-
-            <div className="mb-8">
-              <h2 className="font-display text-2xl text-bw-white">Novo Lead</h2>
-              <p className="font-mono text-[10px] text-bw-dourado uppercase tracking-widest mt-1">Cadastro de oportunidade</p>
-            </div>
-
-            <form className="flex flex-col gap-5" onSubmit={e => { e.preventDefault(); setIsNewLeadModalOpen(false); }}>
-              <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Nome do cliente</label>
-                <input type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Contato (Telefone/Email)</label>
-                <input type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
-              </div>
-
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Tipo de projeto</label>
-                  <select className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
-                    <option value="" disabled selected hidden className="bg-bw-preto text-bw-white">Selecione...</option>
-                    <option value="Móveis planejados" className="bg-bw-preto text-bw-white">Móveis planejados</option>
-                    <option value="Projeto arq." className="bg-bw-preto text-bw-white">Projeto arq.</option>
-                    <option value="Reforma" className="bg-bw-preto text-bw-white">Reforma</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Faixa de valor</label>
-                  <select className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
-                    <option value="" disabled selected hidden className="bg-bw-preto text-bw-white">Selecione...</option>
-                    <option value="R$ 10–20k" className="bg-bw-preto text-bw-white">R$ 10–20k</option>
-                    <option value="R$ 20–50k" className="bg-bw-preto text-bw-white">R$ 20–50k</option>
-                    <option value="R$ 50–100k" className="bg-bw-preto text-bw-white">R$ 50–100k</option>
-                    <option value="R$ 100k+" className="bg-bw-preto text-bw-white">R$ 100k+</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Origem</label>
-                <select className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
-                  <option value="" disabled selected hidden className="bg-bw-preto text-bw-white">Selecione...</option>
-                  <option value="Indicação" className="bg-bw-preto text-bw-white">Indicação</option>
-                  <option value="Instagram" className="bg-bw-preto text-bw-white">Instagram</option>
-                  <option value="Outro" className="bg-bw-preto text-bw-white">Outro</option>
-                </select>
-              </div>
-
-              <div className="mt-4">
-                <button type="submit" className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors">
-                  Adicionar Lead
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── SCREEN: Calendário ───────────────────────────────────────────────────────
+function useOpcoesFunil(): CardFunil[] {
+  const [cards, setCards] = useState<CardFunil[]>([]);
+  useEffect(() => {
+    let ativo = true;
+    void obterFunil().then(quadro => {
+      if (ativo) setCards(quadro.colunas.flatMap(coluna => coluna.cards));
+    }).catch(() => { /* Outras telas continuam utilizáveis sem as opções do funil. */ });
+    return () => { ativo = false; };
+  }, []);
+  return cards;
+}
+
 type CalEvento = { id: number; date: string; title: string; time: string; tipo: string; leadId: number | ""; };
 type CalForm = { id: number | null; date: string; title: string; time: string; tipo: string; leadId: number | ""; };
 
-function Calendario() { return <CalendarioView leads={leadsData.map(l => ({ id: l.id, nome: l.nome, etapa: l.etapa, score: l.score }))} />; }
+function Calendario() {
+  const cards = useOpcoesFunil();
+  return <CalendarioView leads={cards.map(card => ({ id: card.clienteId, nome: card.nome, score: card.score ?? undefined }))} />;
+}
 function CalendarioLegacy() {
   const pad = (n: number) => String(n).padStart(2, "0");
   const toISO = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
@@ -1977,7 +1720,7 @@ function CalendarioLegacy() {
               <div className="text-lg font-semibold text-bw-preto font-display">{selected.title}</div>
               <div className="text-xs text-bw-madeira font-mono">{fmtLong(selected.date)} · {selected.time}</div>
               <div className="text-xs text-bw-preto">{tipos[selected.tipo] || "—"}</div>
-              <div className="text-xs text-bw-muted">Lead: {leadsData.find(l => l.id === selected.leadId)?.nome || "Evento interno"}</div>
+              <div className="text-xs text-bw-muted">Lead: {"Evento vinculado"}</div>
             </div>
           </div>
         </div>
@@ -2008,7 +1751,7 @@ function CalendarioLegacy() {
                 </label>
                 <select value={form.leadId} onChange={e => setForm({ ...form, leadId: e.target.value ? Number(e.target.value) : "" })} className={`${inputCls} appearance-none rounded-none`}>
                   <option value="" className="bg-bw-preto text-bw-white">Nenhum (Evento interno)</option>
-                  {leadsData.map(lead => (
+                  {([] as { id: number; nome: string; etapa: string; score: number }[]).map(lead => (
                     <option key={lead.id} value={lead.id} className="bg-bw-preto text-bw-white">
                       {lead.nome} — {lead.etapa} ({lead.score} pts)
                     </option>
@@ -2515,7 +2258,8 @@ function TabelaPrecos() {
 
 // ─── SCREEN: Rastreabilidade ──────────────────────────────────────────────────
 function Rastreabilidade() {
-  return <RastreabilidadeView projetos={leadsData.map(l => ({ id: l.id, nome: l.nome, tipo: l.tipo }))} />;
+  const cards = useOpcoesFunil();
+  return <RastreabilidadeView projetos={cards.map(card => ({ id: card.clienteId, nome: card.nome, tipo: card.tipoProjeto ?? undefined }))} />;
 }
 
 // ─── SCREEN: Mapa de Descarte ─────────────────────────────────────────────────
@@ -3674,6 +3418,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>(() => {
     const params = new URLSearchParams(window.location.search);
     if (window.location.pathname === "/convite-admin" || params.get("acao") === "recusar") return "convite-admin";
+    if (window.location.pathname === "/cadastro" && params.has("token")) return "cadastro";
     if (import.meta.env.VITE_USE_MOCK === "true") {
       const tela = sessionStorage.getItem("mockTelaAtual") as Screen | null;
       if (tela === "portal-cliente" || (tela !== null && platformScreens.includes(tela))) return tela;
@@ -3681,7 +3426,6 @@ export default function App() {
     const atual = getPerfilAtual();
     if (atual === "ADMIN") return "funil";
     if (atual === "CLIENTE") return "portal-cliente";
-    if (new URLSearchParams(window.location.search).has("token") && window.location.pathname === "/cadastro") return "cadastro";
     return "institucional";
   });
   const [clienteTipo, setClienteTipo] = useState<ClienteTipo>(() => sessionStorage.getItem("authClienteTipo") === "pj" ? "pj" : "pf");
@@ -3691,7 +3435,7 @@ export default function App() {
       logout();
       setPerfil(null);
     }
-    if (destino === "cadastro" && window.location.pathname === "/cadastro") window.history.replaceState(null, "", "/");
+    if (destino !== "cadastro" && window.location.pathname === "/cadastro") window.history.replaceState(null, "", "/");
     if (destino !== "convite-admin" && window.location.pathname === "/convite-admin") window.history.replaceState(null, "", "/");
     if (destino === "portal-cliente" && (perfil ?? getPerfilAtual()) !== "CLIENTE" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
     if (platformScreens.includes(destino) && (perfil ?? getPerfilAtual()) !== "ADMIN" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
@@ -3704,6 +3448,7 @@ export default function App() {
 
   function handleClientLogin(tipo: ClienteTipo) {
     setClienteTipo(tipo);
+    if (window.location.pathname === "/cadastro") window.history.replaceState(null, "", "/");
     if (getPerfilAtual() === "CLIENTE") sessionStorage.setItem("authClienteTipo", tipo);
     setPerfil(getPerfilAtual());
     if (import.meta.env.VITE_USE_MOCK === "true") sessionStorage.setItem("mockTelaAtual", "portal-cliente");

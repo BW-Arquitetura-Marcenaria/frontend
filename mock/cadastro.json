@@ -1,0 +1,61 @@
+{
+  "convites": [
+    {
+      "token": "cadastro-pf-valido",
+      "nome": "Mariana",
+      "ambiente": "Sala de estar",
+      "movel": "Painel e estante",
+      "cor": "Nogueira",
+      "material": "MDF e madeira natural",
+      "orcamento": 32000,
+      "situacaoProjeto": "Em planejamento",
+      "precisaVisitaTecnica": true,
+      "saoPaulo": true,
+      "expiraEm": "2099-12-31T23:59:59",
+      "usadoEm": null
+    },
+    {
+      "token": "cadastro-pj-valido",
+      "nome": "André",
+      "ambiente": "Escritório",
+      "movel": "Marcenaria corporativa",
+      "cor": "Freijó",
+      "material": "MDF",
+      "orcamento": 85000,
+      "situacaoProjeto": "Projeto aprovado",
+      "precisaVisitaTecnica": false,
+      "saoPaulo": false,
+      "expiraEm": "2099-12-31T23:59:59",
+      "usadoEm": null
+    },
+    {
+      "token": "cadastro-expirado",
+      "nome": "Cliente",
+      "ambiente": "Cozinha",
+      "movel": "Armários",
+      "cor": "Branco",
+      "material": "MDF",
+      "orcamento": 24000,
+      "situacaoProjeto": "Levantamento inicial",
+      "precisaVisitaTecnica": true,
+      "saoPaulo": true,
+      "expiraEm": "2020-01-01T00:00:00",
+      "usadoEm": null
+    },
+    {
+      "token": "cadastro-utilizado",
+      "nome": "Cliente",
+      "ambiente": "Quarto",
+      "movel": "Guarda-roupa",
+      "cor": "Areia",
+      "material": "MDF",
+      "orcamento": 18000,
+      "situacaoProjeto": "Em planejamento",
+      "precisaVisitaTecnica": false,
+      "saoPaulo": true,
+      "expiraEm": "2099-12-31T23:59:59",
+      "usadoEm": "2026-01-10T10:00:00"
+    }
+  ],
+  "usuarios": []
+}
