@@ -897,6 +897,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
   const token = new URLSearchParams(window.location.search).get("token") ?? "";
   const [linkValido, setLinkValido] = useState(false);
   const [validando, setValidando] = useState(Boolean(token));
+  const [erroLink, setErroLink] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erroCadastro, setErroCadastro] = useState("");
   const [nome, setNome] = useState("");
@@ -909,6 +910,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
   const [confirmarSenha, setConfirmarSenha] = useState("");
   const [aceitou, setAceitou] = useState(false);
   const [cadastroConcluido, setCadastroConcluido] = useState(false);
+  const enviandoRef = useRef(false);
   const [tab, setTab] = useState<CadTab>("pf");
   const [step, setStep] = useState<CadStep>("dados");
   const [cnpj, setCnpj] = useState("");
@@ -935,17 +937,19 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
     let ativo = true;
     validarLinkCadastro(token).then(dados => {
       if (ativo) { setLinkValido(true); if (dados.nome) setNome(dados.nome); }
-    }).catch(() => { if (ativo) setErroCadastro("Este link de cadastro é inválido, expirou ou já foi utilizado. Solicite um novo link à equipe BW."); })
+    }).catch(() => { if (ativo) setErroLink("Este link de cadastro é inválido, expirou ou já foi utilizado. Solicite um novo link à equipe BW."); })
       .finally(() => { if (ativo) setValidando(false); });
     return () => { ativo = false; };
   }, [token]);
 
   async function concluirCadastro() {
-    if (cadastroConcluido) { window.history.replaceState(null, "", "/"); onNav("login"); return; }
-    if (!cadastroConcluido && (senha.length < 8 || senha !== confirmarSenha || !aceitou)) {
-      setErroCadastro("Confira a senha (mínimo de 8 caracteres), a confirmação e o aceite dos termos.");
+    if (cadastroConcluido) { onNav("login"); return; }
+    if (enviandoRef.current) return;
+    if (!cadastroConcluido && (senha.length < 8 || senha.length > 72 || senha !== confirmarSenha || !aceitou)) {
+      setErroCadastro("Confira a senha (entre 8 e 72 caracteres), a confirmação e o aceite dos termos.");
       return;
     }
+    enviandoRef.current = true;
     setEnviando(true);
     setErroCadastro("");
     const payload: CadastroPayload = {
@@ -962,16 +966,14 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
       }
       try {
         const { perfil } = await apiLogin(payload.email, senha);
-        window.history.replaceState(null, "", "/");
         if (perfil === "CLIENTE") onClientLogin(tab);
         else onNav("login");
       } catch {
-        window.history.replaceState(null, "", "/");
         setErroCadastro("Cadastro concluído! O login automático não foi possível. Acesse com seu e-mail e senha.");
       }
     } catch (erro: any) {
       setErroCadastro(erro?.response?.data?.message || "Não foi possível concluir o cadastro. Confira os dados e tente novamente.");
-    } finally { setEnviando(false); }
+    } finally { enviandoRef.current = false; setEnviando(false); }
   }
 
   const steps: CadStep[] = ["dados", "confirmacao"];
@@ -1022,7 +1024,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
           </div>
 
           {validando && <p role="status" className="mb-5 text-sm text-white">Validando seu link de cadastro...</p>}
-          {!validando && !linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroCadastro || "Para criar uma conta, utilize o link de cadastro enviado pela equipe BW."}</p>}
+          {!validando && !linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroLink || "Para criar uma conta, utilize o link de cadastro enviado pela equipe BW."}</p>}
           {erroCadastro && linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroCadastro}</p>}
           {/* STEP 1: Dados */}
           {linkValido && step === "dados" && (
@@ -1047,11 +1049,11 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className={glassLabel}>Nome</label>
-                      <input type="text" placeholder="Nome" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} />
+                      <input type="text" maxLength={100} placeholder="Nome" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} />
                     </div>
                     <div>
                       <label className={glassLabel}>Sobrenome</label>
-                      <input type="text" placeholder="Sobrenome" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} />
+                      <input type="text" maxLength={100} placeholder="Sobrenome" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} />
                     </div>
                   </div>
                   <div>
@@ -1064,7 +1066,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
                   </div>
                   <div>
                     <label className={glassLabel}>E-mail</label>
-                    <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
+                    <input type="email" maxLength={150} placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
                     <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
                   </div>
                   <div>
@@ -1082,15 +1084,15 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
                   </div>
                   <div>
                     <label className={glassLabel}>Razão social</label>
-                    <input type="text" placeholder="Nome da empresa Ltda." value={razaoSocial} onChange={e => setRazaoSocial(e.target.value)} className={glassInput} />
+                    <input type="text" maxLength={150} placeholder="Nome da empresa Ltda." value={razaoSocial} onChange={e => setRazaoSocial(e.target.value)} className={glassInput} />
                   </div>
                   <div>
                     <label className={glassLabel}>Nome fantasia</label>
-                    <input type="text" placeholder="BW Arquitetura" value={nomeFantasia} onChange={e => setNomeFantasia(e.target.value)} className={glassInput} />
+                    <input type="text" maxLength={150} placeholder="BW Arquitetura" value={nomeFantasia} onChange={e => setNomeFantasia(e.target.value)} className={glassInput} />
                   </div>
                   <div>
                     <label className={glassLabel}>E-mail corporativo</label>
-                    <input type="email" placeholder="contato@empresa.com.br" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
+                    <input type="email" maxLength={150} placeholder="contato@empresa.com.br" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
                     <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
                   </div>
                   <div>
@@ -1099,8 +1101,8 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
                   </div>
                   <div>
                     <label className={glassLabel}>Nome do responsável</label>
-                    <input type="text" placeholder="Nome do responsável" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} />
-                     <input type="text" placeholder="Sobrenome do responsável" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} />
+                    <input type="text" maxLength={100} placeholder="Nome do responsável" value={nome} onChange={e => setNome(e.target.value)} className={glassInput} />
+                     <input type="text" maxLength={100} placeholder="Sobrenome do responsável" value={sobrenome} onChange={e => setSobrenome(e.target.value)} className={glassInput} />
                   </div>
                   <div>
                     <label className={glassLabel}>CPF do responsável</label>
@@ -1134,7 +1136,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
               </div>
               <div>
                 <label className={glassLabel}>Senha</label>
-                <PasswordInput placeholder="Mínimo 8 caracteres" value={senha} onChange={e => setSenha(e.target.value)} className={glassInput} />
+                <PasswordInput maxLength={72} placeholder="Entre 8 e 72 caracteres" value={senha} onChange={e => setSenha(e.target.value)} className={glassInput} />
                 <div className="flex gap-1 mt-3">
                   {["","","",""].map((_, i) => (
                     <div key={i} className="flex-1 h-px bg-white/10" />
@@ -1150,7 +1152,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
               </div>
               <div>
                 <label className={glassLabel}>Confirmar senha</label>
-                <PasswordInput placeholder="Repita a senha" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} className={glassInput} />
+                <PasswordInput maxLength={72} placeholder="Repita a senha" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} className={glassInput} />
               </div>
               <div className="flex items-start gap-2.5 pt-1">
                 <input type="checkbox" checked={aceitou} onChange={e => setAceitou(e.target.checked)} className="mt-0.5 accent-bw-dourado" />
@@ -3271,6 +3273,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>(() => {
     const params = new URLSearchParams(window.location.search);
     if (window.location.pathname === "/convite-admin" || params.get("acao") === "recusar") return "convite-admin";
+    if (window.location.pathname === "/cadastro" && params.has("token")) return "cadastro";
     if (import.meta.env.VITE_USE_MOCK === "true") {
       const tela = sessionStorage.getItem("mockTelaAtual") as Screen | null;
       if (tela === "portal-cliente" || (tela !== null && platformScreens.includes(tela))) return tela;
@@ -3278,7 +3281,6 @@ export default function App() {
     const atual = getPerfilAtual();
     if (atual === "ADMIN") return "funil";
     if (atual === "CLIENTE") return "portal-cliente";
-    if (new URLSearchParams(window.location.search).has("token") && window.location.pathname === "/cadastro") return "cadastro";
     return "institucional";
   });
   const [clienteTipo, setClienteTipo] = useState<ClienteTipo>(() => sessionStorage.getItem("authClienteTipo") === "pj" ? "pj" : "pf");
@@ -3288,7 +3290,7 @@ export default function App() {
       logout();
       setPerfil(null);
     }
-    if (destino === "cadastro" && window.location.pathname === "/cadastro") window.history.replaceState(null, "", "/");
+    if (destino !== "cadastro" && window.location.pathname === "/cadastro") window.history.replaceState(null, "", "/");
     if (destino !== "convite-admin" && window.location.pathname === "/convite-admin") window.history.replaceState(null, "", "/");
     if (destino === "portal-cliente" && (perfil ?? getPerfilAtual()) !== "CLIENTE" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
     if (platformScreens.includes(destino) && (perfil ?? getPerfilAtual()) !== "ADMIN" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
@@ -3301,6 +3303,7 @@ export default function App() {
 
   function handleClientLogin(tipo: ClienteTipo) {
     setClienteTipo(tipo);
+    if (window.location.pathname === "/cadastro") window.history.replaceState(null, "", "/");
     if (getPerfilAtual() === "CLIENTE") sessionStorage.setItem("authClienteTipo", tipo);
     setPerfil(getPerfilAtual());
     if (import.meta.env.VITE_USE_MOCK === "true") sessionStorage.setItem("mockTelaAtual", "portal-cliente");

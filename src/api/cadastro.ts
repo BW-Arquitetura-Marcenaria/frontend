@@ -16,12 +16,34 @@ export type CadastroPayload = {
   nomeFantasia: string | null;
 };
 
-export async function validarLinkCadastro(token: string) {
-  const { data } = await axios.get<{ nome: string }>("/v1/api/cadastro/validar", { params: { token } });
+export type CadastroValidacao = {
+  nome: string;
+  ambiente: string | null;
+  movel: string | null;
+  cor: string | null;
+  material: string | null;
+  orcamento: number | string | null;
+  situacaoProjeto: string | null;
+  precisaVisitaTecnica: boolean | null;
+};
+
+export type CadastroResponse = {
+  id: number;
+  tipoCliente: CadastroPayload["tipoCliente"];
+  nome: string;
+  sobrenome: string;
+  email: string;
+  telefone: string | null;
+  etapaFunil: string;
+  dataCadastro: string;
+};
+
+export async function validarLinkCadastro(token: string): Promise<CadastroValidacao> {
+  const { data } = await axios.get<CadastroValidacao>("/v1/api/cadastro/validar", { params: { token } });
   return data;
 }
 
-export async function cadastrarCliente(payload: CadastroPayload) {
-  const { data } = await axios.post<{ id: number; email: string }>("/v1/api/cadastro", payload);
+export async function cadastrarCliente(payload: CadastroPayload): Promise<CadastroResponse> {
+  const { data } = await axios.post<CadastroResponse>("/v1/api/cadastro", payload);
   return data;
 }
