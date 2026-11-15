@@ -328,6 +328,48 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
   };
   const pauseDep = () => { depPaused.current = true; progressTween.current?.pause(); };
   const resumeDep = () => { depPaused.current = false; progressTween.current?.resume(); };
+  const sobreCardRef = useRef<HTMLDivElement>(null);
+  const sobreSpinDeg = useRef(0);
+  const sobreSpinning = useRef(false);
+
+  const girarSobre360 = (graus = 360) => {
+    if (!sobreCardRef.current || sobreSpinning.current) return;
+    sobreSpinning.current = true;
+    sobreSpinDeg.current += graus;
+    gsap.to(sobreCardRef.current, {
+      rotateY: sobreSpinDeg.current,
+      rotateX: 0,
+      duration: graus === 360 ? 1.35 : 0.95,
+      onComplete: () => { sobreSpinning.current = false; },
+      ease: "expo.inOut",
+      overwrite: "auto",
+    });
+  };
+
+  const handleSobreMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!sobreCardRef.current || sobreSpinning.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width - 0.5;
+    const ny = (e.clientY - rect.top) / rect.height - 0.5;
+    gsap.to(sobreCardRef.current, {
+      rotateY: sobreSpinDeg.current + nx * 16,
+      rotateX: -ny * 12,
+      duration: 0.45,
+      ease: "power2.out",
+      overwrite: "auto",
+    });
+  };
+
+  const handleSobreLeave = () => {
+    if (!sobreCardRef.current || sobreSpinning.current) return;
+    gsap.to(sobreCardRef.current, {
+      rotateY: sobreSpinDeg.current,
+      rotateX: 0,
+      duration: 0.7,
+      ease: "power3.out",
+      overwrite: "auto",
+    });
+  };
 
   // ── Animações de entrada e de scroll ──────────────────────────────────────
   useGSAP(() => {
@@ -410,7 +452,12 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
       });
 
       // Foto dos fundadores — parallax suave
-      gsap.fromTo("[data-parallax-photo]", { yPercent: 6 }, {
+      gsap.fromTo("[data-sobre-3d-card]", { rotateY: -360, scale: 0.9, autoAlpha: 0 }, {
+        rotateY: 0, scale: 1, autoAlpha: 1, duration: 1.75, ease: "expo.out",
+        scrollTrigger: { trigger: "#sobre", start: "top 75%", once: true },
+      });
+      gsap.to("[data-sobre-seal]", { rotation: 360, duration: 18, repeat: -1, ease: "none" });
+      if (false) gsap.fromTo("[data-parallax-photo]", { yPercent: 6 }, {
         yPercent: -6, ease: "none",
         scrollTrigger: { trigger: "[data-parallax-photo]", start: "top bottom", end: "bottom top", scrub: true },
       });
@@ -558,15 +605,90 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
         <div className="lg:sticky lg:top-28 lg:col-span-5">
           <div data-reveal className="mb-6 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">01 — Nossa assinatura</div>
           <h2 data-split className="font-display text-5xl leading-[.87] tracking-[-.045em] sm:text-6xl lg:text-7xl">A beleza mora na forma como um espaço acolhe.</h2>
-        </div>
-        <div className="lg:col-span-6 lg:col-start-7">
-          <div data-clip className="mx-auto w-full max-w-[500px] overflow-hidden">
-            <img data-parallax-photo src={sobrePhoto} alt="Bianca e Walmir, fundadores da BW" className="w-full max-w-[500px] h-auto mx-auto scale-[1.08]" />
+          <div data-reveal="0.15" className="mt-10 grid grid-cols-3 gap-4 border-t border-bw-border pt-6">
+            {[["100%", "Madeira certificada"], ["360°", "Projeto & execução"], ["+12 anos", "De ofício autoral"]].map(([val, lbl]) => (
+              <div key={lbl}>
+                <div className="font-display text-2xl font-semibold text-bw-preto sm:text-3xl">{val}</div>
+                <div className="mt-1 font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted">{lbl}</div>
+              </div>
+            ))}
           </div>
-          <div data-reveal className="mt-4 mb-8 font-mono text-[10px] uppercase leading-relaxed tracking-[.16em] text-bw-muted">Bianca &amp; Walmir<br />Fundadores da BW</div>
-          <div>
-            <p data-reveal className="text-[17px] leading-relaxed text-bw-madeira">A BW nasce do encontro entre olhar arquitetônico e ofício. Somos Bianca e Walmir, parceiros na vida e na criação de interiores que têm presença, propósito e permanência.</p>
-            <p data-reveal="0.1" className="mt-5 text-[15px] leading-relaxed text-bw-madeira">Do desenho à última regulagem da porta, cada decisão é nossa. É assim que o projeto ganha verdade — e vira parte da sua história.</p>
+        </div>
+        <div className="lg:col-span-7 lg:col-start-6">
+          <div className="grid items-center gap-10 md:grid-cols-[340px_1fr] xl:grid-cols-[360px_1fr]">
+            <div className="relative mx-auto w-full max-w-[360px]" style={{ perspective: "1400px" }} onMouseEnter={() => girarSobre360(360)} onMouseMove={handleSobreMove} onMouseLeave={handleSobreLeave}>
+              <div aria-hidden className="pointer-events-none absolute inset-0 translate-x-3.5 translate-y-3.5 border border-bw-dourado/45 bg-bw-areia/65" />
+              <div data-sobre-seal aria-hidden className="pointer-events-none absolute -right-6 -top-6 z-20 hidden h-24 w-24 sm:block">
+                <svg viewBox="0 0 120 120" className="h-full w-full">
+                  <defs>
+                    <path id="bw-seal-circle" d="M 60,60 m -44,0 a 44,44 0 1,1 88,0 a 44,44 0 1,1 -88,0" />
+                  </defs>
+                  <circle cx="60" cy="60" r="54" fill="#16130F" stroke="#B08D57" strokeWidth="1" />
+                  <circle cx="60" cy="60" r="32" fill="none" stroke="#B08D57" strokeWidth="0.6" strokeDasharray="2 3" />
+                  <text fill="#E8E1D5" fontSize="7.4" fontFamily="DM Mono, monospace" letterSpacing="2.3">
+                    <textPath href="#bw-seal-circle">BW ARQUITETURA &amp; MARCENARIA • 360° •</textPath>
+                  </text>
+                  <text x="60" y="63" textAnchor="middle" fill="#B08D57" fontSize="13" fontFamily="Cormorant Garamond, serif" fontWeight="600">BW</text>
+                </svg>
+              </div>
+              <div
+                ref={sobreCardRef}
+                data-sobre-3d-card
+                onClick={() => girarSobre360(360)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); girarSobre360(360); } }}
+                aria-label="Girar foto dos fundadores em 360 graus"
+                className="group relative aspect-[4/5] w-full cursor-pointer select-none shadow-[0_24px_50px_rgba(22,19,15,0.16)]"
+                style={{ transformStyle: "preserve-3d" }}
+              >
+                <div className="absolute inset-0 overflow-hidden border border-bw-border bg-bw-preto" style={{ backfaceVisibility: "hidden" }}>
+                  <img
+                    src={sobrePhoto}
+                    alt="Bianca e Walmir, fundadores da BW"
+                    className="h-full w-full object-cover object-[50%_18%] contrast-[1.03] saturate-[0.96] transition-transform duration-700 group-hover:scale-[1.03]"
+                  />
+                  <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bw-preto/80 via-bw-preto/10 to-transparent" />
+                  <div aria-hidden className="pointer-events-none absolute inset-3 border border-bw-white/25" />
+                  <div className="absolute inset-x-5 bottom-5 flex items-end justify-between gap-3 text-bw-white">
+                    <div>
+                      <div className="font-mono text-[9px] uppercase tracking-[.2em] text-bw-dourado">Fundadores da BW</div>
+                      <div className="mt-0.5 font-display text-2xl leading-none">Bianca &amp; Walmir</div>
+                    </div>
+                    <span className="hidden">
+                      360° ↻
+                    </span>
+                  </div>
+                </div>
+                <div
+                  className="absolute inset-0 flex flex-col justify-between border border-bw-dourado/50 bg-bw-preto p-7 text-bw-white"
+                  style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+                >
+                  <div className="flex items-center justify-between border-b border-bw-white/15 pb-4">
+                    <img src={bwLogo} alt="BW" className="h-9 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
+                    <span className="font-mono text-[9px] uppercase tracking-[.2em] text-bw-dourado">Assinatura Autoral</span>
+                  </div>
+                  <div className="my-auto py-4">
+                    <div className="mb-3 font-mono text-[9px] uppercase tracking-[.2em] text-bw-dourado">Nosso compromisso</div>
+                    <p className="font-display text-2xl leading-snug text-bw-areia">
+                      “Cada móvel e cada ambiente carregam o nosso nome, o nosso traço e a nossa presença em obra.”
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-bw-white/15 pt-4 font-mono text-[9px] uppercase tracking-[.16em] text-bw-areia/70">
+                    <span>Bianca &amp; Walmir</span>
+                    <span className="text-bw-dourado">Voltar ↻</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div data-reveal className="mb-4 font-mono text-[10px] uppercase leading-relaxed tracking-[.18em] text-bw-dourado">Arquitetura &amp; Marcenaria Autoral</div>
+              <p data-reveal className="text-[17px] leading-relaxed text-bw-madeira">A BW nasce do encontro entre olhar arquitetônico e ofício. Somos Bianca e Walmir, parceiros na vida e na criação de interiores que têm presença, propósito e permanência.</p>
+              <p data-reveal="0.1" className="mt-5 text-[15px] leading-relaxed text-bw-madeira">Do desenho à última regulagem da porta, cada decisão é nossa. É assim que o projeto ganha verdade — e vira parte da sua história.</p>
+              <div data-reveal="0.2" className="mt-7 border-l-2 border-bw-dourado pl-4 font-display text-xl italic text-bw-preto">
+                “Projetamos e fabricamos sob medida para que o resultado final seja fiel ao primeiro traço.”
+              </div>
+            </div>
           </div>
         </div>
       </div>
