@@ -3,7 +3,9 @@ import bwLogo from "@/assets/brand/logo-bw-arquitetura-marcenaria.png";
 import sobrePhoto from "@/assets/team/fundadores-bianca-walmir.jpeg";
 import bwProject1 from "@/assets/portfolio/casa-aroeira-estante-residencial.png";
 import bwProject2 from "@/assets/portfolio/apartamento-jardins-estante-adega.png";
-import bwProject3 from "@/assets/portfolio/estudio-oliva-estante-comercial.png";
+import bwHeroBg from "@/assets/backgrounds/hero-sala-marcenaria.png";
+import bwProject3 from "@/assets/portfolio/cozinha-itaim-freijo.jpg";
+import bwProject4 from "@/assets/portfolio/closet-morumbi-vidro-canelado.jpg";
 import bwLoginBg from "@/assets/backgrounds/login-estante-plantas.png";
 import RastreabilidadeView from "@/views/rastreabilidade/RastreabilidadeView";
 import CalendarioView from "@/views/calendario/CalendarioView";
@@ -133,9 +135,9 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 // ─── SCREEN: Site Institucional ───────────────────────────────────────────────
 const depoimentos = [
   { nome: "Erick Sampaio", sub: "Projeto de cozinha planejada", texto: "Recebi o contrato e fiquei impressionado com o nível de detalhamento. Todo o atendimento foi incrível  nos sentimos muito acolhidos desde o primeiro contato. Escolhemos a BW por grande culpa do atendimento da equipe. Continue assim!" },
-  { nome: "Verônica Lima", sub: "Dormitório e closet sob medida", texto: "Buscando uma empresa séria e com facilidade no pagamento, achei a BW no Instagram. Logo entrei em contato, marquei minha visita, fiquei muito satisfeita com o projeto — material de ótima qualidade e atendimento muito atencioso." },
+  { nome: "Verônica Lima", sub: "Dormitório e closet sob medida", texto: "Buscando uma empresa séria e com facilidade no pagamento, achei a BW no Instagram. Logo entrei em contato, marquei minha visita, fiquei muito satisfeita com o projeto, material de ótima qualidade e atendimento muito atencioso." },
   { nome: "Rafael Mendes", sub: "Escritório planejado", texto: "Projeto entregue no prazo e dentro do orçamento combinado. A equipe da BW acompanhou cada detalhe da instalação. O resultado ficou muito acima do esperado. Recomendo sem hesitar para quem busca qualidade de verdade." },
-  { nome: "Juliana Costa", sub: "Sala de estar e home office", texto: "Tudo que foi prometido foi cumprido. Fiquei surpresa com a atenção ao detalhe na marcenaria. A Bianca e o Walmir são muito presentes durante todo o processo — isso faz toda a diferença na hora de confiar o seu projeto." },
+  { nome: "Juliana Costa", sub: "Sala de estar e home office", texto: "Tudo que foi prometido foi cumprido. Fiquei surpresa com a atenção ao detalhe na marcenaria. A Bianca e o Walmir são muito presentes durante todo o processo, isso faz toda a diferença na hora de confiar o seu projeto." },
 ];
 
 function StarRow() {
@@ -317,7 +319,8 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
   const projects = [
     { title: "Casa Aroeira", type: "Estante residencial", image: bwProject1 },
     { title: "Apartamento Jardins", type: "Estante com adega", image: bwProject2 },
-    { title: "Estúdio Oliva", type: "Estante comercial", image: bwProject3 },
+    { title: "Residência Itaim", type: "Cozinha em Freijó", image: bwProject3 },
+    { title: "Suíte Morumbi", type: "Closet iluminado", image: bwProject4 },
   ];
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -474,7 +477,7 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
 
   return <div ref={rootRef} className="min-h-full bg-bw-white selection:bg-bw-dourado selection:text-bw-white">
     <section id="inicio" className="relative min-h-[100svh] overflow-hidden bg-bw-preto text-bw-white">
-      <img data-hero-bg src={bwProject3} alt="Projeto de marcenaria BW — estante comercial" className="absolute inset-0 h-full w-full object-cover opacity-60 will-change-transform" />
+      <img data-hero-bg src={bwHeroBg} alt="Projeto de marcenaria BW — sala de estar sob medida" className="absolute inset-0 h-full w-full object-cover opacity-65 will-change-transform" />
       <div className="absolute inset-0 bg-gradient-to-r from-bw-preto via-bw-preto/70 to-bw-preto/15" />
       {/* NAV integrada ao hero */}
       <nav ref={navRef} className="fixed top-0 left-0 right-0 z-50 isolate bg-gradient-to-b from-bw-preto/75 to-transparent">
@@ -602,8 +605,8 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
         </div>
         <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-12">
           {projects.map((p, i) => (
-            <article key={p.title} className={`${i === 0 ? "col-span-2 lg:col-span-6" : "lg:col-span-3"} group cursor-pointer`}>
-              <div data-clip={i * 0.15} className={`${i === 0 ? "aspect-[16/10]" : "aspect-[3/4]"} relative overflow-hidden bg-bw-areia`}>
+            <article key={p.title} className="lg:col-span-3 group cursor-pointer">
+              <div data-clip={i * 0.15} className="aspect-[3/4] relative overflow-hidden bg-bw-areia">
                 <img src={p.image} alt={`${p.title}, ${p.type}`} className="h-full w-full object-cover transition-transform duration-[1.2s] ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-105" />
                 <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bw-preto/30 to-transparent opacity-0 transition-opacity duration-700 group-hover:opacity-100" />
               </div>
