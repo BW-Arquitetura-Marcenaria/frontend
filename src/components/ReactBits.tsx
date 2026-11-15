@@ -576,6 +576,7 @@ export const AccessibilityToolbar: React.FC = () => {
   const [highContrast, setHighContrast] = useState<boolean>(() => localStorage.getItem("bw-a11y-contrast") === "high");
   const [grayscale, setGrayscale] = useState<boolean>(() => localStorage.getItem("bw-a11y-vision") === "grayscale");
   const [reduceMotion, setReduceMotion] = useState<boolean>(() => localStorage.getItem("bw-a11y-motion") === "reduce");
+  const wrapRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -616,6 +617,24 @@ export const AccessibilityToolbar: React.FC = () => {
     }
   }, [reduceMotion]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   const resetAll = () => {
     setFontScale("md");
     setHighContrast(false);
@@ -623,17 +642,20 @@ export const AccessibilityToolbar: React.FC = () => {
     setReduceMotion(false);
   };
 
+  const hasActiveSetting = fontScale !== "md" || highContrast || grayscale || reduceMotion;
+
   return (
     <aside
+      ref={wrapRef}
       aria-label="Opções de acessibilidade"
-      className="fixed bottom-4 left-4 z-[9995] font-body text-sm"
+      className="fixed right-[10px] top-[calc(50%+36px)] z-[9995] font-body text-sm"
     >
       {open && (
         <div
           role="dialog"
           aria-modal="false"
           aria-label="Painel de ajustes de acessibilidade"
-          className="mb-2.5 w-72 rounded-lg border border-bw-border bg-bw-preto p-4 text-bw-white shadow-2xl"
+          className="absolute right-[48px] top-1/2 max-h-[85vh] w-72 max-w-[calc(100vw-72px)] -translate-y-1/2 overflow-y-auto rounded-lg border border-bw-border bg-bw-preto p-4 text-bw-white shadow-2xl"
         >
           <div className="mb-3 flex items-center justify-between border-b border-white/15 pb-2.5">
             <span className="font-semibold text-bw-white">Acessibilidade</span>
@@ -733,14 +755,24 @@ export const AccessibilityToolbar: React.FC = () => {
         type="button"
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
+        title="Acessibilidade (Fonte, Alto Contraste e Daltonismo)"
         aria-label="Abrir opções de acessibilidade (tamanho de fonte, alto contraste e daltonismo)"
-        className="flex items-center gap-2 rounded-full border border-bw-dourado/50 bg-bw-preto/90 px-3.5 py-2 text-xs font-semibold text-bw-white shadow-lg backdrop-blur-md transition-colors hover:border-bw-dourado hover:bg-bw-dourado"
+        className={`relative grid h-[40px] w-[40px] place-items-center rounded-[8px] border shadow-lg transition-all ${
+          open || hasActiveSetting
+            ? "border-bw-dourado bg-bw-dourado text-white"
+            : "border-bw-dourado/60 bg-bw-preto text-bw-white hover:border-bw-dourado hover:bg-bw-dourado"
+        }`}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="12" cy="4.5" r="2" />
           <path d="M4 9h16M12 9v5m0 0l-3 6m3-6l3 6" />
         </svg>
-        <span>Acessibilidade</span>
+        {hasActiveSetting && (
+          <span
+            aria-hidden="true"
+            className="absolute -left-1 -top-1 h-2.5 w-2.5 rounded-full border border-bw-preto bg-bw-dourado"
+          />
+        )}
       </button>
     </aside>
   );
