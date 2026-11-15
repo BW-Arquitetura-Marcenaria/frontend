@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, type DragEvent } from "react";
+import { flushSync } from "react-dom";
 import bwLogo from "@/assets/brand/logo-bw-arquitetura-marcenaria.png";
 import sobrePhoto from "@/assets/team/fundadores-bianca-walmir.jpeg";
 import bwProject1 from "@/assets/portfolio/casa-aroeira-estante-residencial.png";
@@ -26,8 +27,27 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
+import { SwarmCursor, ShinyText, SpotlightCard, CountUpMetric, ReactBitsCarousel } from "@/components/ReactBits";
 
 gsap.registerPlugin(ScrollTrigger, SplitText, useGSAP);
+
+function runViewTransition(update: () => void) {
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+  const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  if (!doc.startViewTransition || reduce) {
+    update();
+    return;
+  }
+  try {
+    doc.startViewTransition(() => {
+      flushSync(() => {
+        update();
+      });
+    });
+  } catch {
+    update();
+  }
+}
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Screen =
@@ -305,9 +325,18 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
   const [dep, setDep] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [activeProject, setActiveProject] = useState<number | null>(null);
+  const [activeNav, setActiveNav] = useState<string>("inicio");
+  const [hoveredNav, setHoveredNav] = useState<string | null>(null);
+  const navLockRef = useRef(false);
+  const scrolledRef = useRef(false);
+  const scrollTweenRef = useRef<gsap.core.Tween | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
-  const navHiddenRef = useRef(false);
+  const navLinksWrapRef = useRef<HTMLDivElement>(null);
+  const navBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const navPillRef = useRef<HTMLSpanElement>(null);
+  const navLineRef = useRef<HTMLSpanElement>(null);
   const menuOpenRef = useRef(false);
   const quoteRefs = useRef<(HTMLParagraphElement | null)[]>([]);
   const authorRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -322,9 +351,76 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
     { title: "Estúdio Oliva", type: "Estante comercial", image: bwProject3 },
     { title: "Atelier Botânico", type: "Estante expositora", image: bwProject4 },
   ];
+
+  const syncNavIndicator = (targetId: string | null, immediate = false) => {
+    const pill = navPillRef.current;
+    const line = navLineRef.current;
+    if (!pill || !line) return;
+    const btn = targetId ? navBtnRefs.current[targetId] : null;
+    if (!btn) {
+      gsap.to([pill, line], { autoAlpha: 0, duration: immediate ? 0 : 0.35, ease: "power2.out", overwrite: "auto" });
+      return;
+    }
+    const x = btn.offsetLeft;
+    const w = btn.offsetWidth;
+    gsap.to(pill, {
+      x,
+      width: w,
+      autoAlpha: 1,
+      duration: immediate ? 0 : 0.52,
+      ease: "power3.out",
+      overwrite: "auto",
+    });
+    gsap.to(line, {
+      x: x + 14,
+      width: Math.max(16, w - 28),
+      autoAlpha: 1,
+      duration: immediate ? 0 : 0.52,
+      ease: "power3.out",
+      overwrite: "auto",
+    });
+  };
+
+  useEffect(() => {
+    syncNavIndicator(hoveredNav ?? (activeNav === "inicio" ? null : activeNav));
+  }, [hoveredNav, activeNav]);
+
   const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    const target = document.getElementById(id);
     setMenuOpen(false);
+    setActiveNav(id);
+    if (!target) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      target.scrollIntoView({ behavior: "auto" });
+      return;
+    }
+    scrollTweenRef.current?.kill();
+    navLockRef.current = true;
+    const startY = window.scrollY;
+    const destY = Math.max(0, target.getBoundingClientRect().top + startY - 64);
+    const distance = Math.abs(destY - startY);
+    const duration = Math.min(1.05, Math.max(0.55, distance / 1800));
+    const proxy = { y: startY };
+    const cancelOnUserInput = () => {
+      scrollTweenRef.current?.kill();
+      navLockRef.current = false;
+      window.removeEventListener("wheel", cancelOnUserInput);
+      window.removeEventListener("touchstart", cancelOnUserInput);
+    };
+    window.addEventListener("wheel", cancelOnUserInput, { passive: true });
+    window.addEventListener("touchstart", cancelOnUserInput, { passive: true });
+    scrollTweenRef.current = gsap.to(proxy, {
+      y: destY,
+      duration,
+      ease: "power3.inOut",
+      onUpdate: () => window.scrollTo(0, proxy.y),
+      onComplete: () => {
+        navLockRef.current = false;
+        window.removeEventListener("wheel", cancelOnUserInput);
+        window.removeEventListener("touchstart", cancelOnUserInput);
+      },
+    });
   };
   const pauseDep = () => { depPaused.current = true; progressTween.current?.pause(); };
   const resumeDep = () => { depPaused.current = false; progressTween.current?.resume(); };
@@ -373,18 +469,30 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
 
   // ── Animações de entrada e de scroll ──────────────────────────────────────
   useGSAP(() => {
-    // Nav: fundo sólido após rolar, esconde ao descer e volta ao subir
+    // Nav: transição contínua e sedosa ao rolar (sem pulos de esconder/mostrar)
     ScrollTrigger.create({
       start: 0,
       end: "max",
-      onRefresh: self => setScrolled(self.scroll() > 40),
+      onRefresh: self => {
+        const isScrolled = self.scroll() > 36;
+        scrolledRef.current = isScrolled;
+        setScrolled(isScrolled);
+      },
       onUpdate: self => {
         const y = self.scroll();
-        setScrolled(y > 40);
-        const hide = self.direction === 1 && y > window.innerHeight * 0.8 && !menuOpenRef.current;
-        if (hide !== navHiddenRef.current) {
-          navHiddenRef.current = hide;
-          gsap.to(navRef.current, { yPercent: hide ? -100 : 0, duration: 0.5, ease: "power3.out", overwrite: "auto" });
+        const isScrolled = y > 36;
+        if (scrolledRef.current !== isScrolled) {
+          scrolledRef.current = isScrolled;
+          setScrolled(isScrolled);
+        }
+        if (!navLockRef.current) {
+          for (const secId of ["contato", "projetos", "metodo", "sobre", "inicio"]) {
+            const el = document.getElementById(secId);
+            if (el && el.getBoundingClientRect().top <= 240) {
+              setActiveNav(prev => (prev === secId ? prev : secId));
+              break;
+            }
+          }
         }
       },
     });
@@ -405,8 +513,8 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
         onSplit: self => gsap.from(self.lines, { yPercent: 70, autoAlpha: 0, duration: 1.5, stagger: 0.14, ease: "expo.out", delay: 0.5 }),
       });
 
-      // HERO — parallax
-      const heroScroll = { trigger: "#inicio", start: "top top", end: "bottom top", scrub: true };
+      // HERO — parallax suavizado
+      const heroScroll = { trigger: "#inicio", start: "top top", end: "bottom top", scrub: 0.65 };
       gsap.to("[data-hero-bg]", { yPercent: 18, ease: "none", scrollTrigger: heroScroll });
       gsap.to("[data-hero-copy]", { yPercent: -14, opacity: 0.25, ease: "none", scrollTrigger: heroScroll });
       gsap.to("[data-hero-card]", { yPercent: -6, ease: "none", scrollTrigger: heroScroll });
@@ -536,30 +644,77 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
   }, { dependencies: [menuOpen], scope: rootRef });
 
   return <div ref={rootRef} className="min-h-full bg-bw-white selection:bg-bw-dourado selection:text-bw-white">
+    <SwarmCursor />
     <section id="inicio" className="relative min-h-[100svh] overflow-hidden bg-bw-preto text-bw-white">
       <img data-hero-bg src={bwHeroBg} alt="Projeto de marcenaria BW — sala de estar sob medida" className="absolute inset-0 h-full w-full object-cover opacity-65 will-change-transform" />
       <div className="absolute inset-0 bg-gradient-to-r from-bw-preto via-bw-preto/70 to-bw-preto/15" />
-      {/* NAV integrada ao hero */}
-      <nav ref={navRef} className="fixed top-0 left-0 right-0 z-50 isolate bg-gradient-to-b from-bw-preto/75 to-transparent">
-        <div aria-hidden className={`absolute inset-0 -z-10 border-b border-bw-white/10 bg-bw-preto/85 backdrop-blur-md transition-opacity duration-500 ${scrolled || menuOpen ? "opacity-100" : "opacity-0"}`} />
+      {/* NAV integrada ao hero com indicador deslizante GSAP */}
+      <nav ref={navRef} className="fixed top-0 left-0 right-0 z-50 isolate bg-gradient-to-b from-bw-preto/75 via-bw-preto/25 to-transparent">
+        <div
+          aria-hidden
+          className={`absolute inset-0 -z-10 border-b border-bw-white/10 bg-bw-preto/82 backdrop-blur-xl transition-[opacity,box-shadow,background-color] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${scrolled || menuOpen ? "opacity-100 shadow-[0_14px_40px_rgba(0,0,0,0.32)]" : "opacity-0"}`}
+        />
         <span data-scroll-progress aria-hidden className="pointer-events-none absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-0 bg-bw-dourado/90" />
-        <div className="mx-auto flex h-[74px] max-w-[1600px] items-center justify-between px-5 sm:px-8 lg:px-12">
-          <button data-nav-item onClick={() => scrollTo("inicio")} className="text-left leading-none group flex flex-col items-start"><img src={bwLogo} alt="BW" className="object-contain" style={{ height: "44px", width: "auto", mixBlendMode: "screen" }} /><span className="mt-[3px] block font-mono text-[8px] uppercase tracking-[.22em] text-bw-areia/60 group-hover:text-bw-dourado transition-colors">Arquitetura &amp; Marcenaria</span></button>
-          <div className="hidden lg:flex items-center gap-9 text-[12px] font-medium uppercase tracking-wider text-bw-areia">
-            {[["SOBRE", "sobre"], ["MÉTODO", "metodo"], ["PROJETOS", "projetos"], ["CONTATO", "contato"]].map(([label, id]) => (
-              <button data-nav-item key={id} onClick={() => scrollTo(id)} className="group relative py-1 hover:text-bw-dourado transition-colors">
-                {label}
-                <span aria-hidden className="absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-bw-dourado transition-transform duration-500 ease-out group-hover:scale-x-100" />
-              </button>
-            ))}
+        <div className={`mx-auto flex max-w-[1600px] items-center justify-between px-5 transition-[height,padding] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] sm:px-8 lg:px-12 ${scrolled ? "h-[64px]" : "h-[82px]"}`}>
+          <button data-nav-item onClick={() => scrollTo("inicio")} className="text-left leading-none group flex flex-col items-start">
+            <img src={bwLogo} alt="BW" className="object-contain transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.03]" style={{ height: scrolled ? "39px" : "44px", width: "auto", mixBlendMode: "screen", transition: "height 700ms cubic-bezier(0.16,1,0.3,1)" }} />
+            <span className="mt-[3px] block font-mono text-[8px] uppercase tracking-[.22em] text-bw-areia/60 group-hover:text-bw-dourado transition-colors duration-500">Arquitetura &amp; Marcenaria</span>
+          </button>
+          <div
+            ref={navLinksWrapRef}
+            onMouseLeave={() => setHoveredNav(null)}
+            className="relative hidden lg:flex items-center gap-2 rounded-full border border-white/[0.06] bg-white/[0.025] px-2 py-1 text-[11px] font-medium uppercase tracking-[.14em] text-bw-areia backdrop-blur-md"
+          >
+            <span
+              ref={navPillRef}
+              aria-hidden
+              className="pointer-events-none absolute top-1 bottom-1 left-0 rounded-full border border-bw-dourado/25 bg-bw-dourado/12 opacity-0"
+              style={{ width: 0 }}
+            />
+            <span
+              ref={navLineRef}
+              aria-hidden
+              className="pointer-events-none absolute bottom-[3px] left-0 h-[1.5px] rounded-full bg-bw-dourado opacity-0 shadow-[0_0_10px_rgba(176,141,87,0.75)]"
+              style={{ width: 0 }}
+            />
+            {[["SOBRE", "sobre"], ["MÉTODO", "metodo"], ["PROJETOS", "projetos"], ["CONTATO", "contato"]].map(([label, id]) => {
+              const isHighlighted = (hoveredNav ?? activeNav) === id;
+              return (
+                <button
+                  data-nav-item
+                  key={id}
+                  ref={el => { navBtnRefs.current[id] = el; }}
+                  onMouseEnter={() => setHoveredNav(id)}
+                  onFocus={() => setHoveredNav(id)}
+                  onBlur={() => setHoveredNav(null)}
+                  onClick={() => scrollTo(id)}
+                  className={`relative z-10 px-4 py-2 transition-colors duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isHighlighted ? "text-bw-white" : "text-bw-areia/80 hover:text-bw-white"}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
           <div data-nav-item className="flex items-center gap-2 sm:gap-4">
-            <button onClick={() => onNav("login")} className="hidden sm:block px-4 py-2.5 text-sm font-medium text-bw-areia hover:text-bw-white transition-colors">Área do cliente</button>
-            <button data-magnetic onClick={() => scrollTo("contato")} className="hidden bg-bw-dourado px-5 py-3 text-[12px] font-medium uppercase tracking-wider text-white hover:bg-[#c19d65] transition-colors sm:block sm:px-6">Começar projeto</button>
-            <button onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} aria-expanded={menuOpen} className="grid h-10 w-10 place-items-center border border-bw-white/30 bg-bw-preto/20 text-bw-areia lg:hidden">{menuOpen ? <Icon.X /> : <Icon.Menu />}</button>
+            <button onClick={() => onNav("login")} className="hidden sm:block px-4 py-2.5 text-sm font-medium text-bw-areia/85 hover:text-bw-white transition-colors duration-500">Área do cliente</button>
+            <button data-magnetic onClick={() => scrollTo("contato")} className="hidden bg-bw-dourado px-5 py-3 text-[12px] font-medium uppercase tracking-wider text-white hover:bg-[#c19d65] transition-colors duration-500 sm:block sm:px-6">Começar projeto</button>
+            <button onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} aria-expanded={menuOpen} className="grid h-10 w-10 place-items-center border border-bw-white/30 bg-bw-preto/20 text-bw-areia transition-colors duration-300 hover:border-bw-dourado lg:hidden">{menuOpen ? <Icon.X /> : <Icon.Menu />}</button>
           </div>
         </div>
-        {menuOpen && <div className="grid gap-5 border-t border-bw-white/10 bg-bw-preto/80 backdrop-blur-md px-5 py-6 font-mono text-[13px] uppercase tracking-widest text-bw-areia lg:hidden">{[["Sobre", "sobre"], ["Método", "metodo"], ["Projetos", "projetos"], ["Contato", "contato"]].map(([label, id]) => <button data-menu-item key={id} onClick={() => scrollTo(id)} className="text-left hover:text-bw-dourado transition-colors">{label}</button>)}</div>}
+        <div
+          aria-hidden={!menuOpen}
+          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] lg:hidden ${menuOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0 pointer-events-none"}`}
+        >
+          <div className="overflow-hidden">
+            <div className="grid gap-5 border-t border-bw-white/10 bg-bw-preto/90 backdrop-blur-xl px-5 py-6 font-mono text-[13px] uppercase tracking-widest text-bw-areia">
+              {[["Sobre", "sobre"], ["Método", "metodo"], ["Projetos", "projetos"], ["Contato", "contato"]].map(([label, id]) => (
+                <button data-menu-item key={id} onClick={() => scrollTo(id)} className={`text-left transition-colors duration-300 ${activeNav === id ? "text-bw-dourado" : "hover:text-bw-dourado"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </nav>
       <div className="relative z-10 mx-auto grid min-h-[100svh] max-w-[1600px] items-end gap-10 px-5 pb-10 pt-28 sm:px-8 sm:py-16 lg:grid-cols-[1.15fr_.85fr] lg:px-12">
         <div data-hero-copy className="max-w-4xl lg:pb-5">
@@ -578,9 +733,10 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
           onMouseLeave={resumeDep}
           onFocus={pauseDep}
           onBlur={resumeDep}
-          className="hidden w-full border border-bw-white/20 bg-bw-preto/35 p-6 backdrop-blur-sm sm:block sm:p-7 lg:max-w-md lg:justify-self-end"
+          className="hidden w-full sm:block lg:max-w-md lg:justify-self-end"
         >
-          <div className="mb-9 flex items-start justify-between gap-5"><div className="font-mono text-[10px] uppercase tracking-[.18em] text-bw-dourado">Palavras de quem vive BW</div><StarRow /></div>
+          <SpotlightCard spotlightColor="rgba(176, 141, 87, 0.22)" className="border border-bw-white/20 bg-bw-preto/40 p-6 backdrop-blur-md sm:p-7">
+          <div className="mb-9 flex items-start justify-between gap-5"><div className="font-mono text-[10px] uppercase tracking-[.18em] text-bw-dourado"><ShinyText>Palavras de quem vive BW</ShinyText></div><StarRow /></div>
           <div className="grid">
             {depoimentos.map((d, i) => (
               <p key={d.nome} ref={el => { quoteRefs.current[i] = el; }} aria-hidden={dep !== i} className="[grid-area:1/1] font-display text-[25px] leading-[1.08] text-bw-white sm:text-[29px]">“{d.texto}”</p>
@@ -595,7 +751,7 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
                 </div>
               ))}
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               {depoimentos.map((_, i) => (
                 <button aria-label={`Depoimento ${i + 1}`} aria-current={dep === i} key={i} onClick={() => setDep(i)} className={`group relative flex h-4 items-center transition-all duration-500 ${dep === i ? "w-8" : "w-3"}`}>
                   <span className="relative block h-px w-full overflow-hidden bg-bw-white/40 transition-colors group-hover:bg-bw-white/70">
@@ -603,8 +759,13 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
                   </span>
                 </button>
               ))}
+              <div className="ml-1 flex items-center gap-1">
+                <button type="button" aria-label="Depoimento anterior" onClick={() => setDep(d => (d - 1 + depoimentos.length) % depoimentos.length)} className="grid h-6 w-6 place-items-center border border-bw-white/20 text-[11px] text-bw-areia transition-colors hover:border-bw-dourado hover:text-bw-dourado">‹</button>
+                <button type="button" aria-label="Próximo depoimento" onClick={() => setDep(d => (d + 1) % depoimentos.length)} className="grid h-6 w-6 place-items-center border border-bw-white/20 text-[11px] text-bw-areia transition-colors hover:border-bw-dourado hover:text-bw-dourado">›</button>
+              </div>
             </div>
           </div>
+          </SpotlightCard>
         </div>
       </div>
       {/* Indicador de rolagem */}
@@ -617,15 +778,21 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
     <section id="sobre" className="bg-bw-white">
       <div className="mx-auto grid max-w-[1600px] items-start gap-y-12 px-5 py-24 sm:px-8 lg:grid-cols-12 lg:gap-x-12 lg:px-12 lg:py-36">
         <div className="lg:sticky lg:top-28 lg:col-span-5">
-          <div data-reveal className="mb-6 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">01 — Nossa assinatura</div>
+          <div data-reveal className="mb-6 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado"><ShinyText>01 — Nossa assinatura</ShinyText></div>
           <h2 data-split className="font-display text-5xl leading-[.87] tracking-[-.045em] sm:text-6xl lg:text-7xl">A beleza mora na forma como um espaço acolhe.</h2>
           <div data-reveal="0.15" className="mt-10 grid grid-cols-3 gap-4 border-t border-bw-border pt-6">
-            {[["100%", "Madeira certificada"], ["360°", "Projeto & execução"], ["+12 anos", "De ofício autoral"]].map(([val, lbl]) => (
-              <div key={lbl}>
-                <div className="font-display text-2xl font-semibold text-bw-preto sm:text-3xl">{val}</div>
-                <div className="mt-1 font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted">{lbl}</div>
-              </div>
-            ))}
+            <div>
+              <div className="font-display text-2xl font-semibold text-bw-preto sm:text-3xl"><CountUpMetric target={100} suffix="%" /></div>
+              <div className="mt-1 font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted">Madeira certificada</div>
+            </div>
+            <div>
+              <div className="font-display text-2xl font-semibold text-bw-preto sm:text-3xl"><CountUpMetric target={360} suffix="°" /></div>
+              <div className="mt-1 font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted">Projeto &amp; execução</div>
+            </div>
+            <div>
+              <div className="font-display text-2xl font-semibold text-bw-preto sm:text-3xl"><CountUpMetric target={12} prefix="+" suffix=" anos" /></div>
+              <div className="mt-1 font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted">De ofício autoral</div>
+            </div>
           </div>
         </div>
         <div className="lg:col-span-7 lg:col-start-6">
@@ -712,19 +879,19 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
       <div className="mx-auto max-w-[1600px] px-5 py-24 sm:px-8 lg:px-12 lg:py-32">
         <div className="mb-16 grid gap-10 lg:grid-cols-12">
           <div className="lg:col-span-4">
-            <div data-reveal className="mb-5 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">02 — Da conversa à casa</div>
+            <div data-reveal className="mb-5 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado"><ShinyText>02 — Da conversa à casa</ShinyText></div>
             <h2 data-split className="font-display text-5xl leading-[.88] tracking-[-.04em]">Um processo<br />sem ruído.</h2>
           </div>
           <p data-reveal="0.15" className="self-end text-[15px] leading-relaxed text-bw-madeira lg:col-span-4 lg:col-start-8">Clareza, proximidade e domínio técnico em cada etapa. Você acompanha o que importa — sem precisar administrar a obra.</p>
         </div>
         <div data-stagger className="grid border-t border-bw-border md:grid-cols-3">
           {[["01", "Escuta e estratégia", "Começamos pela sua rotina, referências e desejos. O briefing vira direção, não formulário."], ["02", "Projeto com matéria", "Arquitetura, detalhamento e escolha de materiais em um só desenho, pensado até o milímetro."], ["03", "Execução presente", "Produção, entrega e montagem com equipe própria acompanhando cada acabamento."]].map(([n, t, d]) => (
-            <div key={n} className="group relative border-b border-bw-border py-12 md:border-b-0 md:border-r md:py-14 md:px-12 last:border-0">
+            <SpotlightCard key={n} spotlightColor="rgba(176, 141, 87, 0.22)" className="group relative border-b border-bw-border py-12 md:border-b-0 md:border-r md:py-14 md:px-12 last:border-0">
               <span data-line aria-hidden className="absolute -top-px left-0 h-px w-full origin-left bg-bw-dourado/70" />
               <div data-stagger-item className="mb-12 font-mono text-[22px] font-medium text-bw-dourado">{n}</div>
               <h3 data-stagger-item className="mb-4 font-display text-3xl leading-none">{t}</h3>
               <p data-stagger-item className="max-w-xs text-sm leading-relaxed text-bw-madeira">{d}</p>
-            </div>
+            </SpotlightCard>
           ))}
         </div>
       </div>
@@ -747,33 +914,67 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
       <div className="mx-auto max-w-[1600px] px-5 py-24 sm:px-8 lg:px-12 lg:py-36">
         <div className="mb-12 flex flex-col justify-between gap-7 sm:flex-row sm:items-end">
           <div>
-            <div data-reveal className="mb-5 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">03 — Projetos selecionados</div>
+            <div data-reveal className="mb-5 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado"><ShinyText>03 — Projetos selecionados</ShinyText></div>
             <h2 data-split className="font-display text-5xl leading-none tracking-[-.045em] sm:text-6xl">Espaços que pedem<br /><em className="font-normal">para ser vividos.</em></h2>
           </div>
           <a data-reveal="0.2" href="https://www.instagram.com/bw.arquiteturaemarcenaria/" target="_blank" rel="noopener noreferrer" className="group w-fit border-b border-bw-dourado pb-2 text-left font-mono text-[11px] uppercase tracking-[.14em] text-bw-madeira hover:text-bw-preto transition-colors">Ver mais no Instagram <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></a>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-12">
-          {projects.map((p, i) => (
-            <article key={p.title} className={`lg:col-span-3 group cursor-pointer ${i % 2 === 1 ? "lg:mt-12" : ""}`}>
-              <div className="mb-2.5 flex items-center justify-between border-t border-bw-border pt-2 font-mono text-[9px] uppercase tracking-[.18em] text-bw-muted">
-                <span className="text-bw-dourado">0{i + 1} / 0{projects.length}</span>
-                <span>Acervo BW</span>
-              </div>
-              <div data-clip={i * 0.15} className="aspect-[3/4] relative overflow-hidden bg-bw-areia">
-                <img src={p.image} alt={`${p.title}, ${p.type}`} className="h-full w-full object-cover transition-transform duration-[1.2s] ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-105" />
-                <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bw-preto/30 to-transparent opacity-0 transition-opacity duration-700 group-hover:opacity-100" />
-              </div>
-              <div data-reveal={0.25 + i * 0.12} className="relative flex justify-between gap-3 border-b border-bw-border/60 pb-3.5 pt-3">
-                <span aria-hidden className="pointer-events-none absolute -bottom-px left-0 h-px w-full origin-left scale-x-0 bg-bw-dourado transition-transform duration-500 ease-out group-hover:scale-x-100" />
-                <div><h3 className="font-display text-2xl leading-none">{p.title}</h3><p className="mt-2 font-mono text-[10px] uppercase tracking-[.12em] text-bw-muted">{p.type}</p></div>
-                <span className="text-xl text-bw-dourado opacity-0 -translate-x-1 translate-y-1 transition-all duration-500 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0">↗</span>
-              </div>
-            </article>
-          ))}
-        </div>
+        <ReactBitsCarousel
+          items={projects}
+          onSelectProject={idx => runViewTransition(() => setActiveProject(idx))}
+        />
       </div>
     </section>
 
+    {activeProject !== null && projects[activeProject] && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={projects[activeProject].title}
+        onClick={() => runViewTransition(() => setActiveProject(null))}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/80 p-4 backdrop-blur-md sm:p-8"
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{ viewTransitionName: "bw-project-hero" }}
+          className="grid max-h-[90svh] w-full max-w-4xl overflow-hidden border border-bw-dourado/35 bg-bw-preto text-bw-white shadow-2xl md:grid-cols-[1.05fr_.95fr]"
+        >
+          <div className="relative aspect-[3/4] max-h-[60svh] w-full bg-bw-sidebar md:max-h-[82svh]">
+            <img src={projects[activeProject].image} alt={projects[activeProject].title} className="h-full w-full object-cover" />
+          </div>
+          <div className="flex flex-col justify-between p-6 sm:p-9">
+            <div>
+              <div className="flex items-center justify-between border-b border-bw-white/15 pb-4">
+                <span className="font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">0{activeProject + 1} / 0{projects.length} · Acervo Real BW</span>
+                <button type="button" onClick={() => runViewTransition(() => setActiveProject(null))} className="font-mono text-[10px] uppercase tracking-[.16em] text-bw-areia/70 hover:text-bw-dourado">Fechar ✕</button>
+              </div>
+              <h3 className="mt-6 font-display text-4xl leading-none text-bw-white sm:text-5xl">{projects[activeProject].title}</h3>
+              <p className="mt-2 font-mono text-[11px] uppercase tracking-[.16em] text-bw-dourado">{projects[activeProject].type}</p>
+              <p className="mt-6 text-sm leading-relaxed text-bw-areia/80">
+                Projeto autoral executado sob medida pela equipe BW Arquitetura &amp; Marcenaria, unindo estrutura precisa, acabamento artesanal e integração ao espaço do cliente.
+              </p>
+            </div>
+            <div className="mt-8 flex flex-col gap-3 border-t border-bw-white/15 pt-6">
+              <button
+                type="button"
+                onClick={() => { runViewTransition(() => setActiveProject(null)); scrollTo("contato"); }}
+                className="w-full bg-bw-dourado py-3 text-[11px] font-medium uppercase tracking-[.16em] text-white transition-colors hover:bg-[#c19d65]"
+              >
+                Solicitar projeto neste estilo ↗
+              </button>
+              <a
+                href="https://www.instagram.com/bw.arquiteturaemarcenaria/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full border border-bw-white/20 py-3 text-center font-mono text-[10px] uppercase tracking-[.16em] text-bw-areia transition-colors hover:border-bw-dourado hover:text-bw-dourado"
+              >
+                Ver no Instagram @bw.arquiteturaemarcenaria
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
     <section id="contato" className="relative overflow-hidden bg-bw-preto text-bw-white">
       <div className="pointer-events-none absolute -right-20 -top-24 select-none opacity-[.06]"><img data-watermark src={bwLogo} alt="" className="w-[520px] object-contain" /></div>
       <div className="relative mx-auto grid max-w-[1600px] items-end gap-12 px-5 py-28 sm:px-8 lg:grid-cols-12 lg:px-12 lg:py-40">
@@ -851,7 +1052,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
   }
 
   const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors pr-8";
-  const glassLabel = "block text-[10px] font-mono uppercase tracking-[.18em] text-white/40 mb-1";
+  const glassLabel = "block text-sm font-medium tabular-nums uppercase tracking-normal text-white/40 mb-1";
 
   return (
     <div className="relative min-h-full flex overflow-hidden bg-bw-preto">
@@ -866,13 +1067,13 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
 
       {/* Left: editorial copy */}
       <div className="relative z-10 hidden lg:flex flex-col justify-center px-16 xl:px-24 w-1/2">
-        <button onClick={() => onNav("institucional")} className="mb-16 text-[10px] font-mono uppercase tracking-[.18em] text-white/40 hover:text-bw-dourado transition-colors flex items-center gap-2">
+        <button onClick={() => onNav("institucional")} className="mb-16 text-sm font-medium tabular-nums uppercase tracking-normal text-white/40 hover:text-bw-dourado transition-colors flex items-center gap-2">
           <span>←</span> Voltar ao site
         </button>
-        <div className="mb-6 font-mono text-[10px] uppercase tracking-[.22em] text-bw-dourado flex items-center gap-3">
+        <div className="mb-6 font-medium tabular-nums text-sm uppercase tracking-normal text-bw-dourado flex items-center gap-3">
           <span className="h-px w-6 bg-bw-dourado" /> Área do cliente
         </div>
-        <h1 className="font-display text-[clamp(3rem,5vw,5.5rem)] font-medium leading-[.85] tracking-[-.04em] text-white mb-8">
+        <h1 className="font-semibold tracking-tight text-[clamp(3rem,5vw,5.5rem)] font-medium leading-[.85] tracking-[-.04em] text-white mb-8">
           Bem-vindo<br /><em className="font-normal text-white/50">de volta.</em>
         </h1>
       </div>
@@ -884,28 +1085,28 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
           {/* Logo */}
           <div className="mb-10">
             <img src={bwLogo} alt="BW Arquitetura e Marcenaria" style={{ height: "60px", width: "auto", mixBlendMode: "screen" }} />
-            <div className="text-[10px] font-mono text-white/30 mt-2 uppercase tracking-[.18em]">Portal do cliente</div>
+            <div className="text-sm font-medium tabular-nums text-white/30 mt-2 uppercase tracking-normal">Portal do cliente</div>
           </div>
 
           {step === "form" ? (
             <>
               <div className="mb-8">
-                <h2 className="font-display text-3xl text-white leading-tight">Entrar</h2>
-                <p className="text-[11px] font-mono text-white/35 mt-1">Selecione o tipo de cadastro</p>
+                <h2 className="font-semibold tracking-tight text-3xl text-white leading-tight">Entrar</h2>
+                <p className="text-sm font-medium tabular-nums text-white/35 mt-1">Selecione o tipo de cadastro</p>
               </div>
 
               {/* Tabs PF / PJ */}
               <div className="flex mb-8 border-b border-white/10">
                 {(["pf","pj"] as LoginTab[]).map((t, i) => (
-                  <button key={t} onClick={() => setTab(t)}
-                    className={`flex-1 pb-2.5 text-[10px] font-mono uppercase tracking-[.14em] transition-colors flex items-center justify-center gap-1.5 ${tab === t ? "text-bw-dourado border-b border-bw-dourado -mb-px" : "text-white/30 hover:text-white/60"}`}>
+                  <button key={t} onClick={() => runViewTransition(() => setTab(t))}
+                    className={`flex-1 pb-2.5 text-sm font-medium tabular-nums uppercase tracking-normal transition-colors flex items-center justify-center gap-1.5 ${tab === t ? "text-bw-dourado border-b border-bw-dourado -mb-px" : "text-white/30 hover:text-white/60"}`}>
                     {i === 0 ? "Pessoa Física" : "Pessoa Jurídica"}
                   </button>
                 ))}
               </div>
 
               {error && (
-                <p className="mb-5 text-[11px] font-mono text-red-400/90 border border-red-400/30 bg-red-400/10 px-3 py-2">
+                <p className="mb-5 text-sm font-medium tabular-nums text-red-400/90 border border-red-400/30 bg-red-400/10 px-3 py-2">
                   {error}
                 </p>
               )}
@@ -920,10 +1121,10 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
                     <label className={glassLabel}>Senha</label>
                     <PasswordInput placeholder="••••••••" value={pfPassword} onChange={e => setPfPassword(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleLogin(pfEmail, pfPassword); }} className={glassInput} />
                     <div className="text-right mt-2">
-                      <a href="#" className="text-[10px] font-mono text-white/30 hover:text-bw-dourado transition-colors">Esqueci minha senha</a>
+                      <a href="#" className="text-sm font-medium tabular-nums text-white/30 hover:text-bw-dourado transition-colors">Esqueci minha senha</a>
                     </div>
                   </div>
-                  <button onClick={() => handleLogin(pfEmail, pfPassword)} disabled={loading} className="mt-2 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <button onClick={() => handleLogin(pfEmail, pfPassword)} disabled={loading} className="mt-2 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-sm font-medium tabular-nums uppercase tracking-normal hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
                     {loading ? "Entrando…" : <>Entrar <span className="text-base leading-none">›</span></>}
                   </button>
                 </div>
@@ -931,8 +1132,8 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
                 <div key="pj" className="flex flex-col gap-6">
                   <div>
                     <label className={glassLabel}>CNPJ</label>
-                    <input type="text" placeholder="00.000.000/0000-00" value={cnpj} onChange={e => setCnpj(formatCNPJ(e.target.value))} className={glassInput + " font-mono"} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Validado na Receita Federal</p>
+                    <input type="text" placeholder="00.000.000/0000-00" value={cnpj} onChange={e => setCnpj(formatCNPJ(e.target.value))} className={glassInput + " font-medium tabular-nums"} />
+                    <p className="text-xs font-medium tabular-nums text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Validado na Receita Federal</p>
                   </div>
                   <div>
                     <label className={glassLabel}>E-mail corporativo</label>
@@ -942,10 +1143,10 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
                     <label className={glassLabel}>Senha</label>
                     <PasswordInput placeholder="••••••••" value={pjPassword} onChange={e => setPjPassword(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleLogin(pjEmail, pjPassword); }} className={glassInput} />
                     <div className="text-right mt-2">
-                      <a href="#" className="text-[10px] font-mono text-white/30 hover:text-bw-dourado transition-colors">Esqueci minha senha</a>
+                      <a href="#" className="text-sm font-medium tabular-nums text-white/30 hover:text-bw-dourado transition-colors">Esqueci minha senha</a>
                     </div>
                   </div>
-                  <button onClick={() => handleLogin(pjEmail, pjPassword)} disabled={loading} className="mt-2 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <button onClick={() => handleLogin(pjEmail, pjPassword)} disabled={loading} className="mt-2 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-sm font-medium tabular-nums uppercase tracking-normal hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
                     {loading ? "Entrando…" : <>Entrar <span className="text-base leading-none">›</span></>}
                   </button>
                 </div>
@@ -956,29 +1157,29 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
               <div className="w-12 h-12 rounded-full border border-bw-dourado/40 flex items-center justify-center mx-auto mb-6 text-bw-dourado">
                 <Icon.Mail />
               </div>
-              <h2 className="font-display text-2xl text-white mb-2">Verifique seu e-mail</h2>
-              <p className="text-[11px] font-mono text-white/35 mb-7 leading-relaxed">Código enviado para <span className="text-white/60">seu@email.com</span></p>
+              <h2 className="font-semibold tracking-tight text-2xl text-white mb-2">Verifique seu e-mail</h2>
+              <p className="text-sm font-medium tabular-nums text-white/35 mb-7 leading-relaxed">Código enviado para <span className="text-white/60">seu@email.com</span></p>
               <div className="flex gap-2 justify-center mb-7">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <input key={i} type="text" maxLength={1} className="w-10 h-12 bg-transparent border-b border-white/20 text-center text-lg font-mono text-white focus:outline-none focus:border-bw-dourado transition-colors" />
+                  <input key={i} type="text" maxLength={1} className="w-10 h-12 bg-transparent border-b border-white/20 text-center text-lg font-medium tabular-nums text-white focus:outline-none focus:border-bw-dourado transition-colors" />
                 ))}
               </div>
-              <button onClick={() => onClientLogin(tab)} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 mb-4">
+              <button onClick={() => onClientLogin(tab)} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-sm font-medium tabular-nums uppercase tracking-normal hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 mb-4">
                 Verificar código <span className="text-base leading-none">›</span>
               </button>
-              <p className="text-[10px] font-mono text-white/30">Não recebeu? <button className="text-white/50 hover:text-bw-dourado transition-colors underline">Reenviar</button></p>
-              <button onClick={() => setStep("form")} className="mt-5 text-[10px] font-mono text-white/25 hover:text-white/50 transition-colors">← Voltar</button>
+              <p className="text-sm font-medium tabular-nums text-white/30">Não recebeu? <button className="text-white/50 hover:text-bw-dourado transition-colors underline">Reenviar</button></p>
+              <button onClick={() => setStep("form")} className="mt-5 text-sm font-medium tabular-nums text-white/25 hover:text-white/50 transition-colors">← Voltar</button>
             </div>
           )}
 
           <div className="mt-8 pt-6 border-t border-white/8 flex items-center justify-between">
-            <p className="text-[10px] font-mono text-white/25">
+            <p className="text-sm font-medium tabular-nums text-white/25">
               Sem conta? <button onClick={() => onNav("cadastro")} className="text-white/50 hover:text-bw-dourado transition-colors underline">Criar agora</button>
             </p>
-            <button onClick={() => onNav("institucional")} className="text-[10px] font-mono text-white/20 hover:text-white/40 transition-colors lg:hidden">← Site</button>
+            <button onClick={() => onNav("institucional")} className="text-sm font-medium tabular-nums text-white/20 hover:text-white/40 transition-colors lg:hidden">← Site</button>
           </div>
           <div className="mt-4 text-center">
-            <button onClick={() => { if (getPerfilAtual() === "ADMIN" || import.meta.env.VITE_USE_MOCK === "true") onNav("funil"); else setError("Entre com uma conta da equipe para acessar a plataforma."); }} className="text-[9px] font-mono text-white/15 hover:text-white/30 transition-colors">Acesso interno — Equipe BW ↗</button>
+            <button onClick={() => { if (getPerfilAtual() === "ADMIN" || import.meta.env.VITE_USE_MOCK === "true") onNav("funil"); else setError("Entre com uma conta da equipe para acessar a plataforma."); }} className="text-xs font-medium tabular-nums text-white/15 hover:text-white/30 transition-colors">Acesso interno — Equipe BW ↗</button>
           </div>
         </div>
       </div>
@@ -1007,7 +1208,7 @@ function ComoConheceuFields({ comoConheceu, setComoConheceu, instagramUser, setI
   return (
     <div className="pt-2 flex flex-col gap-5">
       <div className="border-t border-white/8 pt-4">
-        <div className="text-[9px] font-mono uppercase tracking-[.18em] text-white/25 mb-3">Origem do contato</div>
+        <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25 mb-3">Origem do contato</div>
         <div>
           <label className={glassLabel}>Como nos conheceu?</label>
           <select
@@ -1026,7 +1227,7 @@ function ComoConheceuFields({ comoConheceu, setComoConheceu, instagramUser, setI
           <div className="mt-4">
             <label className={glassLabel}>Seu perfil no Instagram</label>
             <div className="relative">
-              <span className="absolute left-0 bottom-3 text-white/30 text-sm font-mono select-none">@</span>
+              <span className="absolute left-0 bottom-3 text-white/30 text-sm font-medium tabular-nums select-none">@</span>
               <input
                 type="text"
                 placeholder="seuperfil"
@@ -1035,7 +1236,7 @@ function ComoConheceuFields({ comoConheceu, setComoConheceu, instagramUser, setI
                 className={glassInput + " pl-4"}
               />
             </div>
-            <p className="text-[9px] font-mono text-white/25 mt-1.5">Opcional — nos ajuda a entender como chegou até nós</p>
+            <p className="text-xs font-medium tabular-nums text-white/25 mt-1.5">Opcional — nos ajuda a entender como chegou até nós</p>
           </div>
         )}
       </div>
@@ -1127,7 +1328,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
   const steps: CadStep[] = ["dados", "confirmacao"];
 
   const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors pr-8";
-  const glassLabel = "block text-[10px] font-mono uppercase tracking-[.18em] text-white/40 mb-1";
+  const glassLabel = "block text-sm font-medium tabular-nums uppercase tracking-normal text-white/40 mb-1";
   const stepIdx = steps.indexOf(step);
 
   return (
@@ -1142,13 +1343,13 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
 
       {/* Left panel */}
       <div className="relative z-10 hidden lg:flex flex-col justify-center px-16 xl:px-24 w-1/2">
-        <button onClick={() => onNav("institucional")} className="mb-16 text-[10px] font-mono uppercase tracking-[.18em] text-white/40 hover:text-bw-dourado transition-colors flex items-center gap-2">
+        <button onClick={() => onNav("institucional")} className="mb-16 text-sm font-medium tabular-nums uppercase tracking-normal text-white/40 hover:text-bw-dourado transition-colors flex items-center gap-2">
           <span>←</span> Voltar ao site
         </button>
-        <div className="mb-6 font-mono text-[10px] uppercase tracking-[.22em] text-bw-dourado flex items-center gap-3">
+        <div className="mb-6 font-medium tabular-nums text-sm uppercase tracking-normal text-bw-dourado flex items-center gap-3">
           <span className="h-px w-6 bg-bw-dourado" /> Nova conta
         </div>
-        <h1 className="font-display text-[clamp(3rem,5vw,5.5rem)] font-medium leading-[.85] tracking-[-.04em] text-white mb-8">
+        <h1 className="font-semibold tracking-tight text-[clamp(3rem,5vw,5.5rem)] font-medium leading-[.85] tracking-[-.04em] text-white mb-8">
           Crie seu<br /><em className="font-normal text-white/50">espaço.</em>
         </h1>
 
@@ -1161,7 +1362,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
           {/* Logo */}
           <div className="mb-8">
             <img src={bwLogo} alt="BW Arquitetura e Marcenaria" style={{ height: "60px", width: "auto", mixBlendMode: "screen" }} />
-            <div className="text-[10px] font-mono text-white/30 mt-2 uppercase tracking-[.18em]">Criar nova conta</div>
+            <div className="text-sm font-medium tabular-nums text-white/30 mt-2 uppercase tracking-normal">Criar nova conta</div>
           </div>
 
           {/* Mobile step indicator */}
@@ -1178,15 +1379,15 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
           {linkValido && step === "dados" && (
             <>
               <div className="mb-7">
-                <h2 className="font-display text-3xl text-white leading-tight">Seus dados</h2>
-                <p className="text-[11px] font-mono text-white/35 mt-1">Escolha o tipo de conta</p>
+                <h2 className="font-semibold tracking-tight text-3xl text-white leading-tight">Seus dados</h2>
+                <p className="text-sm font-medium tabular-nums text-white/35 mt-1">Escolha o tipo de conta</p>
               </div>
 
               {/* PF / PJ tabs */}
               <div className="flex mb-7 border-b border-white/10">
                 {(["pf","pj"] as CadTab[]).map((t, i) => (
-                  <button key={t} onClick={() => setTab(t)}
-                    className={`flex-1 pb-2.5 text-[10px] font-mono uppercase tracking-[.14em] transition-colors flex items-center justify-center gap-1.5 ${tab === t ? "text-bw-dourado border-b border-bw-dourado -mb-px" : "text-white/30 hover:text-white/60"}`}>
+                  <button key={t} onClick={() => runViewTransition(() => setTab(t))}
+                    className={`flex-1 pb-2.5 text-sm font-medium tabular-nums uppercase tracking-normal transition-colors flex items-center justify-center gap-1.5 ${tab === t ? "text-bw-dourado border-b border-bw-dourado -mb-px" : "text-white/30 hover:text-white/60"}`}>
                     {i === 0 ? "Pessoa Física" : "Pessoa Jurídica"}
                   </button>
                 ))}
@@ -1206,20 +1407,20 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                   </div>
                   <div>
                     <label className={glassLabel}>CPF</label>
-                    <input type="text" placeholder="000.000.000-00" value={cpf} onChange={e => setCpf(formatCPF(e.target.value))} className={glassInput + " font-mono"} />
+                    <input type="text" placeholder="000.000.000-00" value={cpf} onChange={e => setCpf(formatCPF(e.target.value))} className={glassInput + " font-medium tabular-nums"} />
                   </div>
                   <div>
                     <label className={glassLabel}>Data de nascimento</label>
-                    <input type="date" value={dataNascimento} onChange={e => setDataNascimento(e.target.value)} className={glassInput + " font-mono"} />
+                    <input type="date" value={dataNascimento} onChange={e => setDataNascimento(e.target.value)} className={glassInput + " font-medium tabular-nums"} />
                   </div>
                   <div>
                     <label className={glassLabel}>E-mail</label>
                     <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
+                    <p className="text-xs font-medium tabular-nums text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
                   </div>
                   <div>
                     <label className={glassLabel}>Celular / WhatsApp</label>
-                    <input type="tel" placeholder="(11) 99999-9999" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-mono"} />
+                    <input type="tel" placeholder="(11) 99999-9999" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-medium tabular-nums"} />
                   </div>
                   <ComoConheceuFields comoConheceu={comoConheceu} setComoConheceu={setComoConheceu} instagramUser={instagramUser} setInstagramUser={setInstagramUser} glassInput={glassInput} glassLabel={glassLabel} />
                 </div>
@@ -1227,8 +1428,8 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                 <div key="pj" className="flex flex-col gap-5">
                   <div>
                     <label className={glassLabel}>CNPJ</label>
-                    <input type="text" placeholder="00.000.000/0001-00" value={cnpj} onChange={e => setCnpj(formatCNPJ(e.target.value))} className={glassInput + " font-mono"} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> CNPJ conferido ao enviar o cadastro</p>
+                    <input type="text" placeholder="00.000.000/0001-00" value={cnpj} onChange={e => setCnpj(formatCNPJ(e.target.value))} className={glassInput + " font-medium tabular-nums"} />
+                    <p className="text-xs font-medium tabular-nums text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> CNPJ conferido ao enviar o cadastro</p>
                   </div>
                   <div>
                     <label className={glassLabel}>Razão social</label>
@@ -1241,11 +1442,11 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                   <div>
                     <label className={glassLabel}>E-mail corporativo</label>
                     <input type="email" placeholder="contato@empresa.com.br" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
-                    <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
+                    <p className="text-xs font-medium tabular-nums text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
                   </div>
                   <div>
                     <label className={glassLabel}>Telefone comercial</label>
-                    <input type="tel" placeholder="(11) 3000-0000" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-mono"} />
+                    <input type="tel" placeholder="(11) 3000-0000" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-medium tabular-nums"} />
                   </div>
                   <div>
                     <label className={glassLabel}>Nome do responsável</label>
@@ -1254,7 +1455,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                   </div>
                   <div>
                     <label className={glassLabel}>CPF do responsável</label>
-                    <input type="text" placeholder="000.000.000-00" value={cpf} onChange={e => setCpf(formatCPF(e.target.value))} className={glassInput + " font-mono"} />
+                    <input type="text" placeholder="000.000.000-00" value={cpf} onChange={e => setCpf(formatCPF(e.target.value))} className={glassInput + " font-medium tabular-nums"} />
                   </div>
                   <ComoConheceuFields comoConheceu={comoConheceu} setComoConheceu={setComoConheceu} instagramUser={instagramUser} setInstagramUser={setInstagramUser} glassInput={glassInput} glassLabel={glassLabel} />
                 </div>
@@ -1266,7 +1467,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                    return;
                  }
                  setErroCadastro(""); setStep("confirmacao");
-               }} className="mt-8 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
+               }} className="mt-8 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-sm font-medium tabular-nums uppercase tracking-normal hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3">
                 Continuar <span className="text-base leading-none">›</span>
               </button>
             </>
@@ -1276,11 +1477,11 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
           {linkValido && step === "confirmacao" && (
             <div className="flex flex-col gap-5">
               <div>
-                <div className="flex items-center gap-2 text-[10px] font-mono text-bw-dourado/70 border-b border-white/10 pb-4 mb-2">
+                <div className="flex items-center gap-2 text-sm font-medium tabular-nums text-bw-dourado/70 border-b border-white/10 pb-4 mb-2">
                   <Icon.Check /> Link de cadastro validado
                 </div>
-                <h2 className="font-display text-3xl text-white leading-tight mt-4">Definir senha</h2>
-                <p className="text-[11px] font-mono text-white/35 mt-1">Mínimo 8 caracteres</p>
+                <h2 className="font-semibold tracking-tight text-3xl text-white leading-tight mt-4">Definir senha</h2>
+                <p className="text-sm font-medium tabular-nums text-white/35 mt-1">Mínimo 8 caracteres</p>
               </div>
               <div>
                 <label className={glassLabel}>Senha</label>
@@ -1292,7 +1493,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                 </div>
                 <div className="mt-2.5 grid gap-x-4 gap-y-1 sm:grid-cols-2">
                   {[["Mín. 8 caracteres",senha.length >= 8],["Letra maiúscula",/[A-Z]/.test(senha)],["Número",/\d/.test(senha)],["Caractere especial",/[^\w\s]/.test(senha)]].map(([r, ok]) => (
-                    <div key={r as string} className="flex items-center gap-1.5 text-[9px] font-mono text-white/25">
+                    <div key={r as string} className="flex items-center gap-1.5 text-xs font-medium tabular-nums text-white/25">
                       <span>{ok ? "✓" : "–"}</span>{r as string}
                     </div>
                   ))}
@@ -1304,20 +1505,20 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
               </div>
               <div className="flex items-start gap-2.5 pt-1">
                 <input type="checkbox" checked={aceitou} onChange={e => setAceitou(e.target.checked)} className="mt-0.5 accent-bw-dourado" />
-                <label className="text-[10px] font-mono text-white/35 leading-relaxed">Li e aceito os <a href="#" className="text-white/60 hover:text-bw-dourado transition-colors underline">Termos de Uso</a> e a <a href="#" className="text-white/60 hover:text-bw-dourado transition-colors underline">Política de Privacidade</a></label>
+                <label className="text-sm font-medium tabular-nums text-white/35 leading-relaxed">Li e aceito os <a href="#" className="text-white/60 hover:text-bw-dourado transition-colors underline">Termos de Uso</a> e a <a href="#" className="text-white/60 hover:text-bw-dourado transition-colors underline">Política de Privacidade</a></label>
               </div>
-              <button onClick={() => void concluirCadastro()} disabled={enviando} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50">
+              <button onClick={() => void concluirCadastro()} disabled={enviando} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-sm font-medium tabular-nums uppercase tracking-normal hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50">
                 {enviando ? "Criando conta..." : cadastroConcluido ? "Ir para o login" : "Criar conta e entrar"} <span className="text-base leading-none">›</span>
               </button>
-              {!cadastroConcluido && <button onClick={() => { setErroCadastro(""); setStep("dados"); }} className="text-xs text-bw-areia underline">← Voltar aos dados</button>}
+              {!cadastroConcluido && <button onClick={() => { setErroCadastro(""); setStep("dados"); }} className="text-sm text-bw-areia underline">← Voltar aos dados</button>}
             </div>
           )}
 
           <div className="mt-8 pt-6 border-t border-white/8 flex items-center justify-between">
-            <p className="text-[10px] font-mono text-white/25">
+            <p className="text-sm font-medium tabular-nums text-white/25">
               Já tem conta? <button onClick={() => onNav("login")} className="text-white/50 hover:text-bw-dourado transition-colors underline">Entrar</button>
             </p>
-            <button onClick={() => onNav("institucional")} className="text-[10px] font-mono text-white/20 hover:text-white/40 transition-colors lg:hidden">← Site</button>
+            <button onClick={() => onNav("institucional")} className="text-sm font-medium tabular-nums text-white/20 hover:text-white/40 transition-colors lg:hidden">← Site</button>
           </div>
         </div>
       </div>
@@ -1372,15 +1573,15 @@ function ClienteChatbot({ tipo }: { tipo: ClienteTipo }) {
           <Icon.Bot />
         </div>
         <div>
-          <div className="text-base font-display tracking-wide text-white">Equipe BW Arquitetura</div>
-          <div className="text-[9px] font-mono text-white/40 uppercase tracking-[.18em] mt-0.5 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500/80 animate-pulse"></span> Online — Responde em até 2h</div>
+          <div className="text-base font-semibold tracking-tight tracking-wide text-white">Equipe BW Arquitetura</div>
+          <div className="text-xs font-medium tabular-nums text-white/40 uppercase tracking-normal mt-0.5 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500/80 animate-pulse"></span> Online — Responde em até 2h</div>
         </div>
       </div>
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-5">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.from === "cliente" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[75%] px-5 py-3.5 text-[13px] leading-relaxed rounded-sm ${
+            <div className={`max-w-[75%] px-5 py-3.5 text-sm leading-relaxed rounded-sm ${
               m.from === "cliente"
                 ? "bg-bw-dourado text-white"
                 : "text-white/90"
@@ -1399,7 +1600,7 @@ function ClienteChatbot({ tipo }: { tipo: ClienteTipo }) {
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && send()}
           placeholder="Escreva sua mensagem…"
-          className="flex-1 bg-transparent border-0 border-b border-white/20 py-2.5 text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors"
+          className="flex-1 bg-transparent border-0 border-b border-white/20 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors"
         />
         <button onClick={send} className="w-10 h-10 flex items-center justify-center bg-bw-dourado/10 border border-bw-dourado/40 text-bw-dourado hover:bg-bw-dourado hover:text-white transition-colors flex-shrink-0">
           <Icon.Send />
@@ -1411,9 +1612,9 @@ function ClienteChatbot({ tipo }: { tipo: ClienteTipo }) {
 
 function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
   // estilos reutilizados
-  const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors";
-  const glassLabel = "block text-[10px] font-mono uppercase tracking-[.18em] text-white/40 mb-1.5";
-  const readOnly = "w-full bg-transparent border-0 border-b border-white/10 py-3 text-[13px] text-white/40 font-mono cursor-not-allowed select-none";
+  const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors";
+  const glassLabel = "block text-sm font-medium tabular-nums uppercase tracking-normal text-white/40 mb-1.5";
+  const readOnly = "w-full bg-transparent border-0 border-b border-white/10 py-3 text-sm text-white/40 font-medium tabular-nums cursor-not-allowed select-none";
 
   // viewmodel / integração com backend
   const vm = useMinhaContaViewModel();
@@ -1511,16 +1712,16 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
     <div className="w-full h-full overflow-y-auto rounded-sm" style={{ background: "rgba(22,19,15,0.45)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}>
       <div className="sticky top-0 z-10 px-5 py-6 sm:px-8 sm:py-7" style={{ background: "rgba(22,19,15,0.85)", borderBottom: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(12px)" }}>
         <div className="flex items-center gap-3">
-          <div className="text-[10px] font-mono text-bw-dourado uppercase tracking-[.22em] flex items-center gap-2"><span className="h-px w-4 bg-bw-dourado" /> {tipo === "pf" ? "Pessoa Física" : "Pessoa Jurídica"}</div>
+          <div className="text-sm font-medium tabular-nums text-bw-dourado uppercase tracking-normal flex items-center gap-2"><span className="h-px w-4 bg-bw-dourado" /> {tipo === "pf" ? "Pessoa Física" : "Pessoa Jurídica"}</div>
         </div>
-        <div className="font-display text-3xl tracking-tight text-white mt-3">Minha Conta</div>
+        <div className="font-semibold tracking-tight text-3xl tracking-tight text-white mt-3">Minha Conta</div>
       </div>
 
       <div className="flex flex-col gap-10 px-5 py-6 sm:px-8 sm:py-8">
         {tipo === "pf" ? (
           <>
             <section className="flex flex-col gap-5">
-              <div className="text-[9px] font-mono uppercase tracking-[.2em] text-white/25">Dados pessoais</div>
+              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25">Dados pessoais</div>
               <div className="grid sm:grid-cols-2 gap-x-5 gap-y-5">
                 <div>
                   <label className={glassLabel}>Nome</label>
@@ -1533,7 +1734,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
                 <div>
                   <label className={glassLabel}>CPF</label>
                   <input type="text" value={vm.data?.cpf ? vm.data.cpf : ""} readOnly className={readOnly} />
-                  <div className="text-[9px] font-mono text-white/20 mt-1">Não editável</div>
+                  <div className="text-xs font-medium tabular-nums text-white/20 mt-1">Não editável</div>
                 </div>
                 <div>
                   <label className={glassLabel}>Data de nascimento</label>
@@ -1550,7 +1751,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
               </div>
             </section>
             <section className="flex flex-col gap-4">
-              <div className="text-[9px] font-mono uppercase tracking-[.2em] text-white/25">Origem do contato</div>
+              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25">Origem do contato</div>
               <div>
                 <label className={glassLabel}>Como nos conheceu?</label>
                 <select value={origemContato} onChange={e => { setOrigemContato(e.target.value); if (e.target.value !== "instagram") setInstagramUsername(""); }}
@@ -1562,7 +1763,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
                 <div>
                   <label className={glassLabel}>Perfil no Instagram</label>
                   <div className="relative">
-                    <span className="absolute left-0 bottom-2.5 text-white/30 text-sm font-mono select-none">@</span>
+                    <span className="absolute left-0 bottom-2.5 text-white/30 text-sm font-medium tabular-nums select-none">@</span>
                     <input type="text" value={instagramUsername} onChange={e => setInstagramUsername(e.target.value.replace(/^@/, "").replace(/\s/g, ""))} className={glassInput + " pl-4"} />
                   </div>
                 </div>
@@ -1572,16 +1773,16 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
         ) : (
           <>
             <section className="flex flex-col gap-5">
-              <div className="text-[9px] font-mono uppercase tracking-[.2em] text-white/25">Dados da empresa</div>
+              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25">Dados da empresa</div>
               <div>
                 <label className={glassLabel}>CNPJ</label>
                 <input type="text" value={cnpj} readOnly className={readOnly} />
-                <div className="text-[9px] font-mono text-white/20 mt-1">Não editável</div>
+                <div className="text-xs font-medium tabular-nums text-white/20 mt-1">Não editável</div>
               </div>
               <div>
                 <label className={glassLabel}>Razão social</label>
                 <input type="text" value={razaoSocial} onChange={e => setRazaoSocial(e.target.value)} className={glassInput} />
-                <div className="text-[9px] font-mono text-white/20 mt-1">Validado na Receita Federal</div>
+                <div className="text-xs font-medium tabular-nums text-white/20 mt-1">Validado na Receita Federal</div>
               </div>
               <div>
                 <label className={glassLabel}>Nome fantasia</label>
@@ -1597,7 +1798,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
               </div>
             </section>
             <section className="flex flex-col gap-5">
-              <div className="text-[9px] font-mono uppercase tracking-[.2em] text-white/25">Responsável legal</div>
+              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25">Responsável legal</div>
               <div>
                 <label className={glassLabel}>Nome completo</label>
                 <input type="text" value={responsavelNome} onChange={e => setResponsavelNome(e.target.value)} className={glassInput} />
@@ -1605,11 +1806,11 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
               <div>
                 <label className={glassLabel}>CPF do responsável</label>
                 <input type="text" value={vm.data?.cpf ? vm.data.cpf : ""} readOnly className={readOnly} />
-                <div className="text-[9px] font-mono text-white/20 mt-1">Não editável</div>
+                <div className="text-xs font-medium tabular-nums text-white/20 mt-1">Não editável</div>
               </div>
             </section>
             <section className="flex flex-col gap-4">
-              <div className="text-[9px] font-mono uppercase tracking-[.2em] text-white/25">Origem do contato</div>
+              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25">Origem do contato</div>
               <div>
                 <label className={glassLabel}>Como nos conheceu?</label>
                 <select value={origemContato} onChange={e => { setOrigemContato(e.target.value); if (e.target.value !== "instagram") setInstagramUsername(""); }}
@@ -1621,7 +1822,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
                 <div>
                   <label className={glassLabel}>Perfil no Instagram</label>
                   <div className="relative">
-                    <span className="absolute left-0 bottom-2.5 text-white/30 text-sm font-mono select-none">@</span>
+                    <span className="absolute left-0 bottom-2.5 text-white/30 text-sm font-medium tabular-nums select-none">@</span>
                     <input type="text" value={instagramUsername} onChange={e => setInstagramUsername(e.target.value.replace(/^@/, "").replace(/\s/g, ""))} className={glassInput + " pl-4"} />
                   </div>
                 </div>
@@ -1631,7 +1832,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
         )}
 
         <section className="flex flex-col gap-4">
-          <div className="text-[9px] font-mono uppercase tracking-[.2em] text-white/25">Segurança</div>
+          <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25">Segurança</div>
           <div>
             <label className={glassLabel}>Senha atual</label>
             <PasswordInput placeholder="••••••••" value={senhaAtual} onChange={e => setSenhaAtual(e.target.value)} className={glassInput} />
@@ -1650,7 +1851,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
 
         <div className="pb-4">
           <button onClick={() => void salvar()}
-            className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-2">
+            className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-sm font-medium tabular-nums uppercase tracking-normal hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-2">
             {vm.saving || vm.loading ? 'Salvando...' : saved ? <><Icon.Check /> Salvo</> : 'Salvar alterações'}
           </button>
         </div>
@@ -1668,24 +1869,31 @@ function PortalCliente({ tipo, onNav }: { tipo: ClienteTipo; onNav: (s: Screen) 
       <div className="absolute inset-0 bg-bw-preto/75" />
 
       {/* Top bar */}
-      <header className="relative z-10 flex h-[74px] flex-shrink-0 items-center justify-between gap-1 px-3 sm:gap-3 sm:px-8 lg:px-12" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+      <header className="relative z-10 flex h-[74px] flex-shrink-0 items-center justify-between gap-1 px-3 sm:gap-3 sm:px-8 lg:px-12" style={{ viewTransitionName: "bw-portal-header", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="flex items-center gap-4">
           <img src={bwLogo} alt="BW Arquitetura" style={{ height: "40px", width: "auto", mixBlendMode: "screen" }} />
-          <span className="hidden sm:block font-mono text-[10px] uppercase tracking-[.22em] text-bw-areia/60">Portal do Cliente</span>
+          <span className="hidden sm:block font-medium tabular-nums text-sm uppercase tracking-normal text-bw-areia/60">Portal do Cliente</span>
         </div>
 
         {/* Nav tabs */}
         <nav className="flex items-center h-full">
           {([["mensagens","Mensagens"],["agendamentos","Calendário"],["conta","Minha Conta"]] as [PortalTab,string][]).map(([t, label]) => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`flex h-full items-center px-2.5 font-mono text-[9px] uppercase tracking-[.1em] transition-colors sm:px-8 sm:text-[10px] sm:tracking-[.18em] ${tab === t ? "text-bw-dourado border-b-2 border-bw-dourado" : "text-white/40 hover:text-white/80"}`}>
-              {label}
+            <button key={t} onClick={() => runViewTransition(() => setTab(t))}
+              className={`relative flex h-full items-center px-2.5 font-medium tabular-nums text-xs uppercase tracking-normal transition-colors duration-300 sm:px-8 sm:text-sm sm:tracking-normal ${tab === t ? "text-bw-dourado" : "text-white/40 hover:text-white/80"}`}>
+              <span className="relative z-10">{label}</span>
+              {tab === t && (
+                <span
+                  aria-hidden
+                  style={{ viewTransitionName: "bw-portal-tab" }}
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-bw-dourado shadow-[0_0_12px_rgba(176,141,87,0.65)]"
+                />
+              )}
             </button>
           ))}
         </nav>
 
         {/* Sair */}
-        <button onClick={() => onNav("institucional")} className="text-[10px] font-mono text-white/40 hover:text-bw-dourado transition-colors uppercase tracking-[.18em] flex items-center gap-2">
+        <button onClick={() => onNav("institucional")} className="text-sm font-medium tabular-nums text-white/40 hover:text-bw-dourado transition-colors uppercase tracking-normal flex items-center gap-2">
           Sair <span className="text-sm leading-none hidden sm:block">›</span>
         </button>
       </header>
@@ -1716,6 +1924,7 @@ const navItems: { id: Screen; label: string; icon: React.ReactNode }[] = [
 
 function PlatformShell({ screen, onNav }: { screen: Screen; onNav: (s: Screen) => void }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const stageRef = useRef<HTMLElement>(null);
 
   const renderScreen = () => {
     switch (screen) {
@@ -1738,41 +1947,50 @@ function PlatformShell({ screen, onNav }: { screen: Screen; onNav: (s: Screen) =
       {sidebarOpen && <div className="fixed inset-0 z-30 bg-black/20 md:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* SIDEBAR */}
-      <aside className={`fixed md:static z-40 m-0 h-full w-[17rem] bg-bw-preto/95 flex flex-col border-r border-white/5 shadow-[16px_0_50px_rgba(22,19,15,.16)] backdrop-blur-xl transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
+      <aside style={{ viewTransitionName: "bw-shell-sidebar" }} className={`fixed md:static z-40 m-0 h-full w-[18.5rem] bg-bw-preto/95 flex flex-col border-r border-white/5 shadow-[16px_0_50px_rgba(22,19,15,.16)] backdrop-blur-xl transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
         <div className="flex h-[88px] items-center justify-between px-5" style={{ borderBottom: "1px solid #2C2218" }}>
           <img src={bwLogo} alt="BW Arquitetura e Marcenaria" className="h-14 w-auto object-contain" />
           <button className="md:hidden text-bw-ph" onClick={() => setSidebarOpen(false)}><Icon.X /></button>
         </div>
-        <div className="px-5 pt-6 pb-2 font-mono text-[9px] uppercase tracking-[.22em] text-bw-dourado/80">Estúdio BW</div>
+        
         <nav aria-label="Navegação da equipe" className="flex-1 overflow-y-auto py-2 px-3 flex flex-col gap-1">
           {navItems.map(item => (
             <button
               key={item.id}
               onClick={() => { onNav(item.id); setSidebarOpen(false); }}
-              className={`flex items-center gap-3 px-3.5 py-3 rounded-md text-[12px] font-medium w-full text-left transition-all duration-200 ${screen === item.id ? "bg-bw-dourado text-white shadow-[0_8px_18px_rgba(176,141,87,.18)]" : "text-bw-ph hover:bg-white/8 hover:text-bw-areia"}`}
+              className={`relative isolate flex items-center gap-3 px-3.5 py-3 rounded-md text-[15px] font-medium w-full text-left transition-colors duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${screen === item.id ? "text-white" : "text-bw-ph hover:bg-white/[0.06] hover:text-bw-areia"}`}
             >
-              {item.icon}
-              <span>{item.label}</span>
+              {screen === item.id && (
+                <span
+                  aria-hidden
+                  style={{ viewTransitionName: "bw-sidebar-active" }}
+                  className="pointer-events-none absolute inset-0 -z-10 rounded-md bg-bw-dourado shadow-[0_8px_18px_rgba(176,141,87,.22)]"
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-3">
+                {item.icon}
+                <span>{item.label}</span>
+              </span>
             </button>
           ))}
         </nav>
         <div className="m-3 rounded-md border border-white/10 bg-white/[.035] p-3.5">
           <div className="flex items-center gap-3">
-            <div className="grid h-8 w-8 place-items-center rounded-full border border-bw-dourado/40 bg-bw-dourado/10 font-mono text-[9px] text-bw-dourado">BW</div>
-            <div className="min-w-0"><div className="truncate text-xs font-medium text-bw-areia">Equipe BW</div><div className="mt-0.5 text-[9px] font-mono uppercase tracking-wider text-bw-ph">Administrador</div></div>
+            <div className="grid h-8 w-8 place-items-center rounded-full border border-bw-dourado/40 bg-bw-dourado/10 font-medium tabular-nums text-xs text-bw-dourado">BW</div>
+            <div className="min-w-0"><div className="truncate text-sm font-medium text-bw-areia">Equipe BW</div><div className="mt-0.5 text-xs font-medium tabular-nums uppercase tracking-wider text-bw-ph">Administrador</div></div>
           </div>
-          <button onClick={() => onNav("institucional")} className="mt-3 text-[10px] font-mono uppercase tracking-[.14em] text-bw-ph transition-colors hover:text-bw-dourado">Sair da plataforma ↗</button>
+          <button onClick={() => onNav("institucional")} className="mt-3 text-sm font-medium tabular-nums uppercase tracking-normal text-bw-ph transition-colors hover:text-bw-dourado">Sair da plataforma ↗</button>
         </div>
       </aside>
 
       {/* MAIN */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-[72px] border-b border-bw-border-sub flex items-center justify-between px-5 sm:px-7 gap-3 flex-shrink-0 bg-bw-white/70 backdrop-blur-xl">
+        <header style={{ viewTransitionName: "bw-shell-header" }} className="h-[72px] border-b border-bw-border-sub flex items-center justify-between px-5 sm:px-7 gap-3 flex-shrink-0 bg-bw-white/70 backdrop-blur-xl">
           <button className="md:hidden text-bw-madeira" onClick={() => setSidebarOpen(true)}><Icon.Menu /></button>
-          <div className="flex items-center gap-3"><span className="hidden h-2 w-2 rounded-full bg-bw-dourado shadow-[0_0_0_4px_rgba(176,141,87,.12)] sm:block" /><span className="text-[10px] font-mono uppercase tracking-[.18em] text-bw-muted">{navItems.find(n => n.id === screen)?.label}</span></div>
-          <div className="hidden items-center gap-2 text-[10px] font-mono text-bw-muted sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-bw-dourado" /> Operação em dia</div>
+          <div className="flex items-center gap-3"><span className="hidden h-2 w-2 rounded-full bg-bw-dourado shadow-[0_0_0_4px_rgba(176,141,87,.12)] sm:block" /><span className="text-base font-semibold text-bw-preto">{navItems.find(n => n.id === screen)?.label}</span></div>
+          
         </header>
-        <main className={`flex-1 min-h-0 px-3 sm:px-6 lg:px-8 ${screen === "funil" || screen === "calendario" ? "overflow-y-auto py-4 sm:overflow-hidden sm:py-5" : "overflow-y-auto py-5 sm:py-8"}`}>
+        <main ref={stageRef} style={{ viewTransitionName: "bw-admin-stage" }} className={`flex-1 min-h-0 px-3 sm:px-6 lg:px-8 ${screen === "funil" || screen === "calendario" ? "overflow-y-auto py-4 sm:overflow-hidden sm:py-5" : "overflow-y-auto py-5 sm:py-8"}`}>
           {renderScreen()}
         </main>
       </div>
@@ -1819,16 +2037,16 @@ function LeadCard({ lead, onSelect, onDragStart, onDragEnd }: { lead: Lead; onSe
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="w-6 h-6 shrink-0 bg-bw-areia border border-bw-border flex items-center justify-center text-[9px] font-mono font-medium text-bw-madeira">{lead.ini}</div>
-          <span className="truncate text-[11px] font-semibold text-bw-preto leading-tight">{lead.nome}</span>
+          <div className="w-6 h-6 shrink-0 bg-bw-areia border border-bw-border flex items-center justify-center text-xs font-medium tabular-nums font-medium text-bw-madeira">{lead.ini}</div>
+          <span className="truncate text-sm font-semibold text-bw-preto leading-tight">{lead.nome}</span>
         </div>
-        <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${scoreStyle}`}>{lead.score}</span>
+        <span className={`text-sm font-medium tabular-nums font-bold px-1.5 py-0.5 rounded ${scoreStyle}`}>{lead.score}</span>
       </div>
-      <div className="text-[9px] font-mono text-bw-muted mb-1 uppercase tracking-wide">{lead.fonte} · {lead.tempo}</div>
-      <div className="truncate text-[10px] text-bw-madeira mb-1.5">{lead.tipo}</div>
+      <div className="text-xs font-medium tabular-nums text-bw-muted mb-1 uppercase tracking-wide">{lead.fonte} · {lead.tempo}</div>
+      <div className="truncate text-sm text-bw-madeira mb-1.5">{lead.tipo}</div>
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-mono text-bw-preto">{lead.faixa}</span>
-        <span className="text-[9px] font-mono text-bw-madeira">{urgStyle} {lead.urgencia}</span>
+        <span className="text-sm font-medium tabular-nums text-bw-preto">{lead.faixa}</span>
+        <span className="text-xs font-medium tabular-nums text-bw-madeira">{urgStyle} {lead.urgencia}</span>
       </div>
     </button>
   );
@@ -1861,35 +2079,35 @@ function Funil() {
       <div className="flex shrink-0 flex-col gap-4 border-b border-bw-border pb-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
         <div className="flex items-end gap-5">
           <div>
-            <div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">Relacionamento comercial</div>
-            <h1 className="font-display text-4xl leading-none tracking-[-.04em] text-bw-preto">Funil de clientes</h1>
+            
+            <h1 className="font-semibold tracking-tight text-4xl leading-none tracking-[-.04em] text-bw-preto">Funil de clientes</h1>
           </div>
-          <p className="hidden max-w-[250px] border-l border-bw-border pl-5 text-[11px] leading-relaxed text-bw-muted xl:block">Priorize conversas que aproximam o projeto da decisão.</p>
+          <p className="hidden max-w-[250px] border-l border-bw-border pl-5 text-sm leading-relaxed text-bw-muted xl:block">Priorize conversas que aproximam o projeto da decisão.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:gap-3">
           <div className="hidden items-baseline gap-5 border-r border-bw-border pr-5 sm:flex">
             <div className="flex items-baseline gap-2 whitespace-nowrap">
-              <span className="font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted">Pipeline</span>
+              <span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-muted">Pipeline</span>
               <span className="text-lg font-semibold leading-none tabular-nums text-bw-preto">R$ {pipelineValue}k</span>
             </div>
             <div className="flex items-baseline gap-2 whitespace-nowrap">
-              <span className="font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted">Score médio</span>
+              <span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-muted">Score médio</span>
               <span className="text-lg font-semibold leading-none tabular-nums text-bw-preto">{scoreMedio}</span>
             </div>
           </div>
-          <div className="flex border border-bw-border bg-bw-white text-[10px]">
+          <div className="flex border border-bw-border bg-bw-white text-sm">
             {[["todos","Todos"],["instagram","Instagram"],["indicação","Indicação"]].filter(([k]) => !filtrosOcultos.includes(k)).map(([k,l]) => (
               <button key={k} onClick={() => setFiltro(k)} className={`px-2.5 py-2 transition-colors border-l border-bw-border first:border-l-0 ${filtro === k ? "bg-bw-preto text-bw-white" : "text-bw-madeira hover:bg-bw-hover"}`}>{l}</button>
             ))}
           </div>
-          {mostrarNovoLead && <button onClick={() => setIsNewLeadModalOpen(true)} className="bg-bw-dourado px-3 py-2 text-[10px] font-medium text-white hover:bg-bw-madeira transition-colors">+ Novo lead</button>}
+          {mostrarNovoLead && <button onClick={() => setIsNewLeadModalOpen(true)} className="bg-bw-dourado px-3 py-2 text-sm font-medium text-white hover:bg-bw-madeira transition-colors">+ Novo lead</button>}
         </div>
       </div>
 
       <div className="min-h-0 flex-1 pt-4">
         <div className="mb-3 flex items-center justify-between rounded-sm border border-bw-border-sub bg-bw-white/50 px-3 py-2">
-          <span className="font-mono text-[9px] uppercase tracking-[.16em] text-bw-muted">{filtered.length} oportunidades ativas</span>
-          <span className="text-[10px] text-bw-madeira">Em foco: <button onClick={() => setDetailsLeadId(selectedLead.id)} className="font-semibold underline decoration-bw-dourado underline-offset-4">{selectedLead.nome}</button></span>
+          <span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-muted">{filtered.length} oportunidades ativas</span>
+          <span className="text-sm text-bw-madeira">Em foco: <button onClick={() => setDetailsLeadId(selectedLead.id)} className="font-semibold underline decoration-bw-dourado underline-offset-4">{selectedLead.nome}</button></span>
         </div>
       <div className="grid h-[32rem] gap-2.5 overflow-x-auto pb-2 sm:h-[calc(100%-38px)]" style={{ gridTemplateColumns: `repeat(${colunasVisiveis.length},minmax(15rem,1fr))` }}>
         {colunasVisiveis.map(col => {
@@ -1911,8 +2129,8 @@ function Funil() {
               className={`flex min-w-0 flex-col border transition-colors ${dragOverColumn === col ? "border-bw-dourado bg-bw-dourado/10" : "border-transparent bg-bw-white/30"}`}
             >
               <div className="flex min-h-10 items-center justify-between border-y border-bw-border px-2">
-                <span className="text-[9px] font-mono uppercase tracking-[.09em] text-bw-madeira">{col}</span>
-                <span className="flex h-4 min-w-4 items-center justify-center bg-bw-areia px-1 font-mono text-[9px] text-bw-madeira">{cards.length}</span>
+                <span className="text-xs font-medium tabular-nums uppercase tracking-normal text-bw-madeira">{col}</span>
+                <span className="flex h-4 min-w-4 items-center justify-center bg-bw-areia px-1 font-medium tabular-nums text-xs text-bw-madeira">{cards.length}</span>
               </div>
               <div className="flex flex-col gap-2 p-2">
                 {cards.map(lead => (
@@ -1943,14 +2161,14 @@ function Funil() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4" onClick={() => setDetailsLeadId(null)}>
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-lg overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8" onClick={event => event.stopPropagation()}>
             <button onClick={() => setDetailsLeadId(null)} className="absolute right-5 top-4 text-bw-areia transition-colors hover:text-white">
-              <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
+              <span className="font-medium tabular-nums text-sm uppercase tracking-wider">Fechar</span>
             </button>
 
             <div className="mb-7 flex items-center gap-4 border-b border-bw-dourado/20 pb-6">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-bw-dourado/40 bg-bw-areia/10 font-mono text-sm text-bw-areia">{detailsLead.ini}</div>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-bw-dourado/40 bg-bw-areia/10 font-medium tabular-nums text-sm text-bw-areia">{detailsLead.ini}</div>
               <div>
-                <div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">Detalhes da oportunidade</div>
-                <h2 className="font-display text-3xl leading-none text-bw-white">{detailsLead.nome}</h2>
+                
+                <h2 className="font-semibold tracking-tight text-3xl leading-none text-bw-white">{detailsLead.nome}</h2>
               </div>
             </div>
 
@@ -1964,14 +2182,14 @@ function Funil() {
                 ["Score", String(detailsLead.score)],
               ].map(([label, value]) => (
                 <div key={label}>
-                  <div className="mb-1 font-mono text-[9px] uppercase tracking-wider text-bw-areia/60">{label}</div>
+                  <div className="mb-1 font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia/60">{label}</div>
                   <div className="text-sm text-bw-white">{value}</div>
                 </div>
               ))}
             </div>
 
             <div className="border-t border-bw-dourado/20 pt-6">
-              <label className="mb-2 block font-mono text-[9px] uppercase tracking-wider text-bw-areia">Etapa do funil</label>
+              <label className="mb-2 block font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Etapa do funil</label>
               <select
                 value={detailsLead.etapa}
                 onChange={event => moveLead(detailsLead.id, event.target.value)}
@@ -1979,7 +2197,7 @@ function Funil() {
               >
                 {colunasVisiveis.map(coluna => <option key={coluna} value={coluna} className="bg-bw-preto text-bw-white">{coluna}</option>)}
               </select>
-              <p className="mt-3 text-[10px] leading-relaxed text-bw-areia/60">Altere a etapa aqui ou arraste o card diretamente entre as colunas do funil.</p>
+              <p className="mt-3 text-sm leading-relaxed text-bw-areia/60">Altere a etapa aqui ou arraste o card diretamente entre as colunas do funil.</p>
             </div>
           </div>
         </div>
@@ -1992,28 +2210,28 @@ function Funil() {
               onClick={() => setIsNewLeadModalOpen(false)}
               className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors"
             >
-              <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
+              <span className="font-medium tabular-nums text-sm uppercase tracking-wider">Fechar</span>
             </button>
 
             <div className="mb-8">
-              <h2 className="font-display text-2xl text-bw-white">Novo Lead</h2>
-              <p className="font-mono text-[10px] text-bw-dourado uppercase tracking-widest mt-1">Cadastro de oportunidade</p>
+              <h2 className="font-semibold tracking-tight text-2xl text-bw-white">Novo Lead</h2>
+              <p className="font-medium tabular-nums text-sm text-bw-dourado uppercase tracking-wide mt-1">Cadastro de oportunidade</p>
             </div>
 
             <form className="flex flex-col gap-5" onSubmit={e => { e.preventDefault(); setIsNewLeadModalOpen(false); }}>
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Nome do cliente</label>
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Nome do cliente</label>
                 <input type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Contato (Telefone/Email)</label>
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Contato (Telefone/Email)</label>
                 <input type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
               </div>
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Tipo de projeto</label>
+                  <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Tipo de projeto</label>
                   <select className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
                     <option value="" disabled selected hidden className="bg-bw-preto text-bw-white">Selecione...</option>
                     <option value="Móveis planejados" className="bg-bw-preto text-bw-white">Móveis planejados</option>
@@ -2022,7 +2240,7 @@ function Funil() {
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Faixa de valor</label>
+                  <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Faixa de valor</label>
                   <select className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
                     <option value="" disabled selected hidden className="bg-bw-preto text-bw-white">Selecione...</option>
                     <option value="R$ 10–20k" className="bg-bw-preto text-bw-white">R$ 10–20k</option>
@@ -2034,7 +2252,7 @@ function Funil() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Origem</label>
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Origem</label>
                 <select className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
                   <option value="" disabled selected hidden className="bg-bw-preto text-bw-white">Selecione...</option>
                   <option value="Indicação" className="bg-bw-preto text-bw-white">Indicação</option>
@@ -2044,7 +2262,7 @@ function Funil() {
               </div>
 
               <div className="mt-4">
-                <button type="submit" className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors">
+                <button type="submit" className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-sm uppercase tracking-wider hover:bg-bw-areia transition-colors">
                   Adicionar Lead
                 </button>
               </div>
@@ -2130,12 +2348,12 @@ function CalendarioLegacy() {
   return (
     <div className="flex flex-col gap-5 max-w-4xl mx-auto w-full">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div><div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">03 · Agenda de Obra</div><h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-display">Calendário de Entregas</h1><p className="text-[10px] font-mono text-bw-muted mt-0.5">Compartilhado com a equipe — clique em um dia para agendar ou em um evento para editar/excluir</p></div>
-        <button onClick={() => openNew(hojeISO)} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Agendar</button>
+        <div><h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-semibold tracking-tight">Calendário de Entregas</h1><p className="text-sm font-medium tabular-nums text-bw-muted mt-0.5">Compartilhado com a equipe — clique em um dia para agendar ou em um evento para editar/excluir</p></div>
+        <button onClick={() => openNew(hojeISO)} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-sm hover:bg-bw-madeira transition-colors">+ Agendar</button>
       </div>
 
       <div className="flex items-center gap-2">
-        <button onClick={goToday} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors">Hoje</button>
+        <button onClick={goToday} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-sm hover:bg-bw-hover transition-colors">Hoje</button>
         <button onClick={() => changeMonth(-1)} aria-label="Mês anterior" className="p-1.5 rounded-md border border-bw-border text-bw-madeira hover:bg-bw-hover transition-colors">
           <svg {...svgProps}><path d="M15 6l-6 6 6 6"/></svg>
         </button>
@@ -2151,7 +2369,7 @@ function CalendarioLegacy() {
       <div className="overflow-x-auto rounded-lg border border-bw-border bg-bw-white">
         <div className="min-w-[42rem]">
         <div className="grid grid-cols-7 border-b border-bw-border bg-bw-areia">
-          {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map(d=><div key={d} className="py-2 text-center text-[10px] font-mono text-bw-muted uppercase">{d}</div>)}
+          {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map(d=><div key={d} className="py-2 text-center text-sm font-medium tabular-nums text-bw-muted uppercase">{d}</div>)}
         </div>
         <div className="grid grid-cols-7">
           {[...Array(firstWeekday)].map((_,i)=><div key={`e${i}`} className="h-24 border-r border-b border-bw-border-sub" />)}
@@ -2160,9 +2378,9 @@ function CalendarioLegacy() {
             const isHoje = iso === hojeISO;
             return (
             <div key={d} onClick={() => openNew(iso)} className={`h-24 p-1.5 border-r border-b border-bw-border-sub overflow-hidden cursor-pointer hover:bg-bw-hover transition-colors ${isHoje?"bg-bw-areia":""}`}>
-              <div className={`text-[10px] font-mono mb-1 ${isHoje?"font-bold text-bw-preto":"text-bw-muted"}`}>{d}{isHoje && " · Hoje"}</div>
+              <div className={`text-sm font-medium tabular-nums mb-1 ${isHoje?"font-bold text-bw-preto":"text-bw-muted"}`}>{d}{isHoje && " · Hoje"}</div>
               {events.filter(ev => ev.date === iso).sort((a,b)=>a.time.localeCompare(b.time)).map(ev => (
-                <button key={ev.id} onClick={(e) => { e.stopPropagation(); setSelectedId(ev.id); }} className="block w-full text-left text-[9px] rounded px-1 py-0.5 truncate font-mono mb-0.5 border border-bw-border border-l-2 border-l-bw-dourado bg-bw-areia text-bw-madeira hover:bg-bw-dourado hover:text-white transition-colors">
+                <button key={ev.id} onClick={(e) => { e.stopPropagation(); setSelectedId(ev.id); }} className="block w-full text-left text-xs rounded px-1 py-0.5 truncate font-medium tabular-nums mb-0.5 border border-bw-border border-l-2 border-l-bw-dourado bg-bw-areia text-bw-madeira hover:bg-bw-dourado hover:text-white transition-colors">
                   {ev.time} {ev.title}
                 </button>
               ))}
@@ -2178,7 +2396,7 @@ function CalendarioLegacy() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/40 p-4" onClick={() => setSelectedId(null)}>
           <div className="w-full max-w-sm rounded-lg border border-bw-border bg-bw-white shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-bw-border bg-bw-areia px-4 py-2">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-bw-madeira">Detalhes do evento</span>
+              <span className="text-sm font-medium tabular-nums uppercase tracking-wider text-bw-madeira">Detalhes do evento</span>
               <div className="flex items-center gap-1 text-bw-muted">
                 <button onClick={() => openEdit(selected)} title="Editar" aria-label="Editar evento" className="p-1.5 rounded hover:bg-bw-hover hover:text-bw-madeira transition-colors">
                   <svg {...svgProps}><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
@@ -2192,10 +2410,10 @@ function CalendarioLegacy() {
               </div>
             </div>
             <div className="flex flex-col gap-3 p-4">
-              <div className="text-lg font-semibold text-bw-preto font-display">{selected.title}</div>
-              <div className="text-xs text-bw-madeira font-mono">{fmtLong(selected.date)} · {selected.time}</div>
-              <div className="text-xs text-bw-preto">{tipos[selected.tipo] || "—"}</div>
-              <div className="text-xs text-bw-muted">Lead: {leadsData.find(l => l.id === selected.leadId)?.nome || "Evento interno"}</div>
+              <div className="text-lg font-semibold text-bw-preto font-semibold tracking-tight">{selected.title}</div>
+              <div className="text-sm text-bw-madeira font-medium tabular-nums">{fmtLong(selected.date)} · {selected.time}</div>
+              <div className="text-sm text-bw-preto">{tipos[selected.tipo] || "—"}</div>
+              <div className="text-sm text-bw-muted">Lead: {leadsData.find(l => l.id === selected.leadId)?.nome || "Evento interno"}</div>
             </div>
           </div>
         </div>
@@ -2205,24 +2423,24 @@ function CalendarioLegacy() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8">
             <button onClick={() => setForm(null)} className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors">
-              <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
+              <span className="font-medium tabular-nums text-sm uppercase tracking-wider">Fechar</span>
             </button>
 
             <div className="mb-8">
-              <h2 className="font-display text-2xl text-bw-white">{form.id === null ? "Novo Agendamento" : "Editar Evento"}</h2>
-              <p className="font-mono text-[10px] text-bw-dourado uppercase tracking-widest mt-1">{form.id === null ? "Marcar evento ou visita" : "Alterar dados do evento"}</p>
+              <h2 className="font-semibold tracking-tight text-2xl text-bw-white">{form.id === null ? "Novo Agendamento" : "Editar Evento"}</h2>
+              <p className="font-medium tabular-nums text-sm text-bw-dourado uppercase tracking-wide mt-1">{form.id === null ? "Marcar evento ou visita" : "Alterar dados do evento"}</p>
             </div>
 
             <form className="flex flex-col gap-5" onSubmit={salvar}>
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Título do Evento</label>
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Título do Evento</label>
                 <input type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className={inputCls} required placeholder="Ex: Visita técnica" />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia flex justify-between items-end">
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia flex justify-between items-end">
                   <span>Vincular a um Lead (Opcional)</span>
-                  <span className="text-bw-dourado/60 text-[8px]">Funil de vendas</span>
+                  <span className="text-bw-dourado/60 text-xs">Funil de vendas</span>
                 </label>
                 <select value={form.leadId} onChange={e => setForm({ ...form, leadId: e.target.value ? Number(e.target.value) : "" })} className={`${inputCls} appearance-none rounded-none`}>
                   <option value="" className="bg-bw-preto text-bw-white">Nenhum (Evento interno)</option>
@@ -2236,17 +2454,17 @@ function CalendarioLegacy() {
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Data</label>
+                  <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Data</label>
                   <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className={`${inputCls} [color-scheme:dark]`} required />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Horário</label>
+                  <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Horário</label>
                   <input type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} className={`${inputCls} [color-scheme:dark]`} required />
                 </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Tipo de Evento</label>
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Tipo de Evento</label>
                 <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })} className={`${inputCls} appearance-none rounded-none`} required>
                   <option value="" disabled hidden className="bg-bw-preto text-bw-white">Selecione...</option>
                   {Object.entries(tipos).map(([k, v]) => <option key={k} value={k} className="bg-bw-preto text-bw-white">{v}</option>)}
@@ -2255,11 +2473,11 @@ function CalendarioLegacy() {
 
               <div className="mt-4 flex gap-3">
                 {form.id !== null && (
-                  <button type="button" onClick={() => { const id = form.id as number; setForm(null); excluir(id); }} className="px-4 border border-red-500/60 text-red-400 py-3 text-xs uppercase tracking-wider hover:bg-red-500/10 transition-colors">
+                  <button type="button" onClick={() => { const id = form.id as number; setForm(null); excluir(id); }} className="px-4 border border-red-500/60 text-red-400 py-3 text-sm uppercase tracking-wider hover:bg-red-500/10 transition-colors">
                     Excluir
                   </button>
                 )}
-                <button type="submit" className="flex-1 bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors">
+                <button type="submit" className="flex-1 bg-bw-dourado text-bw-preto font-semibold py-3 text-sm uppercase tracking-wider hover:bg-bw-areia transition-colors">
                   {form.id === null ? "Agendar Evento" : "Salvar Alterações"}
                 </button>
               </div>
@@ -2306,18 +2524,18 @@ function Chatbot() {
       {/* History */}
       <div className="flex h-36 w-full flex-shrink-0 flex-col border-b border-bw-border bg-bw-areia sm:h-auto sm:w-64 sm:border-b-0 sm:border-r">
         <div className="p-3 border-b border-bw-border bg-bw-preto">
-          <div className="text-bw-white font-display text-lg px-1">Mensagens</div>
-          <p className="text-[10px] text-bw-dourado font-mono uppercase tracking-wider px-1">Leads & Clientes</p>
+          <div className="text-bw-white font-semibold tracking-tight text-lg px-1">Mensagens</div>
+          <p className="text-sm text-bw-dourado font-medium tabular-nums uppercase tracking-wider px-1">Leads & Clientes</p>
         </div>
         <div className="flex-1 overflow-y-auto py-2 px-2">
           {chatHistory.map(c=>(
             <button key={c.id} onClick={()=>setActiveChat(c.id)} className={`w-full text-left px-3 py-3 rounded-md mb-1 transition-colors ${activeChat===c.id?"bg-bw-preto text-bw-white shadow-md":"hover:bg-bw-white text-bw-preto"}`}>
               <div className="flex items-center gap-2 mb-1">
                 <div className={`w-2 h-2 rounded-full ${activeChat===c.id?"bg-bw-dourado":"bg-bw-madeira/40"}`}></div>
-                <div className="text-xs font-semibold truncate flex-1">{c.clientName}</div>
+                <div className="text-sm font-semibold truncate flex-1">{c.clientName}</div>
               </div>
-              <div className={`text-[10px] truncate ${activeChat===c.id?"text-bw-areia":"text-bw-muted"}`}>{c.preview}</div>
-              <div className={`text-[9px] font-mono mt-1.5 ${activeChat===c.id?"text-bw-dourado/60":"text-bw-madeira/50"}`}>{c.time}</div>
+              <div className={`text-sm truncate ${activeChat===c.id?"text-bw-areia":"text-bw-muted"}`}>{c.preview}</div>
+              <div className={`text-xs font-medium tabular-nums mt-1.5 ${activeChat===c.id?"text-bw-dourado/60":"text-bw-madeira/50"}`}>{c.time}</div>
             </button>
           ))}
         </div>
@@ -2326,12 +2544,12 @@ function Chatbot() {
       <div className="flex-1 flex flex-col bg-bw-white">
         <div className="z-10 flex items-center justify-between border-b border-bw-border bg-bw-white px-4 py-3 shadow-sm sm:px-6 sm:py-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-bw-preto flex items-center justify-center text-bw-white text-[10px] font-mono font-bold">
+            <div className="w-8 h-8 rounded-full bg-bw-preto flex items-center justify-center text-bw-white text-sm font-medium tabular-nums font-bold">
               {currentChat?.clientName.split(" ").map(n=>n[0]).join("")}
             </div>
             <div>
               <div className="text-sm font-semibold text-bw-preto">{currentChat?.clientName}</div>
-              <div className="text-[10px] font-mono text-bw-dourado">Lead Qualificado</div>
+              <div className="text-sm font-medium tabular-nums text-bw-dourado">Lead Qualificado</div>
             </div>
           </div>
         </div>
@@ -2342,13 +2560,13 @@ function Chatbot() {
             <div className="bg-bw-preto/95 backdrop-blur-md rounded-xl p-4 border border-bw-dourado/30 shadow-lg mb-4 self-center max-w-2xl w-full">
               <div className="flex items-center gap-2 mb-2">
                 <Icon.Bot className="w-4 h-4 text-bw-dourado" />
-                <span className="font-mono text-[9px] uppercase tracking-widest text-bw-dourado">Resumo IA & Contexto</span>
+                <span className="font-medium tabular-nums text-xs uppercase tracking-wide text-bw-dourado">Contexto do atendimento</span>
               </div>
-              <p className="text-xs text-bw-areia leading-relaxed">
+              <p className="text-sm text-bw-areia leading-relaxed">
                 {currentChat.aiContext}
               </p>
               <div className="mt-3 flex gap-2">
-                <button className="text-[9px] font-mono text-bw-preto bg-bw-dourado px-2 py-1 rounded hover:bg-bw-white transition-colors">Gerar proposta baseada no perfil</button>
+                <button className="text-xs font-medium tabular-nums text-bw-preto bg-bw-dourado px-2 py-1 rounded hover:bg-bw-white transition-colors">Gerar proposta baseada no perfil</button>
               </div>
             </div>
           )}
@@ -2357,7 +2575,7 @@ function Chatbot() {
           {currentMsgs.map((m,i)=>(
             <div key={i} className={`flex ${m.from==="user"?"justify-end":"justify-start"} gap-3`}>
               {m.from==="client" && (
-                <div className="w-6 h-6 rounded-full bg-bw-areia border border-bw-border flex items-center justify-center flex-shrink-0 mt-1 text-bw-madeira text-[8px] font-bold">
+                <div className="w-6 h-6 rounded-full bg-bw-areia border border-bw-border flex items-center justify-center flex-shrink-0 mt-1 text-bw-madeira text-xs font-bold">
                   {currentChat?.clientName.split(" ").map(n=>n[0]).join("")}
                 </div>
               )}
@@ -2365,7 +2583,7 @@ function Chatbot() {
                 <div className={`max-w-sm lg:max-w-md rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${m.from==="user"?"bg-bw-preto text-bw-white rounded-tr-sm":"bg-bw-white text-bw-preto border border-bw-border rounded-tl-sm shadow-sm"}`}>
                   {m.text}
                 </div>
-                <span className="text-[9px] font-mono text-bw-muted mt-1 mx-1">{m.time}</span>
+                <span className="text-xs font-medium tabular-nums text-bw-muted mt-1 mx-1">{m.time}</span>
               </div>
             </div>
           ))}
@@ -2410,9 +2628,9 @@ function Simulacao() {
   return (
     <div className="flex flex-col gap-5 max-w-4xl mx-auto w-full">
       <div>
-        <div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">05 · Estúdio Técnico</div>
-        <h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-display">Simulação de Ambiente (IA)</h1>
-        <p className="text-[10px] font-mono text-bw-muted">Redesenhe espaços instantaneamente para encantar o cliente</p>
+        
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-semibold tracking-tight">Simulação de Ambiente</h1>
+        <p className="text-sm font-medium tabular-nums text-bw-muted">Visualize propostas de marcenaria e acabamento a partir da foto do espaço</p>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
@@ -2420,18 +2638,18 @@ function Simulacao() {
         {/* Painel de Configuração Simples */}
         <div className="bg-bw-white border border-bw-border rounded-lg p-5 flex flex-col gap-5">
           <div>
-            <div className="text-[10px] font-mono text-bw-muted uppercase tracking-wider mb-2">1. Foto do Cliente</div>
+            <div className="text-sm font-medium tabular-nums text-bw-muted uppercase tracking-wider mb-2">1. Foto do Cliente</div>
             {!photoUploaded ? (
               <label className="flex flex-col items-center justify-center h-28 border-2 border-dashed border-bw-dourado/30 rounded cursor-pointer hover:border-bw-dourado/60 hover:bg-bw-hover transition-colors bg-bw-white">
                 <Icon.Layers className="w-5 h-5 text-bw-madeira mb-2 opacity-50" />
-                <span className="text-[10px] uppercase font-semibold tracking-wider text-bw-preto">Fazer Upload</span>
+                <span className="text-sm uppercase font-semibold tracking-wider text-bw-preto">Fazer Upload</span>
                 <input type="file" className="hidden" accept="image/*" onChange={() => setPhotoUploaded(true)} />
               </label>
             ) : (
               <div className="relative h-28 rounded overflow-hidden border border-bw-border group">
                 <img src="https://images.unsplash.com/photo-1584622650111-993a426fbf0a?q=80&w=2070&auto=format&fit=crop" alt="Upload" className="w-full h-full object-cover grayscale opacity-80" />
                 <div className="absolute inset-0 bg-bw-preto/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => setPhotoUploaded(false)} className="text-[9px] uppercase font-mono text-bw-white border border-bw-white/50 px-2 py-1 rounded">Trocar foto</button>
+                  <button onClick={() => setPhotoUploaded(false)} className="text-xs uppercase font-medium tabular-nums text-bw-white border border-bw-white/50 px-2 py-1 rounded">Trocar foto</button>
                 </div>
               </div>
             )}
@@ -2439,15 +2657,15 @@ function Simulacao() {
 
           {[{label:"2. Tipo de Ambiente",opts:["Residencial","Empresarial","Varejo","Consultório"],val:room,set:setRoom},{label:"3. Estilo Desejado",opts:["Contemporâneo","Minimalista","Clássico","Industrial"],val:style,set:setStyle}].map(g=>(
             <div key={g.label}>
-              <div className="text-[10px] font-mono text-bw-muted uppercase tracking-wider mb-2">{g.label}</div>
+              <div className="text-sm font-medium tabular-nums text-bw-muted uppercase tracking-wider mb-2">{g.label}</div>
               <div className="grid gap-1.5 sm:grid-cols-2">
-                {g.opts.map(o=><button key={o} onClick={()=>g.set(o)} className={`px-2 py-1.5 rounded text-[10px] text-center transition-colors border ${g.val===o?"bg-bw-dourado text-white border-bw-dourado":"border-bw-border text-bw-madeira hover:bg-bw-hover"}`}>{o}</button>)}
+                {g.opts.map(o=><button key={o} onClick={()=>g.set(o)} className={`px-2 py-1.5 rounded text-sm text-center transition-colors border ${g.val===o?"bg-bw-dourado text-white border-bw-dourado":"border-bw-border text-bw-madeira hover:bg-bw-hover"}`}>{o}</button>)}
               </div>
             </div>
           ))}
 
           <div>
-            <div className="text-[10px] font-mono text-bw-muted uppercase tracking-wider mb-2">4. Móvel Principal (Foco)</div>
+            <div className="text-sm font-medium tabular-nums text-bw-muted uppercase tracking-wider mb-2">4. Móvel Principal (Foco)</div>
             <input 
               type="text" 
               value={furniture} 
@@ -2460,7 +2678,7 @@ function Simulacao() {
           <button 
             onClick={handleGenerate}
             disabled={isGenerating || !photoUploaded}
-            className={`w-full py-3 text-xs uppercase tracking-wider font-semibold rounded-md transition-colors ${!photoUploaded ? "bg-bw-areia text-bw-muted cursor-not-allowed" : isGenerating ? "bg-bw-preto text-bw-areia animate-pulse" : "bg-bw-preto text-bw-dourado hover:bg-bw-dourado hover:text-bw-preto"}`}
+            className={`w-full py-3 text-sm uppercase tracking-wider font-semibold rounded-md transition-colors ${!photoUploaded ? "bg-bw-areia text-bw-muted cursor-not-allowed" : isGenerating ? "bg-bw-preto text-bw-areia animate-pulse" : "bg-bw-preto text-bw-dourado hover:bg-bw-dourado hover:text-bw-preto"}`}
           >
             {isGenerating ? "Processando..." : "Gerar Simulação"}
           </button>
@@ -2472,30 +2690,30 @@ function Simulacao() {
             {isGenerating ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="w-8 h-8 border-2 border-bw-dourado border-t-transparent rounded-full animate-spin"></div>
-                <div className="text-[10px] font-mono text-bw-muted uppercase tracking-wider">A IA está desenhando seu ambiente...</div>
+                <div className="text-sm font-medium tabular-nums text-bw-muted uppercase tracking-wider">Gerando prévia do ambiente...</div>
               </div>
             ) : generatedImage ? (
               <>
                 <img src={generatedImage} alt="Gerado por IA" className="w-full h-full object-cover" />
                 <div className="absolute top-3 left-3 flex gap-2">
-                  <span className="bg-bw-preto/80 backdrop-blur text-bw-white px-2 py-1 rounded text-[9px] font-mono uppercase tracking-wider">{room}</span>
-                  <span className="bg-bw-dourado/90 backdrop-blur text-bw-preto px-2 py-1 rounded text-[9px] font-mono font-bold uppercase tracking-wider">{style}</span>
+                  <span className="bg-bw-preto/80 backdrop-blur text-bw-white px-2 py-1 rounded text-xs font-medium tabular-nums uppercase tracking-wider">{room}</span>
+                  <span className="bg-bw-dourado/90 backdrop-blur text-bw-preto px-2 py-1 rounded text-xs font-medium tabular-nums font-bold uppercase tracking-wider">{style}</span>
                 </div>
               </>
             ) : (
               <div className="text-center text-bw-muted p-8">
                 <Icon.Layers className="w-8 h-8 opacity-20 mx-auto mb-3" />
                 <div className="text-sm font-semibold text-bw-preto">Nenhuma simulação gerada</div>
-                <div className="text-[10px] mt-1 max-w-[200px] mx-auto">Faça o upload da foto original, escolha o estilo e clique em gerar para ver o resultado.</div>
+                <div className="text-sm mt-1 max-w-[200px] mx-auto">Faça o upload da foto original, escolha o estilo e clique em gerar para ver o resultado.</div>
               </div>
             )}
           </div>
 
           <div className="flex gap-3">
-            <button disabled={!generatedImage} className={`flex-1 py-2 border border-bw-dourado/40 text-bw-madeira rounded-md text-xs font-semibold hover:border-bw-dourado transition-colors ${!generatedImage && "opacity-50 cursor-not-allowed"}`}>
+            <button disabled={!generatedImage} className={`flex-1 py-2 border border-bw-dourado/40 text-bw-madeira rounded-md text-sm font-semibold hover:border-bw-dourado transition-colors ${!generatedImage && "opacity-50 cursor-not-allowed"}`}>
               Baixar Imagem
             </button>
-            <button disabled={!generatedImage} className={`flex-1 py-2 bg-bw-dourado text-bw-preto rounded-md text-xs font-semibold hover:bg-bw-areia transition-colors ${!generatedImage && "opacity-50 cursor-not-allowed"}`}>
+            <button disabled={!generatedImage} className={`flex-1 py-2 bg-bw-dourado text-bw-preto rounded-md text-sm font-semibold hover:bg-bw-areia transition-colors ${!generatedImage && "opacity-50 cursor-not-allowed"}`}>
               Salvar no Projeto
             </button>
           </div>
@@ -2538,10 +2756,10 @@ function TabelaPrecos() {
   return (
     <div className="flex flex-col gap-5 max-w-4xl mx-auto w-full relative">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div><div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">06 · Orçamentação</div><h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-display">Tabela de Preços de Referência</h1><p className="text-[10px] font-mono text-bw-muted mt-0.5">Padronização para orçamentos</p></div>
+        <div><h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-semibold tracking-tight">Tabela de Preços de Referência</h1><p className="text-sm font-medium tabular-nums text-bw-muted mt-0.5">Padronização para orçamentos</p></div>
         <div className="flex gap-2">
-          <button onClick={() => { setExportError(""); setIsExportModalOpen(true); }} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors">Exportar PDF</button>
-          <button onClick={() => { setFormError(""); setIsNewItemModalOpen(true); }} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Novo item</button>
+          <button onClick={() => { setExportError(""); setIsExportModalOpen(true); }} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-sm hover:bg-bw-hover transition-colors">Exportar PDF</button>
+          <button onClick={() => { setFormError(""); setIsNewItemModalOpen(true); }} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-sm hover:bg-bw-madeira transition-colors">+ Novo item</button>
         </div>
       </div>
       {error && !deleteTarget && <FeedbackMessage message={error.message} />}
@@ -2549,19 +2767,19 @@ function TabelaPrecos() {
       {!loading && !error && secoes.length === 0 && <div className="rounded-lg border border-bw-border bg-bw-white p-8 text-center text-sm text-bw-muted">Nenhuma referência encontrada.</div>}
       {!loading && !error && secoes.map(([categoria, items])=>(
         <div key={categoria} className="overflow-x-auto rounded-lg border border-bw-border bg-bw-white">
-          <div className="px-4 py-3 border-b border-bw-border bg-bw-areia"><span className="text-xs font-semibold text-bw-madeira">{formatCategoria(categoria)}</span></div>
-          <table className="w-full min-w-[42rem] text-xs">
+          <div className="px-4 py-3 border-b border-bw-border bg-bw-areia"><span className="text-sm font-semibold text-bw-madeira">{formatCategoria(categoria)}</span></div>
+          <table className="w-full min-w-[42rem] text-sm">
             <thead className="border-b border-bw-border-sub">
-              <tr>{["Descrição","Unidade","Material base","Preço referência","",""].map((h,hi)=><th key={hi} className="text-left px-4 py-2.5 font-mono text-bw-muted text-[10px] uppercase">{h}</th>)}</tr>
+              <tr>{["Descrição","Unidade","Material base","Preço referência","",""].map((h,hi)=><th key={hi} className="text-left px-4 py-2.5 font-medium tabular-nums text-bw-muted text-sm uppercase">{h}</th>)}</tr>
             </thead>
             <tbody>
               {items.map(item=>(
                 <tr key={item.id} className="border-b border-bw-border-sub last:border-0 hover:bg-bw-hover">
                   <td className="px-4 py-3 text-bw-preto">{item.descricao}</td>
-                  <td className="px-4 py-3 font-mono text-bw-muted">{item.unidade}</td>
+                  <td className="px-4 py-3 font-medium tabular-nums text-bw-muted">{item.unidade}</td>
                   <td className="px-4 py-3 text-bw-muted">{item.materialBase}</td>
-                  <td className="px-4 py-3 font-mono font-semibold text-bw-preto">R$ {Number(item.precoReferencia).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-3"><button type="button" className="text-xs text-bw-madeira underline hover:text-bw-preto" onClick={() => { setFormError(""); setEditingItem({id: item.id, desc: item.descricao, unit: item.unidade, material: item.materialBase, price: Number(item.precoReferencia), cat: item.categoria}); }}>Editar</button></td>
+                  <td className="px-4 py-3 font-medium tabular-nums font-semibold text-bw-preto">R$ {Number(item.precoReferencia).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                  <td className="px-4 py-3"><button type="button" className="text-sm text-bw-madeira underline hover:text-bw-preto" onClick={() => { setFormError(""); setEditingItem({id: item.id, desc: item.descricao, unit: item.unidade, material: item.materialBase, price: Number(item.precoReferencia), cat: item.categoria}); }}>Editar</button></td>
                   <td className="px-2 py-3 text-bw-muted">
                     <DeleteButton onClick={() => setDeleteTarget(item)} disabled={deleting} title="Excluir item" aria-label={`Excluir ${item.descricao}`} />
 
@@ -2585,12 +2803,12 @@ function TabelaPrecos() {
               onClick={() => setEditingItem(null)}
               className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors"
             >
-              <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
+              <span className="font-medium tabular-nums text-sm uppercase tracking-wider">Fechar</span>
             </button>
 
             <div className="mb-8">
-              <h2 className="font-display text-2xl text-bw-white">Editar Item</h2>
-              <p className="font-mono text-[10px] text-bw-dourado uppercase tracking-widest mt-1">Atualizar tabela de preços</p>
+              <h2 className="font-semibold tracking-tight text-2xl text-bw-white">Editar Item</h2>
+              <p className="font-medium tabular-nums text-sm text-bw-dourado uppercase tracking-wide mt-1">Atualizar tabela de preços</p>
             </div>
 
             <form className="flex flex-col gap-5" onSubmit={async e => {
@@ -2616,7 +2834,7 @@ function TabelaPrecos() {
                 } finally { setSaving(false); }
               }}>
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Categoria</label>
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Categoria</label>
                 <select name="categoria" defaultValue={editingItem.cat} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
                   <option value="MARCENARIA_PLANEJADA" className="bg-bw-preto text-bw-white">Marcenaria Planejada</option>
                   <option value="DORMITORIO_E_CLOSSET" className="bg-bw-preto text-bw-white">Dormitório & Closet</option>
@@ -2625,18 +2843,18 @@ function TabelaPrecos() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Descrição do item</label>
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Descrição do item</label>
                 <input name="descricao" type="text" defaultValue={editingItem.desc} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Material Base</label>
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Material Base</label>
                 <input name="materialBase" type="text" defaultValue={editingItem.material} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
               </div>
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Unidade</label>
+                  <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Unidade</label>
                   <select name="unidade" defaultValue={editingItem.unit} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
                     <option value="UNIDADE" className="bg-bw-preto text-bw-white">un (Unidade)</option>
                     <option value="METRO_QUADRADO" className="bg-bw-preto text-bw-white">m² (Metro quadrado)</option>
@@ -2645,17 +2863,17 @@ function TabelaPrecos() {
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
+                  <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
                   <input name="precoReferencia" type="number" min="0" step="0.01" defaultValue={editingItem.price} className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required />
                 </div>
               </div>
 
               {formError && <FeedbackMessage message={formError} className="!text-red-200" />}
               <div className="mt-4 flex gap-3">
-                <button type="button" disabled={saving} onClick={() => setEditingItem(null)} className="flex-1 border border-bw-dourado/30 text-bw-areia font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors">
+                <button type="button" disabled={saving} onClick={() => setEditingItem(null)} className="flex-1 border border-bw-dourado/30 text-bw-areia font-semibold py-3 text-sm uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors">
                   Cancelar
                 </button>
-                <button type="submit" disabled={saving} className="flex-1 bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-50">
+                <button type="submit" disabled={saving} className="flex-1 bg-bw-dourado text-bw-preto font-semibold py-3 text-sm uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-50">
                   {saving ? "Salvando..." : "Salvar"}
                 </button>
               </div>
@@ -2671,12 +2889,12 @@ function TabelaPrecos() {
               onClick={() => setIsNewItemModalOpen(false)}
               className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors"
             >
-              <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
+              <span className="font-medium tabular-nums text-sm uppercase tracking-wider">Fechar</span>
             </button>
 
             <div className="mb-8">
-              <h2 className="font-display text-2xl text-bw-white">Novo Item</h2>
-              <p className="font-mono text-[10px] text-bw-dourado uppercase tracking-widest mt-1">Adicionar à tabela de preços</p>
+              <h2 className="font-semibold tracking-tight text-2xl text-bw-white">Novo Item</h2>
+              <p className="font-medium tabular-nums text-sm text-bw-dourado uppercase tracking-wide mt-1">Adicionar à tabela de preços</p>
             </div>
 
             <form className="flex flex-col gap-5" onSubmit={async e => {
@@ -2701,7 +2919,7 @@ function TabelaPrecos() {
                 } finally { setSaving(false); }
               }}>
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Categoria</label>
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Categoria</label>
                 <select name="categoria" defaultValue="" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
                   <option value="" disabled hidden className="bg-bw-preto text-bw-white">Selecione...</option>
                   <option value="MARCENARIA_PLANEJADA" className="bg-bw-preto text-bw-white">Marcenaria Planejada</option>
@@ -2711,18 +2929,18 @@ function TabelaPrecos() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Descrição do item</label>
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Descrição do item</label>
                 <input name="descricao" type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="Ex: Módulo aéreo especial" />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Material Base</label>
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Material Base</label>
                 <input name="materialBase" type="text" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="Ex: MDF 15mm Branco" />
               </div>
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Unidade</label>
+                  <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Unidade</label>
                   <select name="unidade" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors appearance-none rounded-none" required>
                     <option value="UNIDADE" className="bg-bw-preto text-bw-white">un (Unidade)</option>
                     <option value="METRO_QUADRADO" className="bg-bw-preto text-bw-white">m² (Metro quadrado)</option>
@@ -2731,14 +2949,14 @@ function TabelaPrecos() {
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
+                  <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">Preço Ref. (R$)</label>
                   <input name="precoReferencia" type="number" min="0" step="0.01" className="bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors" required placeholder="0,00" />
                 </div>
               </div>
 
               {formError && <FeedbackMessage message={formError} className="!text-red-200" />}
               <div className="mt-4">
-                <button type="submit" disabled={saving} className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-50">
+                <button type="submit" disabled={saving} className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-sm uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-50">
                   {saving ? "Salvando..." : "Salvar Item"}
                 </button>
               </div>
@@ -2754,15 +2972,15 @@ function TabelaPrecos() {
               onClick={() => setIsExportModalOpen(false)}
               className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors"
             >
-              <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
+              <span className="font-medium tabular-nums text-sm uppercase tracking-wider">Fechar</span>
             </button>
 
             <div className="w-16 h-16 mx-auto bg-bw-areia/10 border border-bw-dourado/30 rounded-full flex items-center justify-center mb-5 text-bw-dourado">
               <Icon.Tag />
             </div>
 
-            <h2 className="font-display text-2xl text-bw-white mb-2">Exportar Tabela</h2>
-            <p className="text-xs text-bw-muted mb-6">Selecione o formato para download do referencial de preços atualizado.</p>
+            <h2 className="font-semibold tracking-tight text-2xl text-bw-white mb-2">Exportar Tabela</h2>
+            <p className="text-sm text-bw-muted mb-6">Selecione o formato para download do referencial de preços atualizado.</p>
 
             <div className="flex flex-col gap-3">
               {exportError && <FeedbackMessage message={exportError} className="!text-red-200" />}
@@ -2775,7 +2993,7 @@ function TabelaPrecos() {
                     setExportError('Não foi possível exportar o PDF. Tente novamente.');
                   }
                 }}
-                className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors"
+                className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-sm uppercase tracking-wider hover:bg-bw-areia transition-colors"
               >
                 Gerar PDF
               </button>
@@ -2788,7 +3006,7 @@ function TabelaPrecos() {
                     setExportError('Não foi possível exportar a planilha. Tente novamente.');
                   }
                 }}
-                className="w-full border border-bw-dourado/40 text-bw-areia font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors"
+                className="w-full border border-bw-dourado/40 text-bw-areia font-semibold py-3 text-sm uppercase tracking-wider hover:bg-bw-dourado/10 transition-colors"
               >
                 Exportar para Excel (.xlsx)
               </button>
@@ -3347,7 +3565,7 @@ function MapaDescarte() {
   return (
     <div className="flex flex-col gap-5 max-w-4xl mx-auto w-full relative">
       <div>
-        <div><div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">08 · Logística Verde</div><h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-display">Mapa de Descarte Adequado</h1><p className="text-[10px] font-mono text-bw-muted mt-0.5">Locais e formas corretas de descarte de resíduos (próximos ao CEP cadastrado)</p></div>
+        <div><h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-semibold tracking-tight">Mapa de Descarte Adequado</h1><p className="text-sm font-medium tabular-nums text-bw-muted mt-0.5">Locais e formas corretas de descarte de resíduos (próximos ao CEP cadastrado)</p></div>
       </div>
 
       {mapsAvailable ? (
@@ -3365,7 +3583,7 @@ function MapaDescarte() {
           <div className="absolute top-4 left-4 bg-bw-white/90 backdrop-blur-sm px-3 py-2 border border-bw-border rounded shadow-sm">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-bw-dourado"></span>
-              <span className="text-[10px] font-mono font-semibold text-bw-preto uppercase tracking-wider">Região Ativa (SP)</span>
+              <span className="text-sm font-medium tabular-nums font-semibold text-bw-preto uppercase tracking-wider">Região Ativa (SP)</span>
             </div>
           </div>
         </div>
@@ -3378,14 +3596,14 @@ function MapaDescarte() {
       </div>
 
       <div className="mt-3">
-        {loading && <div className="text-[13px] font-mono text-bw-muted">Buscando ecopontos próximos…</div>}
-        {error && <div className="text-[13px] font-mono text-red-500">{error}</div>}
+        {loading && <div className="text-sm font-medium tabular-nums text-bw-muted">Buscando ecopontos próximos…</div>}
+        {error && <div className="text-sm font-medium tabular-nums text-red-500">{error}</div>}
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         {places.length === 0 && !loading && !error && (
           <div>
-            <div className="text-[13px] text-bw-muted">Nenhum local encontrado. Verifique seu CEP em Minha Conta ou tente novamente mais tarde.</div>
+            <div className="text-sm text-bw-muted">Nenhum local encontrado. Verifique seu CEP em Minha Conta ou tente novamente mais tarde.</div>
             <div className="mt-3 flex gap-3">
               <button onClick={() => retrySearch()} className="px-3 py-2 text-sm bg-bw-dourado text-bw-preto rounded-md hover:bg-bw-areia transition-colors">Tentar novamente</button>
               <button onClick={() => setPlaces(defaultPontos.map((p, i) => ({ id: `d-${i}`, name: p.nome, address: p.end, lat: 0, lng: 0, distanceKm: null, opening_hours: null, types: p.aceita })))} className="px-3 py-2 text-sm border border-bw-border rounded-md hover:bg-bw-hover">Mostrar sugestões</button>
@@ -3397,8 +3615,8 @@ function MapaDescarte() {
                     <span className="text-sm font-medium text-bw-preto">{p.nome}</span>
                     <WireTag status="ok">Sugestão</WireTag>
                   </div>
-                  <div className="text-[10px] font-mono text-bw-muted mb-1">{p.end} · {p.dist}</div>
-                  <div className="text-[10px] text-bw-muted mb-3">⏰ {p.horario}</div>
+                  <div className="text-sm font-medium tabular-nums text-bw-muted mb-1">{p.end} · {p.dist}</div>
+                  <div className="text-sm text-bw-muted mb-3">⏰ {p.horario}</div>
                   <div className="flex flex-wrap gap-1">
                     {p.aceita.map((a: string) => <WireTag key={a}>{a}</WireTag>)}
                   </div>
@@ -3414,8 +3632,8 @@ function MapaDescarte() {
               <span className="text-sm font-medium text-bw-preto">{p.name}</span>
               <WireTag status="ok">Ativo</WireTag>
             </div>
-            <div className="text-[10px] font-mono text-bw-muted mb-1">{p.address} {p.distanceKm ? `· ${p.distanceKm} km` : ""}</div>
-            <div className="text-[10px] text-bw-muted mb-3">{p.opening_hours?.open_now ? "Aberto agora" : "Horário não disponível"}</div>
+            <div className="text-sm font-medium tabular-nums text-bw-muted mb-1">{p.address} {p.distanceKm ? `· ${p.distanceKm} km` : ""}</div>
+            <div className="text-sm text-bw-muted mb-3">{p.opening_hours?.open_now ? "Aberto agora" : "Horário não disponível"}</div>
             <div className="flex flex-wrap gap-1">
               {(p.types || []).slice(0, 4).map((t: string) => <WireTag key={t}>{t}</WireTag>)}
             </div>
@@ -3424,7 +3642,7 @@ function MapaDescarte() {
                 href={p.lat && p.lng ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ' ' + (p.address || ''))}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-[11px] px-3 py-1.5 bg-bw-dourado text-bw-preto font-semibold rounded-md hover:bg-bw-areia transition-colors"
+                className="text-sm px-3 py-1.5 bg-bw-dourado text-bw-preto font-semibold rounded-md hover:bg-bw-areia transition-colors"
               >
                 Traçar rota
               </a>
@@ -3432,7 +3650,7 @@ function MapaDescarte() {
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ' ' + (p.address || ''))}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-[11px] px-3 py-1.5 border border-bw-border text-bw-preto rounded-md hover:bg-bw-hover transition-colors"
+                className="text-sm px-3 py-1.5 border border-bw-border text-bw-preto rounded-md hover:bg-bw-hover transition-colors"
               >
                 Ver no Maps
               </a>
@@ -3539,46 +3757,46 @@ function UsuariosAdmin() {
     setUsers(current => current.map(user => user.id === id && user.status !== "Convite enviado" ? { ...user, status: user.status === "Ativo" ? "Inativo" : "Ativo" } : user));
   };
   const fieldClass = "w-full border-0 border-b border-bw-border-sub bg-transparent px-0 py-2.5 text-sm text-bw-preto outline-none transition-colors placeholder:text-bw-ph focus:border-bw-dourado";
-  const labelClass = "font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted";
+  const labelClass = "font-medium tabular-nums text-xs uppercase tracking-normal text-bw-muted";
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div className="flex flex-col justify-between gap-5 border-b border-bw-border pb-5 sm:flex-row sm:items-end">
         <div>
-          <div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">Acesso interno</div>
-          <h1 className="font-display text-4xl leading-none tracking-[-.04em] text-bw-preto">Administradores</h1>
+          
+          <h1 className="font-semibold tracking-tight text-4xl leading-none tracking-[-.04em] text-bw-preto">Administradores</h1>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-bw-muted">Gerencie quem pode acessar a operação BW. Cada acesso administrativo é pessoal e identificado por CPF.</p>
         </div>
-        <div className="flex items-center gap-2 border border-bw-dourado/25 bg-bw-dourado/10 px-3 py-2 text-[10px] font-mono uppercase tracking-[.12em] text-bw-madeira"><Icon.Users /> {users.filter(user => user.status === "Ativo").length} acessos ativos</div>
+        <div className="flex items-center gap-2 border border-bw-dourado/25 bg-bw-dourado/10 px-3 py-2 text-sm font-medium tabular-nums uppercase tracking-normal text-bw-madeira"><Icon.Users /> {users.filter(user => user.status === "Ativo").length} acessos ativos</div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <section className="overflow-hidden border border-bw-border bg-bw-white bw-panel">
           <div className="flex items-center justify-between gap-4 border-b border-bw-border px-5 py-4 sm:px-6">
-            <div><h2 className="font-display text-2xl text-bw-preto">Equipe com acesso</h2><p className="mt-1 text-xs text-bw-muted">Acesso é liberado individualmente e pode ser desativado a qualquer momento.</p></div>
+            <div><h2 className="font-semibold tracking-tight text-2xl text-bw-preto">Equipe com acesso</h2><p className="mt-1 text-sm text-bw-muted">Acesso é liberado individualmente e pode ser desativado a qualquer momento.</p></div>
           </div>
           <div className="divide-y divide-bw-border-sub">
             {users.map(user => (
               <article key={user.id} className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-bw-dourado/30 bg-bw-areia font-mono text-[10px] font-medium text-bw-madeira">{user.nome.split(" ").slice(0, 2).map(part => part[0]).join("")}</div>
-                  <div className="min-w-0"><div className="truncate text-sm font-medium text-bw-preto">{user.nome}</div><div className="mt-0.5 truncate text-[11px] text-bw-muted">{user.email}</div><div className="mt-1 font-mono text-[9px] uppercase tracking-[.12em] text-bw-madeira">CPF {user.cpf} · {user.funcao}</div></div>
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-bw-dourado/30 bg-bw-areia font-medium tabular-nums text-sm font-medium text-bw-madeira">{user.nome.split(" ").slice(0, 2).map(part => part[0]).join("")}</div>
+                  <div className="min-w-0"><div className="truncate text-sm font-medium text-bw-preto">{user.nome}</div><div className="mt-0.5 truncate text-sm text-bw-muted">{user.email}</div><div className="mt-1 font-medium tabular-nums text-xs uppercase tracking-normal text-bw-madeira">CPF {user.cpf} · {user.funcao}</div></div>
                 </div>
-                <div className="flex shrink-0 items-center gap-3"><span className={`inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[.1em] ${user.status === "Ativo" ? "text-bw-dourado" : "text-bw-muted"}`}><span className={`h-1.5 w-1.5 rounded-full ${user.status === "Ativo" ? "bg-bw-dourado" : "bg-bw-muted"}`} />{user.status}</span>{user.status !== "Convite enviado" && <button onClick={() => toggleUser(user.id)} className="border border-bw-border px-3 py-2 text-[10px] font-medium uppercase tracking-wider text-bw-madeira transition-colors hover:border-bw-dourado hover:bg-bw-hover">{user.status === "Ativo" ? "Desativar" : "Reativar"}</button>}</div>
+                <div className="flex shrink-0 items-center gap-3"><span className={`inline-flex items-center gap-1.5 text-sm font-medium tabular-nums uppercase tracking-normal ${user.status === "Ativo" ? "text-bw-dourado" : "text-bw-muted"}`}><span className={`h-1.5 w-1.5 rounded-full ${user.status === "Ativo" ? "bg-bw-dourado" : "bg-bw-muted"}`} />{user.status}</span>{user.status !== "Convite enviado" && <button onClick={() => toggleUser(user.id)} className="border border-bw-border px-3 py-2 text-sm font-medium uppercase tracking-wider text-bw-madeira transition-colors hover:border-bw-dourado hover:bg-bw-hover">{user.status === "Ativo" ? "Desativar" : "Reativar"}</button>}</div>
               </article>
             ))}
           </div>
         </section>
 
         <aside className="self-start border border-bw-dourado/25 bg-bw-preto p-5 text-bw-white shadow-xl">
-          <div className="mb-6 border-b border-white/10 pb-5"><div className="mb-2 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">Novo acesso</div><h2 className="font-display text-2xl">Adicionar administrador</h2><p className="mt-2 text-xs leading-relaxed text-bw-areia/60">O cadastro administrativo aceita somente CPF. O CNPJ permanece exclusivo da conta BW.</p></div>
+          <div className="mb-6 border-b border-white/10 pb-5"><h2 className="font-semibold tracking-tight text-2xl">Adicionar administrador</h2><p className="mt-2 text-sm leading-relaxed text-bw-areia/60">O cadastro administrativo aceita somente CPF. O CNPJ permanece exclusivo da conta BW.</p></div>
           <form onSubmit={addUser} className="flex flex-col gap-5">
-            <label className="flex flex-col gap-1.5"><span className="font-mono text-[9px] uppercase tracking-[.14em] text-bw-areia/55">Nome completo</span><input value={form.nome} onChange={event => { setForm(current => ({ ...current, nome: event.target.value })); setMessage(""); }} placeholder="Nome da pessoa" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-bw-dourado" /></label>
-            <label className="flex flex-col gap-1.5"><span className="font-mono text-[9px] uppercase tracking-[.14em] text-bw-areia/55">E-mail profissional</span><input type="email" value={form.email} onChange={event => { setForm(current => ({ ...current, email: event.target.value })); setMessage(""); }} placeholder="nome@empresa.com" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-bw-dourado" /></label>
-            <label className="flex flex-col gap-1.5"><span className="font-mono text-[9px] uppercase tracking-[.14em] text-bw-areia/55">CPF</span><input inputMode="numeric" value={form.cpf} onChange={event => { setForm(current => ({ ...current, cpf: formatCpf(event.target.value) })); setMessage(""); }} placeholder="000.000.000-00" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-bw-dourado" /><span className="text-[9px] leading-relaxed text-bw-areia/45">CPF é obrigatório para vincular uma pessoa ao acesso interno.</span></label>
-            <label className="flex flex-col gap-1.5"><span className="font-mono text-[9px] uppercase tracking-[.14em] text-bw-areia/55">Área de atuação</span><select value={form.funcao} onChange={event => setForm(current => ({ ...current, funcao: event.target.value }))} className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none focus:border-bw-dourado"><option className="bg-bw-preto" value="Administradora">Administradora</option><option className="bg-bw-preto" value="Administrador">Administrador</option><option className="bg-bw-preto" value="Operações">Operações</option></select></label>
-            {message && <div role="status" className={`flex items-start gap-2 border px-3 py-2.5 text-[10px] leading-relaxed ${message.startsWith("Convite") ? "border-bw-dourado/40 bg-bw-dourado/10 text-bw-areia" : "border-white/20 bg-white/5 text-bw-areia/75"}`}>{message.startsWith("Convite") ? <Icon.Check /> : <Icon.AlertCircle />}{message}</div>}
-            <button type="submit" className="mt-1 bg-bw-dourado px-4 py-3 text-[10px] font-medium uppercase tracking-[.16em] text-white transition-colors hover:bg-[#c19d65]">Enviar convite ↗</button>
+            <label className="flex flex-col gap-1.5"><span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-areia/55">Nome completo</span><input value={form.nome} onChange={event => { setForm(current => ({ ...current, nome: event.target.value })); setMessage(""); }} placeholder="Nome da pessoa" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-bw-dourado" /></label>
+            <label className="flex flex-col gap-1.5"><span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-areia/55">E-mail profissional</span><input type="email" value={form.email} onChange={event => { setForm(current => ({ ...current, email: event.target.value })); setMessage(""); }} placeholder="nome@empresa.com" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-bw-dourado" /></label>
+            <label className="flex flex-col gap-1.5"><span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-areia/55">CPF</span><input inputMode="numeric" value={form.cpf} onChange={event => { setForm(current => ({ ...current, cpf: formatCpf(event.target.value) })); setMessage(""); }} placeholder="000.000.000-00" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-bw-dourado" /><span className="text-xs leading-relaxed text-bw-areia/45">CPF é obrigatório para vincular uma pessoa ao acesso interno.</span></label>
+            <label className="flex flex-col gap-1.5"><span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-areia/55">Área de atuação</span><select value={form.funcao} onChange={event => setForm(current => ({ ...current, funcao: event.target.value }))} className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none focus:border-bw-dourado"><option className="bg-bw-preto" value="Administradora">Administradora</option><option className="bg-bw-preto" value="Administrador">Administrador</option><option className="bg-bw-preto" value="Operações">Operações</option></select></label>
+            {message && <div role="status" className={`flex items-start gap-2 border px-3 py-2.5 text-sm leading-relaxed ${message.startsWith("Convite") ? "border-bw-dourado/40 bg-bw-dourado/10 text-bw-areia" : "border-white/20 bg-white/5 text-bw-areia/75"}`}>{message.startsWith("Convite") ? <Icon.Check /> : <Icon.AlertCircle />}{message}</div>}
+            <button type="submit" className="mt-1 bg-bw-dourado px-4 py-3 text-sm font-medium uppercase tracking-normal text-white transition-colors hover:bg-[#c19d65]">Enviar convite ↗</button>
           </form>
         </aside>
       </div>
@@ -3691,18 +3909,18 @@ function ConfiguracoesConta() {
     setSaved(false);
   };
   const fieldClass = "w-full border-0 border-b border-bw-border-sub bg-transparent px-0 py-2.5 text-sm text-bw-preto outline-none transition-colors placeholder:text-bw-ph focus:border-bw-dourado";
-  const labelClass = "font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted";
+  const labelClass = "font-medium tabular-nums text-xs uppercase tracking-normal text-bw-muted";
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
       <div className="flex flex-col gap-4 border-b border-bw-border pb-5 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
         <div>
-          <div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">Conta BW</div>
-          <h1 className="font-display text-4xl leading-none tracking-[-.04em] text-bw-preto">Informações da conta</h1>
+          
+          <h1 className="font-semibold tracking-tight text-4xl leading-none tracking-[-.04em] text-bw-preto">Informações da conta</h1>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-bw-muted">Consulte e atualize os dados da empresa, endereço e senha de acesso à plataforma.</p>
         </div>
         {saved && (
-          <div className="flex shrink-0 items-center gap-2 border border-bw-dourado/30 bg-bw-dourado/10 px-3 py-2 text-[10px] font-medium text-bw-madeira">
+          <div className="flex shrink-0 items-center gap-2 border border-bw-dourado/30 bg-bw-dourado/10 px-3 py-2 text-sm font-medium text-bw-madeira">
             <Icon.Check /> Alterações salvas
           </div>
         )}
@@ -3711,10 +3929,10 @@ function ConfiguracoesConta() {
       <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="self-start border border-bw-dourado/20 bg-bw-preto/95 p-5 shadow-xl backdrop-blur-md">
           <div className="mb-6 flex items-center gap-3 border-b border-bw-dourado/20 pb-5">
-            <div className="flex h-11 w-11 items-center justify-center border border-bw-dourado/40 bg-bw-areia/10 font-display text-lg text-bw-areia">BW</div>
+            <div className="flex h-11 w-11 items-center justify-center border border-bw-dourado/40 bg-bw-areia/10 font-semibold tracking-tight text-lg text-bw-areia">BW</div>
             <div>
               <div className="text-sm font-medium text-bw-white">BW Arquitetura</div>
-              <div className="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-bw-dourado">Conta administrativa</div>
+              <div className="mt-0.5 font-medium tabular-nums text-xs uppercase tracking-wider text-bw-dourado">Conta administrativa</div>
             </div>
           </div>
           <div className="flex flex-col gap-1">
@@ -3726,7 +3944,7 @@ function ConfiguracoesConta() {
               <button
                 key={id}
                 onClick={() => { setSection(id); setSaved(false); setError(""); setCnpjVerification(""); setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); }}
-                className={`flex w-full items-center justify-between px-3 py-2.5 text-left text-xs transition-colors ${section === id ? "bg-bw-dourado text-white" : "text-bw-areia hover:bg-white/10"}`}
+                className={`flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition-colors ${section === id ? "bg-bw-dourado text-white" : "text-bw-areia hover:bg-white/10"}`}
               >
                 {label}
                 <Icon.Chevron />
@@ -3736,13 +3954,13 @@ function ConfiguracoesConta() {
         </aside>
 
         <form onSubmit={saveChanges} className="border border-bw-border bg-bw-white p-6 shadow-sm sm:p-8">
-          {error && <div role="alert" className="mb-5 border border-red-300 bg-red-50 p-3 text-xs text-red-800">{error}{!account && <button type="button" onClick={() => void loadConta()} className="ml-3 underline">Tentar novamente</button>}</div>}
+          {error && <div role="alert" className="mb-5 border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}{!account && <button type="button" onClick={() => void loadConta()} className="ml-3 underline">Tentar novamente</button>}</div>}
           {loading && <p role="status" className="text-sm text-bw-muted">Carregando dados da conta...</p>}
           {!loading && account && section === "perfil" && (
             <div>
               <div className="mb-7 border-b border-bw-border pb-5">
-                <h2 className="font-display text-2xl text-bw-preto">Dados da empresa</h2>
-                <p className="mt-1 text-xs text-bw-muted">Informações utilizadas para identificar a conta da BW.</p>
+                <h2 className="font-semibold tracking-tight text-2xl text-bw-preto">Dados da empresa</h2>
+                <p className="mt-1 text-sm text-bw-muted">Informações utilizadas para identificar a conta da BW.</p>
               </div>
               <div className="grid gap-x-7 gap-y-6 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
@@ -3756,7 +3974,7 @@ function ConfiguracoesConta() {
                 <label className="flex flex-col gap-1.5">
                   <span className={labelClass}>CNPJ</span>
                   <input value={maskCnpj(account.empresa.cnpj)} readOnly aria-readonly="true" className={`${fieldClass} cursor-not-allowed bg-bw-areia/50 text-bw-muted`} />
-                  <span className="mt-1 text-[9px] leading-relaxed text-bw-muted">Este dado não pode ser alterado pela plataforma. Em caso de correção, entre em contato com o suporte.</span>
+                  <span className="mt-1 text-xs leading-relaxed text-bw-muted">Este dado não pode ser alterado pela plataforma. Em caso de correção, entre em contato com o suporte.</span>
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className={labelClass}>Telefone</span>
@@ -3769,8 +3987,8 @@ function ConfiguracoesConta() {
           {!loading && account && section === "endereco" && (
             <div>
               <div className="mb-7 border-b border-bw-border pb-5">
-                <h2 className="font-display text-2xl text-bw-preto">Endereço comercial</h2>
-                <p className="mt-1 text-xs text-bw-muted">Mantenha os dados de localização e correspondência atualizados.</p>
+                <h2 className="font-semibold tracking-tight text-2xl text-bw-preto">Endereço comercial</h2>
+                <p className="mt-1 text-sm text-bw-muted">Mantenha os dados de localização e correspondência atualizados.</p>
               </div>
               <div className="grid gap-x-7 gap-y-6 sm:grid-cols-6">
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
@@ -3808,12 +4026,12 @@ function ConfiguracoesConta() {
           {!loading && account && section === "seguranca" && (
             <div>
               <div className="mb-7 border-b border-bw-border pb-5">
-                <h2 className="font-display text-2xl text-bw-preto">Segurança</h2>
-                <p className="mt-1 text-xs text-bw-muted">Altere a senha do seu acesso administrativo.</p>
+                <h2 className="font-semibold tracking-tight text-2xl text-bw-preto">Segurança</h2>
+                <p className="mt-1 text-sm text-bw-muted">Altere a senha do seu acesso administrativo.</p>
               </div>
               <div className="mb-7 border border-bw-dourado/25 bg-bw-dourado/5 p-4">
-                <div className="mb-1 font-mono text-[9px] uppercase tracking-[.14em] text-bw-dourado">Verificação da empresa</div>
-                <p className="mb-4 text-xs leading-relaxed text-bw-muted">Para liberar a alteração de senha, informe o CNPJ cadastrado na conta.</p>
+                <div className="mb-1 font-medium tabular-nums text-xs uppercase tracking-normal text-bw-dourado">Verificação da empresa</div>
+                <p className="mb-4 text-sm leading-relaxed text-bw-muted">Para liberar a alteração de senha, informe o CNPJ cadastrado na conta.</p>
                 <label className="flex flex-col gap-1.5">
                   <span className={labelClass}>CNPJ da empresa</span>
                   <input
@@ -3829,7 +4047,7 @@ function ConfiguracoesConta() {
                   />
                 </label>
                 {cnpjVerification && (
-                  <div className={`mt-3 flex items-center gap-2 text-[10px] ${isCnpjVerified ? "text-bw-dourado" : "text-bw-muted"}`}>
+                  <div className={`mt-3 flex items-center gap-2 text-sm ${isCnpjVerified ? "text-bw-dourado" : "text-bw-muted"}`}>
                     {isCnpjVerified ? <Icon.Check /> : <Icon.AlertCircle />}
                     {isCnpjVerified ? "CNPJ confirmado. A alteração de senha foi liberada." : "O CNPJ informado não corresponde ao cadastro."}
                   </div>
@@ -3853,8 +4071,8 @@ function ConfiguracoesConta() {
           )}
 
           {!loading && account && <div className="mt-9 flex flex-col gap-3 border-t border-bw-border pt-5 sm:flex-row sm:items-center sm:justify-end">
-            <button type="button" disabled={saving} onClick={cancelChanges} className="w-full border border-bw-border px-5 py-2.5 text-[10px] font-medium uppercase tracking-wider text-bw-madeira transition-colors hover:bg-bw-hover disabled:opacity-50 sm:w-auto">Cancelar</button>
-            <button type="submit" disabled={saving} className="w-full bg-bw-dourado px-5 py-2.5 text-[10px] font-medium uppercase tracking-wider text-white transition-colors hover:bg-bw-madeira disabled:opacity-50 sm:w-auto">{saving ? "Salvando..." : section === "seguranca" ? "Alterar senha" : "Salvar alterações"}</button>
+            <button type="button" disabled={saving} onClick={cancelChanges} className="w-full border border-bw-border px-5 py-2.5 text-sm font-medium uppercase tracking-wider text-bw-madeira transition-colors hover:bg-bw-hover disabled:opacity-50 sm:w-auto">Cancelar</button>
+            <button type="submit" disabled={saving} className="w-full bg-bw-dourado px-5 py-2.5 text-sm font-medium uppercase tracking-wider text-white transition-colors hover:bg-bw-madeira disabled:opacity-50 sm:w-auto">{saving ? "Salvando..." : section === "seguranca" ? "Alterar senha" : "Salvar alterações"}</button>
           </div>}
         </form>
       </div>
@@ -3884,14 +4102,14 @@ export default function App() {
     if (destino === "cadastro" && window.location.pathname === "/cadastro") window.history.replaceState(null, "", "/");
     if (destino === "portal-cliente" && perfil !== "CLIENTE" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
     if (platformScreens.includes(destino) && perfil !== "ADMIN" && import.meta.env.VITE_USE_MOCK !== "true") return setScreen("login");
-    setScreen(destino);
+    runViewTransition(() => setScreen(destino));
   }
 
   function handleClientLogin(tipo: ClienteTipo) {
     setClienteTipo(tipo);
     if (getPerfilAtual() === "CLIENTE") sessionStorage.setItem("authClienteTipo", tipo);
     setPerfil(getPerfilAtual());
-    setScreen("portal-cliente");
+    runViewTransition(() => setScreen("portal-cliente"));
   }
 
   function handleLoginNav(destino: Screen) {

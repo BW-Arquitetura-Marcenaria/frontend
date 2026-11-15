@@ -157,3 +157,116 @@ body::after {
 .bw-marquee-track:hover {
   animation-play-state: paused;
 }
+
+/* ── transitions.dev: Silky 60fps View Transitions & Navbar Pill Morphs ── */
+@view-transition {
+  navigation: auto;
+}
+
+@keyframes bw-vt-fade-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0) scale(0.994);
+  }
+}
+
+@keyframes bw-vt-fade-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.996);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes bw-stage-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+@keyframes bw-stage-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+::view-transition-old(root) {
+  animation: 0.38s cubic-bezier(0.16, 1, 0.3, 1) both bw-vt-fade-out;
+}
+
+::view-transition-new(root) {
+  animation: 0.46s cubic-bezier(0.16, 1, 0.3, 1) both bw-vt-fade-in;
+}
+
+::view-transition-old(bw-admin-stage) {
+  animation: 0.24s cubic-bezier(0.32, 0, 0.67, 0) both bw-stage-out;
+}
+
+::view-transition-new(bw-admin-stage) {
+  animation: 0.42s cubic-bezier(0.16, 1, 0.3, 1) both bw-stage-in;
+}
+
+/* Keep navbars and sidebars anchored and crisp during internal transitions */
+::view-transition-group(bw-shell-sidebar),
+::view-transition-group(bw-shell-header),
+::view-transition-group(bw-portal-header) {
+  animation-duration: 0.32s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Smooth shared-element pill & underline morphs across navbar items */
+::view-transition-group(bw-brand-logo),
+::view-transition-group(bw-sidebar-active),
+::view-transition-group(bw-portal-tab),
+::view-transition-group(bw-project-hero) {
+  animation-duration: 0.48s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::view-transition-old(bw-sidebar-active),
+::view-transition-new(bw-sidebar-active),
+::view-transition-old(bw-portal-tab),
+::view-transition-new(bw-portal-tab) {
+  height: 100%;
+  width: 100%;
+}
+
+
+/* ── React Bits: ShinyText metallic gold sweep ── */
+@keyframes bw-shiny-sweep {
+  0%   { background-position: 180% 50%; }
+  100% { background-position: -80% 50%; }
+}
+
+.bw-shiny-text {
+  background-image: linear-gradient(
+    115deg,
+    #B08D57 0%,
+    #B08D57 38%,
+    #F3E6CA 50%,
+    #B08D57 62%,
+    #B08D57 100%
+  );
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: bw-shiny-sweep 4.8s linear infinite;
+}
