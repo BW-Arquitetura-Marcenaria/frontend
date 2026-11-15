@@ -308,3 +308,27 @@ html[data-a11y-motion="reduce"] *::after {
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
 }
+
+
+/* ── Legibilidade e Hierarquia Tipográfica da Plataforma Interna (Aula 4 SPTech) ── */
+.bw-admin-ground .font-mono,
+.bw-admin-ground .font-display {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.bw-admin-ground [class*="text-[8px]"],
+.bw-admin-ground [class*="text-[9px]"],
+.bw-admin-ground [class*="text-[10px]"],
+.bw-admin-ground [class*="text-[11px]"] {
+  font-size: 0.84rem !important;
+  line-height: 1.45 !important;
+  letter-spacing: 0.02em !important;
+}
+
+.bw-admin-ground [class*="text-[12px]"],
+.bw-admin-ground [class*="text-[13px]"],
+.bw-admin-ground .text-xs {
+  font-size: 0.92rem !important;
+  line-height: 1.5 !important;
+}
