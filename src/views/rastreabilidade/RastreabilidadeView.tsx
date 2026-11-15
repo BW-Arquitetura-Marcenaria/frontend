@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRastreabilidadeViewModel } from "@/viewmodels/rastreabilidade/useRastreabilidadeViewModel";
 import type { Rastreabilidade as RastreabilidadeItem, RastreabilidadeRequest } from "@/models/Rastreabilidade";
 import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
@@ -6,6 +6,10 @@ import DeleteButton from "@/components/DeleteButton";
 import FeedbackMessage from "@/components/FeedbackMessage";
 
 export type ProjetoOption = { id: number; nome: string; tipo?: string };
+export type RascunhoRastreabilidade = {
+  projetoId?: number | "";
+  materiais: { tipoMadeira: string; volume: string }[];
+};
 
 type FormState = {
   id: number | null;
@@ -28,16 +32,43 @@ const fmtData = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("pt-BR
 const inputCls = "bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors";
 const labelCls = "font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia";
 
-export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOption[] }) {
+export default function RastreabilidadeView({
+  projetos,
+  rascunho,
+  onConsumirRascunho,
+}: {
+  projetos: ProjetoOption[];
+  rascunho?: RascunhoRastreabilidade | null;
+  onConsumirRascunho?: () => void;
+}) {
   const { data, loading, saving, error, projetoId, fetchPage, filterByProjeto, create, update, remove } = useRastreabilidadeViewModel();
   const [selIndex, setSelIndex] = useState(0);
   const [form, setForm] = useState<FormState | null>(null);
+  const [materiaisSimulacao, setMateriaisSimulacao] = useState<{ tipoMadeira: string; volume: string }[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<RastreabilidadeItem | null>(null);
+
+  useEffect(() => {
+    if (!rascunho) return;
+    const base = emptyForm(rascunho.projetoId ?? "");
+    const primeiro = rascunho.materiais[0];
+    if (primeiro) {
+      base.tipoMadeira = primeiro.tipoMadeira;
+      base.volume = primeiro.volume;
+    }
+    setMateriaisSimulacao(rascunho.materiais);
+    setForm(base);
+    if (typeof rascunho.projetoId === "number") {
+      void filterByProjeto(rascunho.projetoId);
+    }
+    onConsumirRascunho?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rascunho]);
 
   const lotes = data?.content ?? [];
   const s = lotes[selIndex] ?? lotes[0];
 
-  const openEdit = (r: RastreabilidadeItem) =>
+  const openEdit = (r: RastreabilidadeItem) => {
+    setMateriaisSimulacao([]);
     setForm({
       id: r.id,
       projetoId: r.projeto?.id ?? "",
@@ -49,6 +80,7 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
       volume: r.volume,
       dataRegistro: r.dataRegistro ? r.dataRegistro.slice(0, 10) : hojeISO(),
     });
+  };
 
   const handleExcluir = async () => {
     if (!deleteTarget) return;
@@ -71,6 +103,7 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
     const result = form.id === null ? await create(body) : await update(form.id, body);
     if (result) {
       setForm(null);
+      setMateriaisSimulacao([]);
       setSelIndex(0);
     }
   };
@@ -85,18 +118,17 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
     <div className="flex flex-col gap-5 max-w-5xl mx-auto w-full relative">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-semibold tracking-tight">Rastreabilidade de Materiais</h1>
           <p className="text-sm font-medium tabular-nums text-bw-muted">Transparência da origem ao produto final</p>
         </div>
-        <button onClick={() => setForm(emptyForm(projetoId ?? ""))} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-sm hover:bg-bw-madeira transition-colors">+ Registrar Uso</button>
+        <button onClick={() => { setMateriaisSimulacao([]); setForm(emptyForm(projetoId ?? "")); }} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-sm hover:bg-bw-madeira transition-colors">+ Registrar Uso</button>
       </div>
 
       <div className="flex flex-col gap-2 rounded-lg border border-bw-border bg-bw-white p-3 sm:flex-row sm:items-center sm:gap-4">
         <label className="text-sm font-medium tabular-nums uppercase tracking-wider text-bw-madeira whitespace-nowrap">Filtrar por Projeto:</label>
         <select
           value={projetoId ?? ""}
-          onChange={e => { setSelIndex(0); filterByProjeto(e.target.value ? Number(e.target.value) : null); }}
+          onChange={e => { setSelIndex(0); void filterByProjeto(e.target.value ? Number(e.target.value) : null); }}
           className="flex-1 bg-transparent border-b border-bw-border-sub text-bw-preto text-sm py-1.5 outline-none focus:border-bw-dourado transition-colors"
         >
           <option value="">Todos os Lotes (Estoque Geral)</option>
@@ -179,6 +211,24 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
             </div>
 
             <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+              {form.id === null && materiaisSimulacao.length > 1 && (
+                <div className="space-y-1.5">
+                  <div className={labelCls}>Acabamentos da simulação</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {materiaisSimulacao.map((m, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => set({ tipoMadeira: m.tipoMadeira, volume: m.volume })}
+                        className="border border-bw-dourado/40 bg-bw-dourado/10 px-2.5 py-1 text-[10px] text-bw-areia hover:border-bw-dourado hover:text-white transition-colors"
+                      >
+                        {m.tipoMadeira} ({m.volume})
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col gap-1.5">
                 <label className={labelCls}>Projeto (Cliente)</label>
                 <select value={form.projetoId} onChange={e => set({ projetoId: e.target.value ? Number(e.target.value) : "" })} className={`${inputCls} appearance-none rounded-none`} required>
@@ -245,4 +295,3 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
     </div>
   );
 }
-

@@ -54,7 +54,6 @@ export default function ConfirmDeleteModal({
         </div>
 
         <div className="mb-7">
-          
           <h2 id="delete-modal-title" className="font-semibold tracking-tight text-3xl leading-none text-bw-white">{title}</h2>
           <p className="mt-4 text-sm leading-relaxed text-bw-areia/65">{description}</p>
           <div className="mt-4 border-l-2 border-bw-dourado bg-bw-areia/5 px-4 py-3 text-sm font-medium text-bw-white">{itemName}</div>

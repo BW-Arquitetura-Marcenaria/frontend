@@ -7,8 +7,9 @@ import bwHeroBg from "@/assets/backgrounds/hero-sala-marcenaria.png";
 import bwProject3 from "@/assets/portfolio/estudio-oliva-estante-comercial.png";
 import bwProject4 from "@/assets/portfolio/atelier-botanico-estante-plantas.png";
 import bwLoginBg from "@/assets/backgrounds/login-estante-plantas.png";
-import RastreabilidadeView from "@/views/rastreabilidade/RastreabilidadeView";
+import RastreabilidadeView, { type RascunhoRastreabilidade } from "@/views/rastreabilidade/RastreabilidadeView";
 import CalendarioView from "@/views/calendario/CalendarioView";
+import SimulacaoView from "@/views/simulacao/SimulacaoView";
 import FinanceiroView from "@/views/financeiro/FinanceiroView";
 import AdminChatView from "@/views/chatbot/AdminChatView";
 import FunilView from "@/views/funil/FunilView";
@@ -1842,15 +1843,12 @@ function PortalCliente({ tipo, onNav }: { tipo: ClienteTipo; onNav: (s: Screen) 
 }
 
 // ─── PLATFORM SHELL ───────────────────────────────────────────────────────────
-// Keep the unfinished simulation available in code, but out of the presentation navigation.
-const isEnvironmentSimulationVisible = false;
-
 const navItems: { id: Screen; label: string; icon: React.ReactNode }[] = [
   { id: "funil", label: "Funil de Clientes", icon: <Icon.Users /> },
   { id: "financeiro", label: "Financeiro", icon: <Icon.Dollar /> },
   { id: "calendario", label: "Calendário", icon: <Icon.Cal /> },
   { id: "chatbot", label: "Chatbot IA", icon: <Icon.Bot /> },
-  ...(isEnvironmentSimulationVisible ? [{ id: "simulacao" as const, label: "Simulação de Ambiente", icon: <Icon.Layers /> }] : []),
+  { id: "simulacao", label: "Simulação de Ambiente", icon: <Icon.Layers /> },
   { id: "tabela-precos", label: "Tabela de Preços", icon: <Icon.Tag /> },
   { id: "rastreabilidade", label: "Rastreabilidade", icon: <Icon.Trend /> },
   { id: "descarte", label: "Mapa de Descarte", icon: <Icon.Map /> },
@@ -1860,6 +1858,7 @@ const navItems: { id: Screen; label: string; icon: React.ReactNode }[] = [
 
 function PlatformShell({ screen, onNav }: { screen: Screen; onNav: (s: Screen) => void }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [rascunhoRastreabilidade, setRascunhoRastreabilidade] = useState<RascunhoRastreabilidade | null>(null);
 
   const renderScreen = () => {
     switch (screen) {
@@ -1867,9 +1866,9 @@ function PlatformShell({ screen, onNav }: { screen: Screen; onNav: (s: Screen) =
       case "financeiro": return <FinanceiroView />;
       case "calendario": return <Calendario />;
       case "chatbot": return <AdminChatView />;
-      case "simulacao": return <Simulacao />;
+      case "simulacao": return <Simulacao onRegistrarRastreabilidade={(dados) => { setRascunhoRastreabilidade(dados); onNav("rastreabilidade"); }} />;
       case "tabela-precos": return <TabelaPrecos />;
-      case "rastreabilidade": return <Rastreabilidade />;
+      case "rastreabilidade": return <Rastreabilidade rascunho={rascunhoRastreabilidade} onConsumirRascunho={() => setRascunhoRastreabilidade(null)} />;
       case "descarte": return <MapaDescarte />;
       case "usuarios-admin": return <UsuariosAdmin />;
       case "configuracoes": return <ConfiguracoesConta />;
@@ -1916,7 +1915,7 @@ function PlatformShell({ screen, onNav }: { screen: Screen; onNav: (s: Screen) =
           <div className="flex items-center gap-3"><span className="hidden h-2 w-2 rounded-full bg-bw-dourado shadow-[0_0_0_4px_rgba(176,141,87,.12)] sm:block" /><span className="text-[10px] font-mono uppercase tracking-[.18em] text-bw-muted">{navItems.find(n => n.id === screen)?.label}</span></div>
           <div className="hidden items-center gap-2 text-[10px] font-mono text-bw-muted sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-bw-dourado" /> Operação em dia</div>
         </header>
-        <main className={`flex-1 min-h-0 px-3 sm:px-6 lg:px-8 ${screen === "funil" || screen === "calendario" ? "overflow-y-auto py-4 sm:overflow-hidden sm:py-5" : "overflow-y-auto py-5 sm:py-8"}`}>
+        <main className={`flex-1 min-h-0 px-3 sm:px-6 lg:px-8 ${screen === "funil" || screen === "calendario" || screen === "simulacao" ? "overflow-y-auto py-4 sm:overflow-hidden sm:py-4" : "overflow-y-auto py-5 sm:py-8"}`}>
           {renderScreen()}
         </main>
       </div>
@@ -2155,7 +2154,11 @@ function CalendarioLegacy() {
 }
 
 // ─── SCREEN: Simulação ────────────────────────────────────────────────────────
-function Simulacao() {
+function Simulacao({ onRegistrarRastreabilidade }: { onRegistrarRastreabilidade?: (dados: RascunhoRastreabilidade) => void }) {
+  const cards = useOpcoesFunil();
+  return <SimulacaoView leads={cards.map(card => ({ id: card.clienteId, nome: card.nome, score: card.score ?? undefined }))} onRegistrarRastreabilidade={onRegistrarRastreabilidade} />;
+}
+function SimulacaoLegacy() {
   const [room, setRoom] = useState("Residencial");
   const [style, setStyle] = useState("Contemporâneo");
   const [furniture, setFurniture] = useState("");
@@ -2615,9 +2618,9 @@ function TabelaPrecos() {
 }
 
 // ─── SCREEN: Rastreabilidade ──────────────────────────────────────────────────
-function Rastreabilidade() {
+function Rastreabilidade({ rascunho, onConsumirRascunho }: { rascunho?: RascunhoRastreabilidade | null; onConsumirRascunho?: () => void }) {
   const cards = useOpcoesFunil();
-  return <RastreabilidadeView projetos={cards.map(card => ({ id: card.clienteId, nome: card.nome, tipo: card.tipoProjeto ?? undefined }))} />;
+  return <RastreabilidadeView projetos={cards.map(card => ({ id: card.clienteId, nome: card.nome, tipo: card.tipoProjeto ?? undefined }))} rascunho={rascunho} onConsumirRascunho={onConsumirRascunho} />;
 }
 
 // ─── SCREEN: Mapa de Descarte ─────────────────────────────────────────────────

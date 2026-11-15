@@ -94,4 +94,3 @@ export function useRastreabilidadeViewModel(
 
   return { data, loading, saving, error, projetoId, fetchPage, refresh, filterByProjeto, create, update, remove } as const;
 }
-
