@@ -271,9 +271,9 @@ export default function ClienteAgendamentosView() {
   };
 
   const glassInput =
-    "w-full bg-transparent border-0 border-b border-white/20 py-2.5 text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors";
+    "w-full bg-transparent border-0 border-b border-white/20 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors";
   const glassLabel =
-    "block text-[10px] font-mono uppercase tracking-[.18em] text-white/45 mb-1";
+    "block text-sm font-medium tabular-nums uppercase tracking-normal text-white/45 mb-1";
 
   return (
     <div
@@ -290,10 +290,10 @@ export default function ClienteAgendamentosView() {
       <div className="flex flex-col gap-3 border-b border-white/10 pb-3 shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-[.2em] text-bw-dourado mb-0.5">
+            <div className="text-sm font-medium tabular-nums uppercase tracking-normal text-bw-dourado mb-0.5">
               Agenda Online · Portal do Cliente
             </div>
-            <h2 className="text-xl sm:text-2xl font-display text-white leading-tight">
+            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-white leading-tight">
               Calendário de Agendamentos
             </h2>
           </div>
@@ -302,7 +302,7 @@ export default function ClienteAgendamentosView() {
               <button
                 type="button"
                 onClick={() => setSubPagina("calendario")}
-                className={`px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider transition-colors ${
+                className={`px-3 py-1.5 text-sm font-medium tabular-nums uppercase tracking-wider transition-colors ${
                   subPagina === "calendario"
                     ? "bg-bw-dourado text-white"
                     : "text-white/60 hover:text-white"
@@ -313,14 +313,14 @@ export default function ClienteAgendamentosView() {
               <button
                 type="button"
                 onClick={() => setSubPagina("minhas-solicitacoes")}
-                className={`px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 text-sm font-medium tabular-nums uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
                   subPagina === "minhas-solicitacoes"
                     ? "bg-bw-dourado text-white"
                     : "text-white/60 hover:text-white"
                 }`}
               >
                 <span>Minhas Solicitações</span>
-                <span className="rounded bg-white/15 px-1.5 py-0.2 text-[9px]">
+                <span className="rounded bg-white/15 px-1.5 py-0.2 text-xs">
                   {meusAgendamentos.length}
                 </span>
               </button>
@@ -329,7 +329,7 @@ export default function ClienteAgendamentosView() {
             <button
               type="button"
               onClick={() => openDayModal()}
-              className="shrink-0 px-4 py-2 bg-bw-dourado text-white text-[10px] font-mono uppercase tracking-[.16em] hover:bg-[#c19d65] transition-colors"
+              className="shrink-0 px-4 py-2 bg-bw-dourado text-white text-sm font-medium tabular-nums uppercase tracking-normal hover:bg-[#c19d65] transition-colors"
             >
               + Solicitar Agendamento
             </button>
@@ -338,19 +338,19 @@ export default function ClienteAgendamentosView() {
       </div>
 
       {sucesso && (
-        <div className="flex items-center justify-between gap-3 border border-emerald-400/35 bg-emerald-500/10 px-3.5 py-2 text-xs text-emerald-200 shrink-0">
+        <div className="flex items-center justify-between gap-3 border border-emerald-400/35 bg-emerald-500/10 px-3.5 py-2 text-sm text-emerald-200 shrink-0">
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-300 mr-2">
+            <span className="font-medium tabular-nums text-sm uppercase tracking-wider text-emerald-300 mr-2">
               ✓ Solicitação Enviada:
             </span>
             <strong>"{sucesso.titulo}"</strong> registrada com status{" "}
-            <strong className="font-mono">{sucesso.status}</strong> para{" "}
+            <strong className="font-medium tabular-nums">{sucesso.status}</strong> para{" "}
             {fmtDateBR(extractDateISO(sucesso.inicio))} às {extractTimeHHMM(sucesso.inicio)}.
           </div>
           <button
             type="button"
             onClick={() => setSucesso(null)}
-            className="text-[10px] font-mono uppercase text-emerald-300 hover:underline"
+            className="text-sm font-medium tabular-nums uppercase text-emerald-300 hover:underline"
           >
             Fechar
           </button>
@@ -369,7 +369,7 @@ export default function ClienteAgendamentosView() {
                   setViewYear(now.getFullYear());
                   setViewMonth(now.getMonth());
                 }}
-                className="px-2.5 py-1 border border-white/15 text-white/80 text-xs font-mono hover:border-bw-dourado hover:text-bw-dourado transition-colors"
+                className="px-2.5 py-1 border border-white/15 text-white/80 text-sm font-medium tabular-nums hover:border-bw-dourado hover:text-bw-dourado transition-colors"
               >
                 Hoje
               </button>
@@ -377,7 +377,7 @@ export default function ClienteAgendamentosView() {
                 type="button"
                 onClick={() => changeMonth(-1)}
                 aria-label="Mês anterior"
-                className="px-2 py-1 border border-white/15 text-white/80 text-xs hover:border-bw-dourado hover:text-bw-dourado transition-colors"
+                className="px-2 py-1 border border-white/15 text-white/80 text-sm hover:border-bw-dourado hover:text-bw-dourado transition-colors"
               >
                 ‹
               </button>
@@ -385,16 +385,16 @@ export default function ClienteAgendamentosView() {
                 type="button"
                 onClick={() => changeMonth(1)}
                 aria-label="Próximo mês"
-                className="px-2 py-1 border border-white/15 text-white/80 text-xs hover:border-bw-dourado hover:text-bw-dourado transition-colors"
+                className="px-2 py-1 border border-white/15 text-white/80 text-sm hover:border-bw-dourado hover:text-bw-dourado transition-colors"
               >
                 ›
               </button>
-              <span className="ml-2 font-display text-lg text-white">
+              <span className="ml-2 font-semibold tracking-tight text-lg text-white">
                 {MESES[viewMonth]} {viewYear}
               </span>
             </div>
 
-            <div className="flex items-center gap-3 text-[10px] font-mono text-white/60 flex-wrap">
+            <div className="flex items-center gap-3 text-sm font-medium tabular-nums text-white/60 flex-wrap">
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-white/35" /> Horário Ocupado
               </span>
@@ -414,7 +414,7 @@ export default function ClienteAgendamentosView() {
                 {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
                   <div
                     key={d}
-                    className="py-1.5 text-center text-[10px] font-mono uppercase tracking-wider text-white/50"
+                    className="py-1.5 text-center text-sm font-medium tabular-nums uppercase tracking-wider text-white/50"
                   >
                     {d}
                   </div>
@@ -448,7 +448,7 @@ export default function ClienteAgendamentosView() {
                       }`}
                     >
                       <div
-                        className={`text-[10px] font-mono mb-0.5 flex items-center justify-between ${
+                        className={`text-sm font-medium tabular-nums mb-0.5 flex items-center justify-between ${
                           isHoje ? "font-bold text-bw-dourado" : "text-white/50"
                         }`}
                       >
@@ -456,7 +456,7 @@ export default function ClienteAgendamentosView() {
                           {d}
                           {isHoje && " · Hoje"}
                         </span>
-                        <span className="text-[9px] text-white/25 hover:text-bw-dourado">+</span>
+                        <span className="text-xs text-white/25 hover:text-bw-dourado">+</span>
                       </div>
                       {doDia.map((ev) => {
                         const isMeu = meusIds.includes(ev.id);
@@ -472,7 +472,7 @@ export default function ClienteAgendamentosView() {
                                 e.stopPropagation();
                                 setSelectedAgendamento({ agendamento: ev, isMeu: false });
                               }}
-                              className="block w-full text-left text-[9px] rounded px-1.5 py-0.5 truncate font-mono mb-0.5 border border-white/15 bg-white/10 text-white/60 hover:bg-white/15"
+                              className="block w-full text-left text-xs rounded px-1.5 py-0.5 truncate font-medium tabular-nums mb-0.5 border border-white/15 bg-white/10 text-white/60 hover:bg-white/15"
                               title={`${hIni} às ${hFim} · Ocupado`}
                             >
                               {hIni}–{hFim} · Ocupado
@@ -489,7 +489,7 @@ export default function ClienteAgendamentosView() {
                               e.stopPropagation();
                               setSelectedAgendamento({ agendamento: ev, isMeu: true });
                             }}
-                            className={`block w-full text-left text-[9px] rounded px-1.5 py-0.5 truncate font-mono mb-0.5 border ${meta.pillCls}`}
+                            className={`block w-full text-left text-xs rounded px-1.5 py-0.5 truncate font-medium tabular-nums mb-0.5 border ${meta.pillCls}`}
                           >
                             {hIni} {ev.titulo}
                           </button>
@@ -518,14 +518,14 @@ export default function ClienteAgendamentosView() {
               <div className="text-sm font-medium text-white">
                 Você ainda não possui solicitações registradas
               </div>
-              <p className="text-xs text-white/50 max-w-md">
+              <p className="text-sm text-white/50 max-w-md">
                 Clique em um dia no calendário ou no botão abaixo para solicitar uma visita
                 técnica, reunião ou apresentação de projeto.
               </p>
               <button
                 type="button"
                 onClick={() => openDayModal()}
-                className="mt-1 px-4 py-2 bg-bw-dourado text-white text-[10px] font-mono uppercase tracking-wider hover:bg-[#c19d65] transition-colors"
+                className="mt-1 px-4 py-2 bg-bw-dourado text-white text-sm font-medium tabular-nums uppercase tracking-wider hover:bg-[#c19d65] transition-colors"
               >
                 + Solicitar Agendamento
               </button>
@@ -543,20 +543,20 @@ export default function ClienteAgendamentosView() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-white">{ev.titulo}</span>
                       <span
-                        className={`rounded border px-2 py-0.5 text-[9px] font-mono uppercase ${meta.cls}`}
+                        className={`rounded border px-2 py-0.5 text-xs font-medium tabular-nums uppercase ${meta.cls}`}
                       >
                         {meta.label}
                       </span>
                     </div>
-                    <div className="text-xs font-mono text-bw-dourado mt-1">
+                    <div className="text-sm font-medium tabular-nums text-bw-dourado mt-1">
                       {fmtDateBR(extractDateISO(ev.inicio))} · {extractTimeHHMM(ev.inicio)} às{" "}
                       {extractTimeHHMM(ev.fim)}
                     </div>
                     {ev.descricao && (
-                      <p className="text-xs text-white/60 mt-1 line-clamp-2">{ev.descricao}</p>
+                      <p className="text-sm text-white/60 mt-1 line-clamp-2">{ev.descricao}</p>
                     )}
                   </div>
-                  <span className="text-[10px] font-mono uppercase text-white/50 hover:text-bw-dourado shrink-0">
+                  <span className="text-sm font-medium tabular-nums uppercase text-white/50 hover:text-bw-dourado shrink-0">
                     Ver detalhes →
                   </span>
                 </div>
@@ -579,7 +579,7 @@ export default function ClienteAgendamentosView() {
             <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
               {selectedAgendamento.isMeu ? (
                 <span
-                  className={`rounded border px-2 py-0.5 text-[9px] font-mono uppercase ${
+                  className={`rounded border px-2 py-0.5 text-xs font-medium tabular-nums uppercase ${
                     (
                       STATUS_BADGE[selectedAgendamento.agendamento.status] ??
                       STATUS_BADGE.PENDENTE
@@ -594,14 +594,14 @@ export default function ClienteAgendamentosView() {
                   }
                 </span>
               ) : (
-                <span className="rounded border border-white/20 bg-white/10 px-2 py-0.5 text-[9px] font-mono uppercase text-white/70">
+                <span className="rounded border border-white/20 bg-white/10 px-2 py-0.5 text-xs font-medium tabular-nums uppercase text-white/70">
                   Horário Indisponível
                 </span>
               )}
               <button
                 type="button"
                 onClick={() => setSelectedAgendamento(null)}
-                className="text-[10px] font-mono uppercase text-white/50 hover:text-white"
+                className="text-sm font-medium tabular-nums uppercase text-white/50 hover:text-white"
               >
                 Fechar
               </button>
@@ -609,29 +609,29 @@ export default function ClienteAgendamentosView() {
 
             {selectedAgendamento.isMeu ? (
               <>
-                <h3 className="font-display text-2xl text-white">
+                <h3 className="font-semibold tracking-tight text-2xl text-white">
                   {selectedAgendamento.agendamento.titulo}
                 </h3>
-                <div className="text-xs font-mono text-bw-dourado mt-1">
+                <div className="text-sm font-medium tabular-nums text-bw-dourado mt-1">
                   {fmtDateBR(extractDateISO(selectedAgendamento.agendamento.inicio))} ·{" "}
                   {extractTimeHHMM(selectedAgendamento.agendamento.inicio)} às{" "}
                   {extractTimeHHMM(selectedAgendamento.agendamento.fim)}
                 </div>
                 {selectedAgendamento.agendamento.descricao && (
-                  <p className="text-xs text-white/70 mt-3 leading-relaxed border-t border-white/10 pt-3">
+                  <p className="text-sm text-white/70 mt-3 leading-relaxed border-t border-white/10 pt-3">
                     {selectedAgendamento.agendamento.descricao}
                   </p>
                 )}
               </>
             ) : (
               <>
-                <h3 className="font-display text-2xl text-white">Horário Ocupado</h3>
-                <div className="text-xs font-mono text-bw-dourado mt-1">
+                <h3 className="font-semibold tracking-tight text-2xl text-white">Horário Ocupado</h3>
+                <div className="text-sm font-medium tabular-nums text-bw-dourado mt-1">
                   {fmtDateBR(extractDateISO(selectedAgendamento.agendamento.inicio))} ·{" "}
                   {extractTimeHHMM(selectedAgendamento.agendamento.inicio)} às{" "}
                   {extractTimeHHMM(selectedAgendamento.agendamento.fim)}
                 </div>
-                <p className="text-xs text-white/60 mt-3 leading-relaxed border-t border-white/10 pt-3">
+                <p className="text-sm text-white/60 mt-3 leading-relaxed border-t border-white/10 pt-3">
                   Este intervalo já está reservado na agenda da equipe BW. Você pode escolher
                   outro horário livre neste mesmo dia ou em outra data.
                 </p>
@@ -640,7 +640,7 @@ export default function ClienteAgendamentosView() {
                   onClick={() =>
                     openDayModal(extractDateISO(selectedAgendamento.agendamento.inicio))
                   }
-                  className="mt-4 w-full py-2.5 border border-bw-dourado/50 text-bw-dourado text-[10px] font-mono uppercase tracking-wider hover:bg-bw-dourado/15 transition-colors"
+                  className="mt-4 w-full py-2.5 border border-bw-dourado/50 text-bw-dourado text-sm font-medium tabular-nums uppercase tracking-wider hover:bg-bw-dourado/15 transition-colors"
                 >
                   Escolher outro horário neste dia
                 </button>
@@ -663,34 +663,34 @@ export default function ClienteAgendamentosView() {
             <button
               type="button"
               onClick={() => setModalOpen(false)}
-              className="absolute top-4 right-5 text-[10px] font-mono uppercase tracking-wider text-bw-areia hover:text-white"
+              className="absolute top-4 right-5 text-sm font-medium tabular-nums uppercase tracking-wider text-bw-areia hover:text-white"
             >
               Fechar
             </button>
 
             <div className="mb-5">
-              <div className="text-[9px] font-mono uppercase tracking-[.2em] text-bw-dourado">
+              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-bw-dourado">
                 Nova Solicitação
               </div>
-              <h3 className="font-display text-2xl text-white mt-1">
+              <h3 className="font-semibold tracking-tight text-2xl text-white mt-1">
                 Agendar Horário
               </h3>
-              <p className="text-[11px] text-white/50 mt-1">
+              <p className="text-sm text-white/50 mt-1">
                 Será criada com status <strong className="text-bw-dourado">PENDENTE</strong>{" "}
                 para aprovação da equipe BW.
               </p>
             </div>
 
             {ocupadosNoDiaModal.length > 0 && (
-              <div className="mb-5 border border-white/15 bg-white/[0.04] px-3.5 py-2.5 text-[11px] font-mono text-white/70">
-                <div className="text-[9px] uppercase tracking-wider text-bw-dourado mb-1">
+              <div className="mb-5 border border-white/15 bg-white/[0.04] px-3.5 py-2.5 text-sm font-medium tabular-nums text-white/70">
+                <div className="text-xs uppercase tracking-wider text-bw-dourado mb-1">
                   Horários já ocupados em {fmtDateBR(data)}:
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {ocupadosNoDiaModal.map((oc) => (
                     <span
                       key={oc.id}
-                      className="rounded border border-white/15 bg-black/40 px-2 py-0.5 text-[10px] text-white/80"
+                      className="rounded border border-white/15 bg-black/40 px-2 py-0.5 text-sm text-white/80"
                     >
                       {extractTimeHHMM(oc.inicio)} às {extractTimeHHMM(oc.fim)}
                     </span>
@@ -759,7 +759,7 @@ export default function ClienteAgendamentosView() {
               </div>
 
               {(localError || error) && (
-                <div className="border border-red-400/35 bg-red-500/10 px-3 py-2 text-xs font-mono text-red-300">
+                <div className="border border-red-400/35 bg-red-500/10 px-3 py-2 text-sm font-medium tabular-nums text-red-300">
                   {localError ?? error?.message}
                 </div>
               )}
@@ -767,7 +767,7 @@ export default function ClienteAgendamentosView() {
               <button
                 type="submit"
                 disabled={saving}
-                className="mt-2 w-full py-3 bg-bw-dourado text-white text-[11px] font-mono uppercase tracking-[.18em] hover:bg-[#c19d65] transition-colors disabled:opacity-50"
+                className="mt-2 w-full py-3 bg-bw-dourado text-white text-sm font-medium tabular-nums uppercase tracking-normal hover:bg-[#c19d65] transition-colors disabled:opacity-50"
               >
                 {saving ? "Enviando..." : "Confirmar Solicitação"}
               </button>

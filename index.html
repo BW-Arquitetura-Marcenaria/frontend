@@ -1,15 +1,31 @@
 <!doctype html>
-<html lang="<!-- figma:lang -->">
+<html lang="pt-BR">
   <head>
     <!-- figma:head-start -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><!-- figma:title --></title>
+    <title>BW Arquitetura &amp; Marcenaria — Projetos Autorais Sob Medida</title>
     <!-- figma:head-end -->
   </head>
   <body>
     <!-- figma:body-start -->
+    <a
+      href="#conteudo-principal"
+      class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[10000] focus:rounded-md focus:bg-[#16130F] focus:px-4 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-[#FAF8F4] focus:shadow-xl focus:outline-2 focus:outline-[#B08D57]"
+    >
+      Pular para o conteúdo principal
+    </a>
     <div id="root"></div>
+
+    <!-- Plugin oficial VLibras (Gov.br) — Acessibilidade em Língua Brasileira de Sinais -->
+    <div vw class="enabled">
+      <div vw-access-button class="active" aria-label="Tradutor VLibras para Língua Brasileira de Sinais"></div>
+      <div vw-plugin-wrapper>
+        <div class="vw-plugin-top-wrapper"></div>
+      </div>
+    </div>
+    <script src="https://vlibras.gov.br/app/vlibras-plugin.js" defer onload="if(window.VLibras){new window.VLibras.Widget('https://vlibras.gov.br/app');}"></script>
+
     <script type="module" src="/src/main.tsx"></script>
     <!-- figma:body-end -->
   </body>

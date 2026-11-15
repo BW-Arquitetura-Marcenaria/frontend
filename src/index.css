@@ -132,3 +132,203 @@ input[type="password"]::-webkit-textfield-decoration-button {
 .password-toggle {
   width: 2rem; height: 2rem; min-width: 2rem; min-height: 0 !important; padding: 0.375rem; line-height: 0;
 }
+
+
+/* Taste-Skill: Subtle tactile paper/architectural film grain overlay */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.022;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes bw-marquee {
+  0%   { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+.bw-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: bw-marquee 34s linear infinite;
+}
+.bw-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+/* ── transitions.dev: Silky 60fps View Transitions & Navbar Pill Morphs ── */
+@view-transition {
+  navigation: auto;
+}
+
+@keyframes bw-vt-fade-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0) scale(0.994);
+  }
+}
+
+@keyframes bw-vt-fade-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.996);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes bw-stage-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+@keyframes bw-stage-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+::view-transition-old(root) {
+  animation: 0.38s cubic-bezier(0.16, 1, 0.3, 1) both bw-vt-fade-out;
+}
+
+::view-transition-new(root) {
+  animation: 0.46s cubic-bezier(0.16, 1, 0.3, 1) both bw-vt-fade-in;
+}
+
+::view-transition-old(bw-admin-stage) {
+  animation: 0.24s cubic-bezier(0.32, 0, 0.67, 0) both bw-stage-out;
+}
+
+::view-transition-new(bw-admin-stage) {
+  animation: 0.42s cubic-bezier(0.16, 1, 0.3, 1) both bw-stage-in;
+}
+
+/* Keep navbars and sidebars anchored and crisp during internal transitions */
+::view-transition-group(bw-shell-sidebar),
+::view-transition-group(bw-shell-header),
+::view-transition-group(bw-portal-header) {
+  animation-duration: 0.32s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Smooth shared-element pill & underline morphs across navbar items */
+::view-transition-group(bw-brand-logo),
+::view-transition-group(bw-sidebar-active),
+::view-transition-group(bw-portal-tab),
+::view-transition-group(bw-project-hero) {
+  animation-duration: 0.48s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::view-transition-old(bw-sidebar-active),
+::view-transition-new(bw-sidebar-active),
+::view-transition-old(bw-portal-tab),
+::view-transition-new(bw-portal-tab) {
+  height: 100%;
+  width: 100%;
+}
+
+
+/* ── React Bits: ShinyText metallic gold sweep ── */
+@keyframes bw-shiny-sweep {
+  0%   { background-position: 180% 50%; }
+  100% { background-position: -80% 50%; }
+}
+
+.bw-shiny-text {
+  background-image: linear-gradient(
+    115deg,
+    #B08D57 0%,
+    #B08D57 38%,
+    #F3E6CA 50%,
+    #B08D57 62%,
+    #B08D57 100%
+  );
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: bw-shiny-sweep 4.8s linear infinite;
+}
+
+
+/* ── Acessibilidade Dinâmica (Aula 5 SPTech — Fontes, Alto Contraste e Daltonismo) ── */
+html[data-a11y-font="sm"] { font-size: 15px; }
+html[data-a11y-font="md"] { font-size: 16px; }
+html[data-a11y-font="lg"] { font-size: 18px; }
+html[data-a11y-font="xl"] { font-size: 20px; }
+
+html[data-a11y-vision="grayscale"] {
+  filter: grayscale(100%);
+}
+
+html[data-a11y-contrast="high"] {
+  --color-bw-white:      #FAF8F4;
+  --color-bw-areia:      #EAE3D5;
+  --color-bw-dourado:    #8A6832;
+  --color-bw-madeira:    #3B2618;
+  --color-bw-preto:      #120F0B;
+  --color-bw-border:     #5C4938;
+  --color-bw-border-sub: #7A6552;
+  --color-bw-muted:      #3E3124;
+  --color-bw-ph:         #524334;
+}
+
+html[data-a11y-contrast="high"] a:not([class*="bg-"]),
+html[data-a11y-contrast="high"] button:not([class*="bg-"]) {
+  text-decoration-line: underline;
+  text-underline-offset: 4px;
+}
+
+html[data-a11y-motion="reduce"] *,
+html[data-a11y-motion="reduce"] *::before,
+html[data-a11y-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+
+/* ── Legibilidade e Hierarquia Tipográfica da Plataforma Interna (Aula 4 SPTech) ── */
+.bw-admin-ground .font-mono,
+.bw-admin-ground .font-display {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.bw-admin-ground [class*="text-[8px]"],
+.bw-admin-ground [class*="text-[9px]"],
+.bw-admin-ground [class*="text-[10px]"],
+.bw-admin-ground [class*="text-[11px]"] {
+  font-size: 0.84rem !important;
+  line-height: 1.45 !important;
+  letter-spacing: 0.02em !important;
+}
+
+.bw-admin-ground [class*="text-[12px]"],
+.bw-admin-ground [class*="text-[13px]"],
+.bw-admin-ground .text-xs {
+  font-size: 0.92rem !important;
+  line-height: 1.5 !important;
+}
