@@ -438,14 +438,22 @@ export const ReactBitsCarousel: React.FC<{
   return (
     <div
       role="region"
+      tabIndex={0}
       aria-roledescription="carrossel"
-      aria-label="Projetos selecionados BW"
+      aria-label="Projetos selecionados BW — use as setas esquerda e direita para navegar"
+      onKeyDown={e => {
+        if (e.key === "ArrowLeft") { e.preventDefault(); prev(); }
+        else if (e.key === "ArrowRight") { e.preventDefault(); next(); }
+        else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectProject(active); }
+      }}
+      onFocus={() => setIsPaused(true)}
+      onBlur={() => setIsPaused(false)}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => {
         setIsPaused(false);
         dragStartX.current = null;
       }}
-      className="relative select-none"
+      className="relative select-none rounded-sm focus-visible:outline-2 focus-visible:outline-bw-dourado"
     >
       {/* 3D Stage */}
       <div
@@ -511,7 +519,7 @@ export const ReactBitsCarousel: React.FC<{
 
       {/* Controls & Indicators */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-bw-border pt-5">
-        <div className="flex items-center gap-3">
+        <div aria-live="polite" className="flex items-center gap-3">
           <span className="font-display text-2xl font-medium text-bw-preto">{items[active]?.title}</span>
           <span className="text-bw-muted">—</span>
           <span className="text-sm text-bw-madeira">{items[active]?.type}</span>
@@ -523,6 +531,7 @@ export const ReactBitsCarousel: React.FC<{
                 key={item.title}
                 type="button"
                 aria-label={`Ir para ${item.title}`}
+                aria-current={i === active ? "true" : undefined}
                 onClick={() => goTo(i)}
                 className={`h-2 rounded-full transition-all duration-500 ${
                   i === active ? "w-9 bg-bw-dourado" : "w-2.5 bg-bw-border hover:bg-bw-madeira"
@@ -551,5 +560,188 @@ export const ReactBitsCarousel: React.FC<{
         </div>
       </div>
     </div>
+  );
+};
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * 6. Barra de Acessibilidade Dinâmica (Aula 5 SPTech — WAI-ARIA, Fontes,
+ *    Alto Contraste, Escala de Cinza / Daltonismo e Redução de Movimento)
+ * ───────────────────────────────────────────────────────────────────────────── */
+type FontScale = "sm" | "md" | "lg" | "xl";
+
+export const AccessibilityToolbar: React.FC = () => {
+  const [open, setOpen] = useState(false);
+  const [fontScale, setFontScale] = useState<FontScale>(() => (localStorage.getItem("bw-a11y-font") as FontScale) || "md");
+  const [highContrast, setHighContrast] = useState<boolean>(() => localStorage.getItem("bw-a11y-contrast") === "high");
+  const [grayscale, setGrayscale] = useState<boolean>(() => localStorage.getItem("bw-a11y-vision") === "grayscale");
+  const [reduceMotion, setReduceMotion] = useState<boolean>(() => localStorage.getItem("bw-a11y-motion") === "reduce");
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute("data-a11y-font", fontScale);
+    localStorage.setItem("bw-a11y-font", fontScale);
+  }, [fontScale]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (highContrast) {
+      root.setAttribute("data-a11y-contrast", "high");
+      localStorage.setItem("bw-a11y-contrast", "high");
+    } else {
+      root.removeAttribute("data-a11y-contrast");
+      localStorage.removeItem("bw-a11y-contrast");
+    }
+  }, [highContrast]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (grayscale) {
+      root.setAttribute("data-a11y-vision", "grayscale");
+      localStorage.setItem("bw-a11y-vision", "grayscale");
+    } else {
+      root.removeAttribute("data-a11y-vision");
+      localStorage.removeItem("bw-a11y-vision");
+    }
+  }, [grayscale]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (reduceMotion) {
+      root.setAttribute("data-a11y-motion", "reduce");
+      localStorage.setItem("bw-a11y-motion", "reduce");
+    } else {
+      root.removeAttribute("data-a11y-motion");
+      localStorage.removeItem("bw-a11y-motion");
+    }
+  }, [reduceMotion]);
+
+  const resetAll = () => {
+    setFontScale("md");
+    setHighContrast(false);
+    setGrayscale(false);
+    setReduceMotion(false);
+  };
+
+  return (
+    <aside
+      aria-label="Opções de acessibilidade"
+      className="fixed bottom-4 left-4 z-[9995] font-body text-sm"
+    >
+      {open && (
+        <div
+          role="dialog"
+          aria-modal="false"
+          aria-label="Painel de ajustes de acessibilidade"
+          className="mb-2.5 w-72 rounded-lg border border-bw-border bg-bw-preto p-4 text-bw-white shadow-2xl"
+        >
+          <div className="mb-3 flex items-center justify-between border-b border-white/15 pb-2.5">
+            <span className="font-semibold text-bw-white">Acessibilidade</span>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Fechar painel de acessibilidade"
+              className="rounded px-2 py-0.5 text-xs text-bw-areia hover:bg-white/10 hover:text-white"
+            >
+              Fechar ✕
+            </button>
+          </div>
+
+          <div className="space-y-3.5">
+            <div>
+              <div className="mb-1.5 text-xs font-medium text-bw-areia">Tamanho da fonte</div>
+              <div className="grid grid-cols-4 gap-1.5" role="group" aria-label="Ajustar tamanho da fonte">
+                {([
+                  ["sm", "A-"],
+                  ["md", "100%"],
+                  ["lg", "A+"],
+                  ["xl", "A++"],
+                ] as [FontScale, string][]).map(([scale, lbl]) => (
+                  <button
+                    key={scale}
+                    type="button"
+                    aria-pressed={fontScale === scale}
+                    onClick={() => setFontScale(scale)}
+                    className={`rounded border py-1.5 text-xs font-semibold transition-colors ${
+                      fontScale === scale
+                        ? "border-bw-dourado bg-bw-dourado text-white"
+                        : "border-white/20 bg-white/5 text-bw-areia hover:border-bw-dourado"
+                    }`}
+                  >
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2 border-t border-white/15 pt-3">
+              <button
+                type="button"
+                aria-pressed={highContrast}
+                onClick={() => setHighContrast(v => !v)}
+                className={`flex w-full items-center justify-between rounded border px-3 py-2 text-left text-xs font-medium transition-colors ${
+                  highContrast
+                    ? "border-bw-dourado bg-bw-dourado text-white"
+                    : "border-white/20 bg-white/5 text-bw-areia hover:border-bw-dourado"
+                }`}
+              >
+                <span>Alto contraste</span>
+                <span>{highContrast ? "Ativado ✓" : "Desativado"}</span>
+              </button>
+
+              <button
+                type="button"
+                aria-pressed={grayscale}
+                onClick={() => setGrayscale(v => !v)}
+                className={`flex w-full items-center justify-between rounded border px-3 py-2 text-left text-xs font-medium transition-colors ${
+                  grayscale
+                    ? "border-bw-dourado bg-bw-dourado text-white"
+                    : "border-white/20 bg-white/5 text-bw-areia hover:border-bw-dourado"
+                }`}
+              >
+                <span>Escala de cinza (Daltonismo)</span>
+                <span>{grayscale ? "Ativado ✓" : "Desativado"}</span>
+              </button>
+
+              <button
+                type="button"
+                aria-pressed={reduceMotion}
+                onClick={() => setReduceMotion(v => !v)}
+                className={`flex w-full items-center justify-between rounded border px-3 py-2 text-left text-xs font-medium transition-colors ${
+                  reduceMotion
+                    ? "border-bw-dourado bg-bw-dourado text-white"
+                    : "border-white/20 bg-white/5 text-bw-areia hover:border-bw-dourado"
+                }`}
+              >
+                <span>Reduzir animações</span>
+                <span>{reduceMotion ? "Ativado ✓" : "Desativado"}</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={resetAll}
+              className="w-full rounded border border-white/15 py-1.5 text-xs text-bw-areia/80 transition-colors hover:border-white/40 hover:text-white"
+            >
+              Restaurar padrão
+            </button>
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        aria-label="Abrir opções de acessibilidade (tamanho de fonte, alto contraste e daltonismo)"
+        className="flex items-center gap-2 rounded-full border border-bw-dourado/50 bg-bw-preto/90 px-3.5 py-2 text-xs font-semibold text-bw-white shadow-lg backdrop-blur-md transition-colors hover:border-bw-dourado hover:bg-bw-dourado"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="4.5" r="2" />
+          <path d="M4 9h16M12 9v5m0 0l-3 6m3-6l3 6" />
+        </svg>
+        <span>Acessibilidade</span>
+      </button>
+    </aside>
   );
 };

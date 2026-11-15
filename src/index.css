@@ -270,3 +270,41 @@ body::after {
   color: transparent;
   animation: bw-shiny-sweep 4.8s linear infinite;
 }
+
+
+/* ── Acessibilidade Dinâmica (Aula 5 SPTech — Fontes, Alto Contraste e Daltonismo) ── */
+html[data-a11y-font="sm"] { font-size: 15px; }
+html[data-a11y-font="md"] { font-size: 16px; }
+html[data-a11y-font="lg"] { font-size: 18px; }
+html[data-a11y-font="xl"] { font-size: 20px; }
+
+html[data-a11y-vision="grayscale"] {
+  filter: grayscale(100%);
+}
+
+html[data-a11y-contrast="high"] {
+  --color-bw-white:      #FAF8F4;
+  --color-bw-areia:      #EAE3D5;
+  --color-bw-dourado:    #8A6832;
+  --color-bw-madeira:    #3B2618;
+  --color-bw-preto:      #120F0B;
+  --color-bw-border:     #5C4938;
+  --color-bw-border-sub: #7A6552;
+  --color-bw-muted:      #3E3124;
+  --color-bw-ph:         #524334;
+}
+
+html[data-a11y-contrast="high"] a:not([class*="bg-"]),
+html[data-a11y-contrast="high"] button:not([class*="bg-"]) {
+  text-decoration-line: underline;
+  text-underline-offset: 4px;
+}
+
+html[data-a11y-motion="reduce"] *,
+html[data-a11y-motion="reduce"] *::before,
+html[data-a11y-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

@@ -27,7 +27,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
-import { SwarmCursor, ShinyText, SpotlightCard, CountUpMetric, ReactBitsCarousel } from "@/components/ReactBits";
+import { SwarmCursor, ShinyText, SpotlightCard, CountUpMetric, ReactBitsCarousel, AccessibilityToolbar } from "@/components/ReactBits";
 
 gsap.registerPlugin(ScrollTrigger, SplitText, useGSAP);
 
@@ -645,7 +645,7 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
 
   return <div ref={rootRef} className="min-h-full bg-bw-white selection:bg-bw-dourado selection:text-bw-white">
     <SwarmCursor />
-    <section id="inicio" className="relative min-h-[100svh] overflow-hidden bg-bw-preto text-bw-white">
+    <main id="conteudo-principal"><section id="inicio" className="relative min-h-[100svh] overflow-hidden bg-bw-preto text-bw-white">
       <img data-hero-bg src={bwHeroBg} alt="Projeto de marcenaria BW — sala de estar sob medida" className="absolute inset-0 h-full w-full object-cover opacity-65 will-change-transform" />
       <div className="absolute inset-0 bg-gradient-to-r from-bw-preto via-bw-preto/70 to-bw-preto/15" />
       {/* NAV integrada ao hero com indicador deslizante GSAP */}
@@ -836,7 +836,7 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
                       <div className="font-mono text-[9px] uppercase tracking-[.2em] text-bw-dourado">Fundadores da BW</div>
                       <div className="mt-0.5 font-display text-2xl leading-none">Bianca &amp; Walmir</div>
                     </div>
-                    <span className="hidden">
+                    <span className="inline-flex items-center gap-1 border border-bw-dourado/50 bg-bw-preto/75 px-2.5 py-1 text-xs font-medium text-bw-areia backdrop-blur-sm">
                       360° ↻
                     </span>
                   </div>
@@ -988,7 +988,7 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
         </div>
       </div>
     </section>
-    <footer className="border-t border-bw-sidebar-b bg-bw-preto">
+    </main><footer role="contentinfo" className="border-t border-bw-sidebar-b bg-bw-preto">
       <div data-reveal className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-5 px-5 py-8 font-mono text-[10px] uppercase tracking-[.1em] text-bw-muted sm:flex-row sm:items-center sm:px-8 lg:px-12">
         <div><div>© 2026 · São Paulo, Brasil</div></div>
         <div className="flex flex-col items-center"><img src={bwLogo} alt="BW" className="object-contain" style={{ height: "44px", width: "auto", mixBlendMode: "screen" }} /><span className="mt-[3px] block font-mono text-[8px] uppercase tracking-[.22em] text-bw-muted">Arquitetura &amp; Marcenaria</span></div>
@@ -1052,7 +1052,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
   }
 
   const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors pr-8";
-  const glassLabel = "block text-sm font-medium tabular-nums uppercase tracking-normal text-white/40 mb-1";
+  const glassLabel = "block text-sm font-medium tabular-nums uppercase tracking-normal text-white/75 mb-1";
 
   return (
     <div className="relative min-h-full flex overflow-hidden bg-bw-preto">
@@ -1067,7 +1067,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
 
       {/* Left: editorial copy */}
       <div className="relative z-10 hidden lg:flex flex-col justify-center px-16 xl:px-24 w-1/2">
-        <button onClick={() => onNav("institucional")} className="mb-16 text-sm font-medium tabular-nums uppercase tracking-normal text-white/40 hover:text-bw-dourado transition-colors flex items-center gap-2">
+        <button onClick={() => onNav("institucional")} className="mb-16 text-sm font-medium tabular-nums uppercase tracking-normal text-white/75 hover:text-bw-dourado transition-colors flex items-center gap-2">
           <span>←</span> Voltar ao site
         </button>
         <div className="mb-6 font-medium tabular-nums text-sm uppercase tracking-normal text-bw-dourado flex items-center gap-3">
@@ -1085,7 +1085,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
           {/* Logo */}
           <div className="mb-10">
             <img src={bwLogo} alt="BW Arquitetura e Marcenaria" style={{ height: "60px", width: "auto", mixBlendMode: "screen" }} />
-            <div className="text-sm font-medium tabular-nums text-white/30 mt-2 uppercase tracking-normal">Portal do cliente</div>
+            <div className="text-sm font-medium tabular-nums text-white/70 mt-2 uppercase tracking-normal">Portal do cliente</div>
           </div>
 
           {step === "form" ? (
@@ -1099,7 +1099,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
               <div className="flex mb-8 border-b border-white/10">
                 {(["pf","pj"] as LoginTab[]).map((t, i) => (
                   <button key={t} onClick={() => runViewTransition(() => setTab(t))}
-                    className={`flex-1 pb-2.5 text-sm font-medium tabular-nums uppercase tracking-normal transition-colors flex items-center justify-center gap-1.5 ${tab === t ? "text-bw-dourado border-b border-bw-dourado -mb-px" : "text-white/30 hover:text-white/60"}`}>
+                    className={`flex-1 pb-2.5 text-sm font-medium tabular-nums uppercase tracking-normal transition-colors flex items-center justify-center gap-1.5 ${tab === t ? "text-bw-dourado border-b border-bw-dourado -mb-px" : "text-white/70 hover:text-white/60"}`}>
                     {i === 0 ? "Pessoa Física" : "Pessoa Jurídica"}
                   </button>
                 ))}
@@ -1121,7 +1121,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
                     <label className={glassLabel}>Senha</label>
                     <PasswordInput placeholder="••••••••" value={pfPassword} onChange={e => setPfPassword(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleLogin(pfEmail, pfPassword); }} className={glassInput} />
                     <div className="text-right mt-2">
-                      <a href="#" className="text-sm font-medium tabular-nums text-white/30 hover:text-bw-dourado transition-colors">Esqueci minha senha</a>
+                      <a href="#" className="text-sm font-medium tabular-nums text-white/70 hover:text-bw-dourado transition-colors">Esqueci minha senha</a>
                     </div>
                   </div>
                   <button onClick={() => handleLogin(pfEmail, pfPassword)} disabled={loading} className="mt-2 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-sm font-medium tabular-nums uppercase tracking-normal hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -1133,7 +1133,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
                   <div>
                     <label className={glassLabel}>CNPJ</label>
                     <input type="text" placeholder="00.000.000/0000-00" value={cnpj} onChange={e => setCnpj(formatCNPJ(e.target.value))} className={glassInput + " font-medium tabular-nums"} />
-                    <p className="text-xs font-medium tabular-nums text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Validado na Receita Federal</p>
+                    <p className="text-xs font-medium tabular-nums text-white/70 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Validado na Receita Federal</p>
                   </div>
                   <div>
                     <label className={glassLabel}>E-mail corporativo</label>
@@ -1143,7 +1143,7 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
                     <label className={glassLabel}>Senha</label>
                     <PasswordInput placeholder="••••••••" value={pjPassword} onChange={e => setPjPassword(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleLogin(pjEmail, pjPassword); }} className={glassInput} />
                     <div className="text-right mt-2">
-                      <a href="#" className="text-sm font-medium tabular-nums text-white/30 hover:text-bw-dourado transition-colors">Esqueci minha senha</a>
+                      <a href="#" className="text-sm font-medium tabular-nums text-white/70 hover:text-bw-dourado transition-colors">Esqueci minha senha</a>
                     </div>
                   </div>
                   <button onClick={() => handleLogin(pjEmail, pjPassword)} disabled={loading} className="mt-2 w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-sm font-medium tabular-nums uppercase tracking-normal hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -1167,19 +1167,19 @@ function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientL
               <button onClick={() => onClientLogin(tab)} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-sm font-medium tabular-nums uppercase tracking-normal hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 mb-4">
                 Verificar código <span className="text-base leading-none">›</span>
               </button>
-              <p className="text-sm font-medium tabular-nums text-white/30">Não recebeu? <button className="text-white/50 hover:text-bw-dourado transition-colors underline">Reenviar</button></p>
-              <button onClick={() => setStep("form")} className="mt-5 text-sm font-medium tabular-nums text-white/25 hover:text-white/50 transition-colors">← Voltar</button>
+              <p className="text-sm font-medium tabular-nums text-white/70">Não recebeu? <button className="text-white/50 hover:text-bw-dourado transition-colors underline">Reenviar</button></p>
+              <button onClick={() => setStep("form")} className="mt-5 text-sm font-medium tabular-nums text-white/70 hover:text-white/50 transition-colors">← Voltar</button>
             </div>
           )}
 
           <div className="mt-8 pt-6 border-t border-white/8 flex items-center justify-between">
-            <p className="text-sm font-medium tabular-nums text-white/25">
+            <p className="text-sm font-medium tabular-nums text-white/70">
               Sem conta? <button onClick={() => onNav("cadastro")} className="text-white/50 hover:text-bw-dourado transition-colors underline">Criar agora</button>
             </p>
-            <button onClick={() => onNav("institucional")} className="text-sm font-medium tabular-nums text-white/20 hover:text-white/40 transition-colors lg:hidden">← Site</button>
+            <button onClick={() => onNav("institucional")} className="text-sm font-medium tabular-nums text-white/65 hover:text-white/75 transition-colors lg:hidden">← Site</button>
           </div>
           <div className="mt-4 text-center">
-            <button onClick={() => { if (getPerfilAtual() === "ADMIN" || import.meta.env.VITE_USE_MOCK === "true") onNav("funil"); else setError("Entre com uma conta da equipe para acessar a plataforma."); }} className="text-xs font-medium tabular-nums text-white/15 hover:text-white/30 transition-colors">Acesso interno — Equipe BW ↗</button>
+            <button onClick={() => { if (getPerfilAtual() === "ADMIN" || import.meta.env.VITE_USE_MOCK === "true") onNav("funil"); else setError("Entre com uma conta da equipe para acessar a plataforma."); }} className="text-xs font-medium tabular-nums text-white/15 hover:text-white/70 transition-colors">Acesso interno — Equipe BW ↗</button>
           </div>
         </div>
       </div>
@@ -1208,7 +1208,7 @@ function ComoConheceuFields({ comoConheceu, setComoConheceu, instagramUser, setI
   return (
     <div className="pt-2 flex flex-col gap-5">
       <div className="border-t border-white/8 pt-4">
-        <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25 mb-3">Origem do contato</div>
+        <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/70 mb-3">Origem do contato</div>
         <div>
           <label className={glassLabel}>Como nos conheceu?</label>
           <select
@@ -1227,7 +1227,7 @@ function ComoConheceuFields({ comoConheceu, setComoConheceu, instagramUser, setI
           <div className="mt-4">
             <label className={glassLabel}>Seu perfil no Instagram</label>
             <div className="relative">
-              <span className="absolute left-0 bottom-3 text-white/30 text-sm font-medium tabular-nums select-none">@</span>
+              <span className="absolute left-0 bottom-3 text-white/70 text-sm font-medium tabular-nums select-none">@</span>
               <input
                 type="text"
                 placeholder="seuperfil"
@@ -1236,7 +1236,7 @@ function ComoConheceuFields({ comoConheceu, setComoConheceu, instagramUser, setI
                 className={glassInput + " pl-4"}
               />
             </div>
-            <p className="text-xs font-medium tabular-nums text-white/25 mt-1.5">Opcional — nos ajuda a entender como chegou até nós</p>
+            <p className="text-xs font-medium tabular-nums text-white/70 mt-1.5">Opcional — nos ajuda a entender como chegou até nós</p>
           </div>
         )}
       </div>
@@ -1328,7 +1328,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
   const steps: CadStep[] = ["dados", "confirmacao"];
 
   const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors pr-8";
-  const glassLabel = "block text-sm font-medium tabular-nums uppercase tracking-normal text-white/40 mb-1";
+  const glassLabel = "block text-sm font-medium tabular-nums uppercase tracking-normal text-white/75 mb-1";
   const stepIdx = steps.indexOf(step);
 
   return (
@@ -1343,7 +1343,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
 
       {/* Left panel */}
       <div className="relative z-10 hidden lg:flex flex-col justify-center px-16 xl:px-24 w-1/2">
-        <button onClick={() => onNav("institucional")} className="mb-16 text-sm font-medium tabular-nums uppercase tracking-normal text-white/40 hover:text-bw-dourado transition-colors flex items-center gap-2">
+        <button onClick={() => onNav("institucional")} className="mb-16 text-sm font-medium tabular-nums uppercase tracking-normal text-white/75 hover:text-bw-dourado transition-colors flex items-center gap-2">
           <span>←</span> Voltar ao site
         </button>
         <div className="mb-6 font-medium tabular-nums text-sm uppercase tracking-normal text-bw-dourado flex items-center gap-3">
@@ -1362,7 +1362,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
           {/* Logo */}
           <div className="mb-8">
             <img src={bwLogo} alt="BW Arquitetura e Marcenaria" style={{ height: "60px", width: "auto", mixBlendMode: "screen" }} />
-            <div className="text-sm font-medium tabular-nums text-white/30 mt-2 uppercase tracking-normal">Criar nova conta</div>
+            <div className="text-sm font-medium tabular-nums text-white/70 mt-2 uppercase tracking-normal">Criar nova conta</div>
           </div>
 
           {/* Mobile step indicator */}
@@ -1387,7 +1387,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
               <div className="flex mb-7 border-b border-white/10">
                 {(["pf","pj"] as CadTab[]).map((t, i) => (
                   <button key={t} onClick={() => runViewTransition(() => setTab(t))}
-                    className={`flex-1 pb-2.5 text-sm font-medium tabular-nums uppercase tracking-normal transition-colors flex items-center justify-center gap-1.5 ${tab === t ? "text-bw-dourado border-b border-bw-dourado -mb-px" : "text-white/30 hover:text-white/60"}`}>
+                    className={`flex-1 pb-2.5 text-sm font-medium tabular-nums uppercase tracking-normal transition-colors flex items-center justify-center gap-1.5 ${tab === t ? "text-bw-dourado border-b border-bw-dourado -mb-px" : "text-white/70 hover:text-white/60"}`}>
                     {i === 0 ? "Pessoa Física" : "Pessoa Jurídica"}
                   </button>
                 ))}
@@ -1416,7 +1416,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                   <div>
                     <label className={glassLabel}>E-mail</label>
                     <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
-                    <p className="text-xs font-medium tabular-nums text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
+                    <p className="text-xs font-medium tabular-nums text-white/70 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
                   </div>
                   <div>
                     <label className={glassLabel}>Celular / WhatsApp</label>
@@ -1429,7 +1429,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                   <div>
                     <label className={glassLabel}>CNPJ</label>
                     <input type="text" placeholder="00.000.000/0001-00" value={cnpj} onChange={e => setCnpj(formatCNPJ(e.target.value))} className={glassInput + " font-medium tabular-nums"} />
-                    <p className="text-xs font-medium tabular-nums text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> CNPJ conferido ao enviar o cadastro</p>
+                    <p className="text-xs font-medium tabular-nums text-white/70 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> CNPJ conferido ao enviar o cadastro</p>
                   </div>
                   <div>
                     <label className={glassLabel}>Razão social</label>
@@ -1442,7 +1442,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                   <div>
                     <label className={glassLabel}>E-mail corporativo</label>
                     <input type="email" placeholder="contato@empresa.com.br" value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
-                    <p className="text-xs font-medium tabular-nums text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
+                    <p className="text-xs font-medium tabular-nums text-white/70 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
                   </div>
                   <div>
                     <label className={glassLabel}>Telefone comercial</label>
@@ -1493,7 +1493,7 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
                 </div>
                 <div className="mt-2.5 grid gap-x-4 gap-y-1 sm:grid-cols-2">
                   {[["Mín. 8 caracteres",senha.length >= 8],["Letra maiúscula",/[A-Z]/.test(senha)],["Número",/\d/.test(senha)],["Caractere especial",/[^\w\s]/.test(senha)]].map(([r, ok]) => (
-                    <div key={r as string} className="flex items-center gap-1.5 text-xs font-medium tabular-nums text-white/25">
+                    <div key={r as string} className="flex items-center gap-1.5 text-xs font-medium tabular-nums text-white/70">
                       <span>{ok ? "✓" : "–"}</span>{r as string}
                     </div>
                   ))}
@@ -1515,10 +1515,10 @@ function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClie
           )}
 
           <div className="mt-8 pt-6 border-t border-white/8 flex items-center justify-between">
-            <p className="text-sm font-medium tabular-nums text-white/25">
+            <p className="text-sm font-medium tabular-nums text-white/70">
               Já tem conta? <button onClick={() => onNav("login")} className="text-white/50 hover:text-bw-dourado transition-colors underline">Entrar</button>
             </p>
-            <button onClick={() => onNav("institucional")} className="text-sm font-medium tabular-nums text-white/20 hover:text-white/40 transition-colors lg:hidden">← Site</button>
+            <button onClick={() => onNav("institucional")} className="text-sm font-medium tabular-nums text-white/65 hover:text-white/75 transition-colors lg:hidden">← Site</button>
           </div>
         </div>
       </div>
@@ -1574,7 +1574,7 @@ function ClienteChatbot({ tipo }: { tipo: ClienteTipo }) {
         </div>
         <div>
           <div className="text-base font-semibold tracking-tight tracking-wide text-white">Equipe BW Arquitetura</div>
-          <div className="text-xs font-medium tabular-nums text-white/40 uppercase tracking-normal mt-0.5 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500/80 animate-pulse"></span> Online — Responde em até 2h</div>
+          <div className="text-xs font-medium tabular-nums text-white/75 uppercase tracking-normal mt-0.5 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500/80 animate-pulse"></span> Online — Responde em até 2h</div>
         </div>
       </div>
       {/* Messages */}
@@ -1613,8 +1613,8 @@ function ClienteChatbot({ tipo }: { tipo: ClienteTipo }) {
 function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
   // estilos reutilizados
   const glassInput = "w-full bg-transparent border-0 border-b border-white/20 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-bw-dourado transition-colors";
-  const glassLabel = "block text-sm font-medium tabular-nums uppercase tracking-normal text-white/40 mb-1.5";
-  const readOnly = "w-full bg-transparent border-0 border-b border-white/10 py-3 text-sm text-white/40 font-medium tabular-nums cursor-not-allowed select-none";
+  const glassLabel = "block text-sm font-medium tabular-nums uppercase tracking-normal text-white/75 mb-1.5";
+  const readOnly = "w-full bg-transparent border-0 border-b border-white/10 py-3 text-sm text-white/75 font-medium tabular-nums cursor-not-allowed select-none";
 
   // viewmodel / integração com backend
   const vm = useMinhaContaViewModel();
@@ -1721,7 +1721,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
         {tipo === "pf" ? (
           <>
             <section className="flex flex-col gap-5">
-              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25">Dados pessoais</div>
+              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/70">Dados pessoais</div>
               <div className="grid sm:grid-cols-2 gap-x-5 gap-y-5">
                 <div>
                   <label className={glassLabel}>Nome</label>
@@ -1734,7 +1734,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
                 <div>
                   <label className={glassLabel}>CPF</label>
                   <input type="text" value={vm.data?.cpf ? vm.data.cpf : ""} readOnly className={readOnly} />
-                  <div className="text-xs font-medium tabular-nums text-white/20 mt-1">Não editável</div>
+                  <div className="text-xs font-medium tabular-nums text-white/65 mt-1">Não editável</div>
                 </div>
                 <div>
                   <label className={glassLabel}>Data de nascimento</label>
@@ -1751,7 +1751,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
               </div>
             </section>
             <section className="flex flex-col gap-4">
-              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25">Origem do contato</div>
+              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/70">Origem do contato</div>
               <div>
                 <label className={glassLabel}>Como nos conheceu?</label>
                 <select value={origemContato} onChange={e => { setOrigemContato(e.target.value); if (e.target.value !== "instagram") setInstagramUsername(""); }}
@@ -1763,7 +1763,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
                 <div>
                   <label className={glassLabel}>Perfil no Instagram</label>
                   <div className="relative">
-                    <span className="absolute left-0 bottom-2.5 text-white/30 text-sm font-medium tabular-nums select-none">@</span>
+                    <span className="absolute left-0 bottom-2.5 text-white/70 text-sm font-medium tabular-nums select-none">@</span>
                     <input type="text" value={instagramUsername} onChange={e => setInstagramUsername(e.target.value.replace(/^@/, "").replace(/\s/g, ""))} className={glassInput + " pl-4"} />
                   </div>
                 </div>
@@ -1773,16 +1773,16 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
         ) : (
           <>
             <section className="flex flex-col gap-5">
-              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25">Dados da empresa</div>
+              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/70">Dados da empresa</div>
               <div>
                 <label className={glassLabel}>CNPJ</label>
                 <input type="text" value={cnpj} readOnly className={readOnly} />
-                <div className="text-xs font-medium tabular-nums text-white/20 mt-1">Não editável</div>
+                <div className="text-xs font-medium tabular-nums text-white/65 mt-1">Não editável</div>
               </div>
               <div>
                 <label className={glassLabel}>Razão social</label>
                 <input type="text" value={razaoSocial} onChange={e => setRazaoSocial(e.target.value)} className={glassInput} />
-                <div className="text-xs font-medium tabular-nums text-white/20 mt-1">Validado na Receita Federal</div>
+                <div className="text-xs font-medium tabular-nums text-white/65 mt-1">Validado na Receita Federal</div>
               </div>
               <div>
                 <label className={glassLabel}>Nome fantasia</label>
@@ -1798,7 +1798,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
               </div>
             </section>
             <section className="flex flex-col gap-5">
-              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25">Responsável legal</div>
+              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/70">Responsável legal</div>
               <div>
                 <label className={glassLabel}>Nome completo</label>
                 <input type="text" value={responsavelNome} onChange={e => setResponsavelNome(e.target.value)} className={glassInput} />
@@ -1806,11 +1806,11 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
               <div>
                 <label className={glassLabel}>CPF do responsável</label>
                 <input type="text" value={vm.data?.cpf ? vm.data.cpf : ""} readOnly className={readOnly} />
-                <div className="text-xs font-medium tabular-nums text-white/20 mt-1">Não editável</div>
+                <div className="text-xs font-medium tabular-nums text-white/65 mt-1">Não editável</div>
               </div>
             </section>
             <section className="flex flex-col gap-4">
-              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25">Origem do contato</div>
+              <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/70">Origem do contato</div>
               <div>
                 <label className={glassLabel}>Como nos conheceu?</label>
                 <select value={origemContato} onChange={e => { setOrigemContato(e.target.value); if (e.target.value !== "instagram") setInstagramUsername(""); }}
@@ -1822,7 +1822,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
                 <div>
                   <label className={glassLabel}>Perfil no Instagram</label>
                   <div className="relative">
-                    <span className="absolute left-0 bottom-2.5 text-white/30 text-sm font-medium tabular-nums select-none">@</span>
+                    <span className="absolute left-0 bottom-2.5 text-white/70 text-sm font-medium tabular-nums select-none">@</span>
                     <input type="text" value={instagramUsername} onChange={e => setInstagramUsername(e.target.value.replace(/^@/, "").replace(/\s/g, ""))} className={glassInput + " pl-4"} />
                   </div>
                 </div>
@@ -1832,7 +1832,7 @@ function ClienteConta({ tipo }: { tipo: ClienteTipo }) {
         )}
 
         <section className="flex flex-col gap-4">
-          <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/25">Segurança</div>
+          <div className="text-xs font-medium tabular-nums uppercase tracking-normal text-white/70">Segurança</div>
           <div>
             <label className={glassLabel}>Senha atual</label>
             <PasswordInput placeholder="••••••••" value={senhaAtual} onChange={e => setSenhaAtual(e.target.value)} className={glassInput} />
@@ -1879,7 +1879,7 @@ function PortalCliente({ tipo, onNav }: { tipo: ClienteTipo; onNav: (s: Screen) 
         <nav className="flex items-center h-full">
           {([["mensagens","Mensagens"],["agendamentos","Calendário"],["conta","Minha Conta"]] as [PortalTab,string][]).map(([t, label]) => (
             <button key={t} onClick={() => runViewTransition(() => setTab(t))}
-              className={`relative flex h-full items-center px-2.5 font-medium tabular-nums text-xs uppercase tracking-normal transition-colors duration-300 sm:px-8 sm:text-sm sm:tracking-normal ${tab === t ? "text-bw-dourado" : "text-white/40 hover:text-white/80"}`}>
+              className={`relative flex h-full items-center px-2.5 font-medium tabular-nums text-xs uppercase tracking-normal transition-colors duration-300 sm:px-8 sm:text-sm sm:tracking-normal ${tab === t ? "text-bw-dourado" : "text-white/75 hover:text-white/80"}`}>
               <span className="relative z-10">{label}</span>
               {tab === t && (
                 <span
@@ -1893,17 +1893,17 @@ function PortalCliente({ tipo, onNav }: { tipo: ClienteTipo; onNav: (s: Screen) 
         </nav>
 
         {/* Sair */}
-        <button onClick={() => onNav("institucional")} className="text-sm font-medium tabular-nums text-white/40 hover:text-bw-dourado transition-colors uppercase tracking-normal flex items-center gap-2">
+        <button onClick={() => onNav("institucional")} className="text-sm font-medium tabular-nums text-white/75 hover:text-bw-dourado transition-colors uppercase tracking-normal flex items-center gap-2">
           Sair <span className="text-sm leading-none hidden sm:block">›</span>
         </button>
       </header>
 
       {/* Main content */}
-      <div className="relative z-10 flex flex-1 items-stretch justify-center overflow-hidden px-3 py-4 sm:px-4 sm:py-8 lg:px-12 lg:py-12">
+      <main id="conteudo-principal" className="relative z-10 flex flex-1 items-stretch justify-center overflow-hidden px-3 py-4 sm:px-4 sm:py-8 lg:px-12 lg:py-12">
         <div className="w-full max-w-4xl xl:max-w-5xl">
           {tab === "mensagens" ? <ClienteChatbot tipo={tipo} /> : tab === "agendamentos" ? <ClienteAgendamentosView /> : <ClienteConta tipo={tipo} />}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
@@ -1990,7 +1990,7 @@ function PlatformShell({ screen, onNav }: { screen: Screen; onNav: (s: Screen) =
           <div className="flex items-center gap-3"><span className="hidden h-2 w-2 rounded-full bg-bw-dourado shadow-[0_0_0_4px_rgba(176,141,87,.12)] sm:block" /><span className="text-base font-semibold text-bw-preto">{navItems.find(n => n.id === screen)?.label}</span></div>
           
         </header>
-        <main ref={stageRef} style={{ viewTransitionName: "bw-admin-stage" }} className={`flex-1 min-h-0 px-3 sm:px-6 lg:px-8 ${screen === "funil" || screen === "calendario" ? "overflow-y-auto py-4 sm:overflow-hidden sm:py-5" : "overflow-y-auto py-5 sm:py-8"}`}>
+        <main id="conteudo-principal" ref={stageRef} style={{ viewTransitionName: "bw-admin-stage" }} className={`flex-1 min-h-0 px-3 sm:px-6 lg:px-8 ${screen === "funil" || screen === "calendario" ? "overflow-y-auto py-4 sm:overflow-hidden sm:py-5" : "overflow-y-auto py-5 sm:py-8"}`}>
           {renderScreen()}
         </main>
       </div>
@@ -3791,10 +3791,10 @@ function UsuariosAdmin() {
         <aside className="self-start border border-bw-dourado/25 bg-bw-preto p-5 text-bw-white shadow-xl">
           <div className="mb-6 border-b border-white/10 pb-5"><h2 className="font-semibold tracking-tight text-2xl">Adicionar administrador</h2><p className="mt-2 text-sm leading-relaxed text-bw-areia/60">O cadastro administrativo aceita somente CPF. O CNPJ permanece exclusivo da conta BW.</p></div>
           <form onSubmit={addUser} className="flex flex-col gap-5">
-            <label className="flex flex-col gap-1.5"><span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-areia/55">Nome completo</span><input value={form.nome} onChange={event => { setForm(current => ({ ...current, nome: event.target.value })); setMessage(""); }} placeholder="Nome da pessoa" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-bw-dourado" /></label>
-            <label className="flex flex-col gap-1.5"><span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-areia/55">E-mail profissional</span><input type="email" value={form.email} onChange={event => { setForm(current => ({ ...current, email: event.target.value })); setMessage(""); }} placeholder="nome@empresa.com" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-bw-dourado" /></label>
-            <label className="flex flex-col gap-1.5"><span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-areia/55">CPF</span><input inputMode="numeric" value={form.cpf} onChange={event => { setForm(current => ({ ...current, cpf: formatCpf(event.target.value) })); setMessage(""); }} placeholder="000.000.000-00" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-bw-dourado" /><span className="text-xs leading-relaxed text-bw-areia/45">CPF é obrigatório para vincular uma pessoa ao acesso interno.</span></label>
-            <label className="flex flex-col gap-1.5"><span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-areia/55">Área de atuação</span><select value={form.funcao} onChange={event => setForm(current => ({ ...current, funcao: event.target.value }))} className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none focus:border-bw-dourado"><option className="bg-bw-preto" value="Administradora">Administradora</option><option className="bg-bw-preto" value="Administrador">Administrador</option><option className="bg-bw-preto" value="Operações">Operações</option></select></label>
+            <label className="flex flex-col gap-1.5"><span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-areia/85">Nome completo</span><input value={form.nome} onChange={event => { setForm(current => ({ ...current, nome: event.target.value })); setMessage(""); }} placeholder="Nome da pessoa" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/70 focus:border-bw-dourado" /></label>
+            <label className="flex flex-col gap-1.5"><span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-areia/85">E-mail profissional</span><input type="email" value={form.email} onChange={event => { setForm(current => ({ ...current, email: event.target.value })); setMessage(""); }} placeholder="nome@empresa.com" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/70 focus:border-bw-dourado" /></label>
+            <label className="flex flex-col gap-1.5"><span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-areia/85">CPF</span><input inputMode="numeric" value={form.cpf} onChange={event => { setForm(current => ({ ...current, cpf: formatCpf(event.target.value) })); setMessage(""); }} placeholder="000.000.000-00" className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none placeholder:text-white/70 focus:border-bw-dourado" /><span className="text-xs leading-relaxed text-bw-areia/75">CPF é obrigatório para vincular uma pessoa ao acesso interno.</span></label>
+            <label className="flex flex-col gap-1.5"><span className="font-medium tabular-nums text-xs uppercase tracking-normal text-bw-areia/85">Área de atuação</span><select value={form.funcao} onChange={event => setForm(current => ({ ...current, funcao: event.target.value }))} className="border-0 border-b border-white/20 bg-transparent px-0 py-2.5 text-sm text-white outline-none focus:border-bw-dourado"><option className="bg-bw-preto" value="Administradora">Administradora</option><option className="bg-bw-preto" value="Administrador">Administrador</option><option className="bg-bw-preto" value="Operações">Operações</option></select></label>
             {message && <div role="status" className={`flex items-start gap-2 border px-3 py-2.5 text-sm leading-relaxed ${message.startsWith("Convite") ? "border-bw-dourado/40 bg-bw-dourado/10 text-bw-areia" : "border-white/20 bg-white/5 text-bw-areia/75"}`}>{message.startsWith("Convite") ? <Icon.Check /> : <Icon.AlertCircle />}{message}</div>}
             <button type="submit" className="mt-1 bg-bw-dourado px-4 py-3 text-sm font-medium uppercase tracking-normal text-white transition-colors hover:bg-[#c19d65]">Enviar convite ↗</button>
           </form>
@@ -4117,10 +4117,17 @@ export default function App() {
     navegar(destino);
   }
 
-  if (screen === "institucional") return <SiteInstitucionalPremium onNav={navegar} />;
-  if (screen === "login") return <Login onNav={handleLoginNav} onClientLogin={handleClientLogin} />;
-  if (screen === "cadastro") return <Cadastro onNav={navegar} onClientLogin={handleClientLogin} />;
-  if (screen === "portal-cliente") return <PortalCliente tipo={clienteTipo} onNav={navegar} />;
-  if (platformScreens.includes(screen)) return <PlatformShell screen={screen} onNav={navegar} />;
-  return <SiteInstitucionalPremium onNav={navegar} />;
+  const activeView =
+    screen === "login" ? <Login onNav={handleLoginNav} onClientLogin={handleClientLogin} /> :
+    screen === "cadastro" ? <Cadastro onNav={navegar} onClientLogin={handleClientLogin} /> :
+    screen === "portal-cliente" ? <PortalCliente tipo={clienteTipo} onNav={navegar} /> :
+    platformScreens.includes(screen) ? <PlatformShell screen={screen} onNav={navegar} /> :
+    <SiteInstitucionalPremium onNav={navegar} />;
+
+  return (
+    <>
+      {activeView}
+      <AccessibilityToolbar />
+    </>
+  );
 }
