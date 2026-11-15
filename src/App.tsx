@@ -457,6 +457,19 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
         scrollTrigger: { trigger: "#sobre", start: "top 75%", once: true },
       });
       gsap.to("[data-sobre-seal]", { rotation: 360, duration: 18, repeat: -1, ease: "none" });
+      gsap.to("[data-scroll-progress]", { scaleX: 1, ease: "none", scrollTrigger: { start: 0, end: "max", scrub: 0.15 } });
+      gsap.utils.toArray<HTMLElement>("[data-magnetic]").forEach(btn => {
+        const xTo = gsap.quickTo(btn, "x", { duration: 0.45, ease: "power3.out" });
+        const yTo = gsap.quickTo(btn, "y", { duration: 0.45, ease: "power3.out" });
+        const onMove = (e: MouseEvent) => {
+          const r = btn.getBoundingClientRect();
+          xTo(((e.clientX - (r.left + r.width / 2)) / r.width) * 14);
+          yTo(((e.clientY - (r.top + r.height / 2)) / r.height) * 14);
+        };
+        const onLeave = () => { xTo(0); yTo(0); };
+        btn.addEventListener("mousemove", onMove);
+        btn.addEventListener("mouseleave", onLeave);
+      });
       if (false) gsap.fromTo("[data-parallax-photo]", { yPercent: 6 }, {
         yPercent: -6, ease: "none",
         scrollTrigger: { trigger: "[data-parallax-photo]", start: "top bottom", end: "bottom top", scrub: true },
@@ -529,6 +542,7 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
       {/* NAV integrada ao hero */}
       <nav ref={navRef} className="fixed top-0 left-0 right-0 z-50 isolate bg-gradient-to-b from-bw-preto/75 to-transparent">
         <div aria-hidden className={`absolute inset-0 -z-10 border-b border-bw-white/10 bg-bw-preto/85 backdrop-blur-md transition-opacity duration-500 ${scrolled || menuOpen ? "opacity-100" : "opacity-0"}`} />
+        <span data-scroll-progress aria-hidden className="pointer-events-none absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-0 bg-bw-dourado/90" />
         <div className="mx-auto flex h-[74px] max-w-[1600px] items-center justify-between px-5 sm:px-8 lg:px-12">
           <button data-nav-item onClick={() => scrollTo("inicio")} className="text-left leading-none group flex flex-col items-start"><img src={bwLogo} alt="BW" className="object-contain" style={{ height: "44px", width: "auto", mixBlendMode: "screen" }} /><span className="mt-[3px] block font-mono text-[8px] uppercase tracking-[.22em] text-bw-areia/60 group-hover:text-bw-dourado transition-colors">Arquitetura &amp; Marcenaria</span></button>
           <div className="hidden lg:flex items-center gap-9 text-[12px] font-medium uppercase tracking-wider text-bw-areia">
@@ -541,7 +555,7 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
           </div>
           <div data-nav-item className="flex items-center gap-2 sm:gap-4">
             <button onClick={() => onNav("login")} className="hidden sm:block px-4 py-2.5 text-sm font-medium text-bw-areia hover:text-bw-white transition-colors">Área do cliente</button>
-            <button onClick={() => scrollTo("contato")} className="hidden bg-bw-dourado px-5 py-3 text-[12px] font-medium uppercase tracking-wider text-white hover:bg-[#c19d65] transition-colors sm:block sm:px-6">Começar projeto</button>
+            <button data-magnetic onClick={() => scrollTo("contato")} className="hidden bg-bw-dourado px-5 py-3 text-[12px] font-medium uppercase tracking-wider text-white hover:bg-[#c19d65] transition-colors sm:block sm:px-6">Começar projeto</button>
             <button onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} aria-expanded={menuOpen} className="grid h-10 w-10 place-items-center border border-bw-white/30 bg-bw-preto/20 text-bw-areia lg:hidden">{menuOpen ? <Icon.X /> : <Icon.Menu />}</button>
           </div>
         </div>
@@ -551,7 +565,7 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
         <div data-hero-copy className="max-w-4xl lg:pb-5">
           <h1 data-hero-title className="font-display text-[clamp(2.65rem,12vw,8.6rem)] font-medium leading-[.86] tracking-[-.045em] text-bw-white sm:leading-[.78] sm:tracking-[-.055em]">Transformamos ideias<br /><span className="font-normal text-bw-areia fg-inline-italic">em ambientes que</span><br />inspiram.</h1>
           <div className="mt-8 flex flex-col gap-5 sm:mt-10 sm:flex-row sm:items-center sm:gap-6">
-            <button data-hero-fade onClick={() => scrollTo("contato")} className="group w-full bg-bw-dourado px-7 py-3.5 text-[11px] font-medium uppercase tracking-[.14em] text-white hover:bg-[#c19d65] transition-colors sm:w-fit">Agendar conversa <span className="ml-4 inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></button>
+            <button data-hero-fade data-magnetic onClick={() => scrollTo("contato")} className="group w-full bg-bw-dourado px-7 py-3.5 text-[11px] font-medium uppercase tracking-[.14em] text-white hover:bg-[#c19d65] transition-colors sm:w-fit">Agendar conversa <span className="ml-4 inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></button>
             <p data-hero-fade className="max-w-xs text-sm leading-relaxed text-bw-areia/80">Projetamos espaços singulares, feitos para viver bem hoje e continuar fazendo sentido amanhã.</p>
           </div>
         </div>
@@ -716,6 +730,19 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
       </div>
     </section>
 
+    <div aria-hidden className="overflow-hidden border-b border-bw-border-sub bg-bw-preto py-3.5 text-bw-areia/75">
+      <div className="bw-marquee-track items-center gap-10 font-mono text-[10px] uppercase tracking-[.24em]">
+        {Array.from({ length: 2 }).flatMap((_, r) =>
+          ["Madeira certificada", "Projeto autoral", "Execução própria", "São Paulo · SP", "Marcenaria sob medida", "Precisão milimétrica"].map((item, idx) => (
+            <span key={`${r}-${idx}`} className="inline-flex items-center gap-10 whitespace-nowrap">
+              <span>{item}</span>
+              <span className="h-1 w-1 rounded-full bg-bw-dourado" />
+            </span>
+          ))
+        )}
+      </div>
+    </div>
+
     <section id="projetos" className="bg-bw-white">
       <div className="mx-auto max-w-[1600px] px-5 py-24 sm:px-8 lg:px-12 lg:py-36">
         <div className="mb-12 flex flex-col justify-between gap-7 sm:flex-row sm:items-end">
@@ -727,12 +754,17 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
         </div>
         <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-12">
           {projects.map((p, i) => (
-            <article key={p.title} className="lg:col-span-3 group cursor-pointer">
+            <article key={p.title} className={`lg:col-span-3 group cursor-pointer ${i % 2 === 1 ? "lg:mt-12" : ""}`}>
+              <div className="mb-2.5 flex items-center justify-between border-t border-bw-border pt-2 font-mono text-[9px] uppercase tracking-[.18em] text-bw-muted">
+                <span className="text-bw-dourado">0{i + 1} / 0{projects.length}</span>
+                <span>Acervo BW</span>
+              </div>
               <div data-clip={i * 0.15} className="aspect-[3/4] relative overflow-hidden bg-bw-areia">
                 <img src={p.image} alt={`${p.title}, ${p.type}`} className="h-full w-full object-cover transition-transform duration-[1.2s] ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-105" />
                 <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bw-preto/30 to-transparent opacity-0 transition-opacity duration-700 group-hover:opacity-100" />
               </div>
-              <div data-reveal={0.25 + i * 0.12} className="flex justify-between gap-3 pt-3">
+              <div data-reveal={0.25 + i * 0.12} className="relative flex justify-between gap-3 border-b border-bw-border/60 pb-3.5 pt-3">
+                <span aria-hidden className="pointer-events-none absolute -bottom-px left-0 h-px w-full origin-left scale-x-0 bg-bw-dourado transition-transform duration-500 ease-out group-hover:scale-x-100" />
                 <div><h3 className="font-display text-2xl leading-none">{p.title}</h3><p className="mt-2 font-mono text-[10px] uppercase tracking-[.12em] text-bw-muted">{p.type}</p></div>
                 <span className="text-xl text-bw-dourado opacity-0 -translate-x-1 translate-y-1 transition-all duration-500 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0">↗</span>
               </div>
@@ -751,7 +783,7 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
         </div>
         <div className="lg:col-span-3 lg:col-start-10">
           <p data-reveal="0.2" className="mb-7 text-sm leading-relaxed text-bw-areia/75">Conte um pouco sobre o que você imagina. Nós cuidamos do primeiro traço.</p>
-          <button data-reveal="0.35" onClick={() => onNav("cadastro")} className="group w-full bg-bw-dourado py-4 text-[11px] font-medium uppercase tracking-[.14em] text-white hover:bg-[#c19d65] transition-colors">Iniciar projeto <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></button>
+          <button data-reveal="0.35" data-magnetic onClick={() => onNav("cadastro")} className="group w-full bg-bw-dourado py-4 text-[11px] font-medium uppercase tracking-[.14em] text-white hover:bg-[#c19d65] transition-colors">Iniciar projeto <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></button>
         </div>
       </div>
     </section>
@@ -2098,7 +2130,7 @@ function CalendarioLegacy() {
   return (
     <div className="flex flex-col gap-5 max-w-4xl mx-auto w-full">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div><h1 className="text-2xl font-semibold text-bw-preto font-display">Calendário de Entregas</h1><p className="text-[10px] font-mono text-bw-muted">Compartilhado com a equipe — clique em um dia para agendar ou em um evento para editar/excluir</p></div>
+        <div><div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">03 · Agenda de Obra</div><h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-display">Calendário de Entregas</h1><p className="text-[10px] font-mono text-bw-muted mt-0.5">Compartilhado com a equipe — clique em um dia para agendar ou em um evento para editar/excluir</p></div>
         <button onClick={() => openNew(hojeISO)} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Agendar</button>
       </div>
 
@@ -2378,7 +2410,8 @@ function Simulacao() {
   return (
     <div className="flex flex-col gap-5 max-w-4xl mx-auto w-full">
       <div>
-        <h1 className="text-2xl font-semibold text-bw-preto font-display">Simulação de Ambiente (IA)</h1>
+        <div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">05 · Estúdio Técnico</div>
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-display">Simulação de Ambiente (IA)</h1>
         <p className="text-[10px] font-mono text-bw-muted">Redesenhe espaços instantaneamente para encantar o cliente</p>
       </div>
 
@@ -2505,7 +2538,7 @@ function TabelaPrecos() {
   return (
     <div className="flex flex-col gap-5 max-w-4xl mx-auto w-full relative">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div><h1 className="text-2xl font-semibold text-bw-preto font-display">Tabela de Preços de Referência</h1><p className="text-[10px] font-mono text-bw-muted">Padronização para orçamentos</p></div>
+        <div><div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">06 · Orçamentação</div><h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-display">Tabela de Preços de Referência</h1><p className="text-[10px] font-mono text-bw-muted mt-0.5">Padronização para orçamentos</p></div>
         <div className="flex gap-2">
           <button onClick={() => { setExportError(""); setIsExportModalOpen(true); }} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors">Exportar PDF</button>
           <button onClick={() => { setFormError(""); setIsNewItemModalOpen(true); }} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Novo item</button>
@@ -3314,7 +3347,7 @@ function MapaDescarte() {
   return (
     <div className="flex flex-col gap-5 max-w-4xl mx-auto w-full relative">
       <div>
-        <div><h1 className="text-2xl font-semibold text-bw-preto font-display">Mapa de Descarte Adequado</h1><p className="text-[10px] font-mono text-bw-muted">Locais e formas corretas de descarte de resíduos (próximos ao CEP cadastrado)</p></div>
+        <div><div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">08 · Logística Verde</div><h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-display">Mapa de Descarte Adequado</h1><p className="text-[10px] font-mono text-bw-muted mt-0.5">Locais e formas corretas de descarte de resíduos (próximos ao CEP cadastrado)</p></div>
       </div>
 
       {mapsAvailable ? (

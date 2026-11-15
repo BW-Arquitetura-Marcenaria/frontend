@@ -85,7 +85,8 @@ export default function RastreabilidadeView({ projetos }: { projetos: ProjetoOpt
     <div className="flex flex-col gap-5 max-w-5xl mx-auto w-full relative">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-bw-preto font-display">Rastreabilidade de Materiais</h1>
+          <div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">07 · Sustentabilidade &amp; Origem</div>
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-display">Rastreabilidade de Materiais</h1>
           <p className="text-[10px] font-mono text-bw-muted">Transparência da origem ao produto final</p>
         </div>
         <button onClick={() => setForm(emptyForm(projetoId ?? ""))} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Registrar Uso</button>

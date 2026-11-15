@@ -216,7 +216,7 @@ export default function FinanceiroView() {
 
   return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h1 className="font-display text-2xl font-semibold text-bw-preto">Controle Financeiro</h1>
+      <div><div className="mb-1 font-mono text-[9px] uppercase tracking-[.18em] text-bw-dourado">02 · Gestão Financeira</div><h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto">Controle Financeiro</h1>
         <p className="mt-1 text-sm text-bw-madeira">Visão de {mesAtual} · pedidos e recebimentos</p></div>
       <div className="flex flex-wrap gap-2">
         <button className="rounded border border-bw-border px-3 py-2 text-xs text-bw-preto hover:bg-bw-white disabled:opacity-50" disabled={ocupado} onClick={() => { void carregarPainel(); void carregarLista(paginaAtual); }}>Atualizar</button>
