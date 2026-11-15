@@ -4,8 +4,8 @@ import sobrePhoto from "@/assets/team/fundadores-bianca-walmir.jpeg";
 import bwProject1 from "@/assets/portfolio/casa-aroeira-estante-residencial.png";
 import bwProject2 from "@/assets/portfolio/apartamento-jardins-estante-adega.png";
 import bwHeroBg from "@/assets/backgrounds/hero-sala-marcenaria.png";
-import bwProject3 from "@/assets/portfolio/cozinha-itaim-freijo.jpg";
-import bwProject4 from "@/assets/portfolio/closet-morumbi-vidro-canelado.jpg";
+import bwProject3 from "@/assets/portfolio/estudio-oliva-estante-comercial.png";
+import bwProject4 from "@/assets/portfolio/atelier-botanico-estante-plantas.png";
 import bwLoginBg from "@/assets/backgrounds/login-estante-plantas.png";
 import RastreabilidadeView from "@/views/rastreabilidade/RastreabilidadeView";
 import CalendarioView from "@/views/calendario/CalendarioView";
@@ -319,8 +319,8 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
   const projects = [
     { title: "Casa Aroeira", type: "Estante residencial", image: bwProject1 },
     { title: "Apartamento Jardins", type: "Estante com adega", image: bwProject2 },
-    { title: "Residência Itaim", type: "Cozinha em Freijó", image: bwProject3 },
-    { title: "Suíte Morumbi", type: "Closet iluminado", image: bwProject4 },
+    { title: "Estúdio Oliva", type: "Estante comercial", image: bwProject3 },
+    { title: "Atelier Botânico", type: "Estante expositora", image: bwProject4 },
   ];
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -601,7 +601,7 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
             <div data-reveal className="mb-5 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">03 — Projetos selecionados</div>
             <h2 data-split className="font-display text-5xl leading-none tracking-[-.045em] sm:text-6xl">Espaços que pedem<br /><em className="font-normal">para ser vividos.</em></h2>
           </div>
-          <button data-reveal="0.2" onClick={() => scrollTo("contato")} className="group w-fit border-b border-bw-dourado pb-2 text-left font-mono text-[11px] uppercase tracking-[.14em] text-bw-madeira hover:text-bw-preto transition-colors">Ver portfólio completo <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></button>
+          <a data-reveal="0.2" href="https://www.instagram.com/bw.arquiteturaemarcenaria/" target="_blank" rel="noopener noreferrer" className="group w-fit border-b border-bw-dourado pb-2 text-left font-mono text-[11px] uppercase tracking-[.14em] text-bw-madeira hover:text-bw-preto transition-colors">Ver mais no Instagram <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></a>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-12">
           {projects.map((p, i) => (
@@ -637,7 +637,7 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
       <div data-reveal className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-5 px-5 py-8 font-mono text-[10px] uppercase tracking-[.1em] text-bw-muted sm:flex-row sm:items-center sm:px-8 lg:px-12">
         <div><div>© 2026 · São Paulo, Brasil</div></div>
         <div className="flex flex-col items-center"><img src={bwLogo} alt="BW" className="object-contain" style={{ height: "44px", width: "auto", mixBlendMode: "screen" }} /><span className="mt-[3px] block font-mono text-[8px] uppercase tracking-[.22em] text-bw-muted">Arquitetura &amp; Marcenaria</span></div>
-        <div className="flex gap-6"><a href="#" className="hover:text-bw-areia transition-colors">Instagram</a><a href="#" className="hover:text-bw-areia transition-colors">Pinterest</a></div>
+        <div className="flex gap-6"><a href="https://www.instagram.com/bw.arquiteturaemarcenaria/" target="_blank" rel="noopener noreferrer" className="hover:text-bw-areia transition-colors">Instagram</a><a href="#" className="hover:text-bw-areia transition-colors">Pinterest</a></div>
       </div>
     </footer>
   </div>;
