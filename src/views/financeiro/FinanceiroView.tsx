@@ -23,7 +23,7 @@ import {
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const percentual = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const input = "w-full border-b border-bw-dourado/40 bg-transparent py-2 text-sm text-bw-white outline-none focus:border-bw-dourado [color-scheme:dark]";
-const label = "flex flex-col gap-1 font-mono text-[10px] uppercase tracking-wider text-bw-areia";
+const label = "flex flex-col gap-1 font-medium tabular-nums text-sm uppercase tracking-wider text-bw-areia";
 const vazio: RegistroFinanceiroPayload = {
   descricao: "", quantidade: 1, valor: 0, frete: 0, valorTotal: 0,
   valorFinalDesconto: null, valorEntrada: null, receberEntrega: null,
@@ -218,17 +218,17 @@ export default function FinanceiroView() {
 
   return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h1 className="font-display text-2xl font-semibold text-bw-preto">Controle Financeiro</h1>
+      <div><h1 className="font-semibold tracking-tight text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto">Controle Financeiro</h1>
         <p className="mt-1 text-sm text-bw-madeira">Visão de {mesAtual} · pedidos e recebimentos</p></div>
       <div className="flex flex-wrap gap-2">
-        <button className="rounded border border-bw-border px-3 py-2 text-xs text-bw-preto hover:bg-bw-white disabled:opacity-50" disabled={ocupado} onClick={() => { void carregarPainel(); void carregarLista(paginaAtual); }}>Atualizar</button>
-        <button className="rounded border border-bw-dourado px-3 py-2 text-xs text-bw-madeira hover:bg-bw-white disabled:opacity-50" disabled={ocupado} onClick={() => void exportar()}>Exportar Excel</button>
-        <button className="rounded border border-bw-dourado px-3 py-2 text-xs text-bw-madeira hover:bg-bw-white" onClick={() => { setArquivo(null); setResultadoImportacao(null); setErroAcao(""); setModalImportacao(true); }}>Importar Excel</button>
-        <button className="rounded bg-bw-dourado px-3 py-2 text-xs text-white hover:bg-bw-madeira" onClick={() => abrirRegistro()}>+ Novo registro</button>
+        <button className="rounded border border-bw-border px-3 py-2 text-sm text-bw-preto hover:bg-bw-white disabled:opacity-50" disabled={ocupado} onClick={() => { void carregarPainel(); void carregarLista(paginaAtual); }}>Atualizar</button>
+        <button className="rounded border border-bw-dourado px-3 py-2 text-sm text-bw-madeira hover:bg-bw-white disabled:opacity-50" disabled={ocupado} onClick={() => void exportar()}>Exportar Excel</button>
+        <button className="rounded border border-bw-dourado px-3 py-2 text-sm text-bw-madeira hover:bg-bw-white" onClick={() => { setArquivo(null); setResultadoImportacao(null); setErroAcao(""); setModalImportacao(true); }}>Importar Excel</button>
+        <button className="rounded bg-bw-dourado px-3 py-2 text-sm text-white hover:bg-bw-madeira" onClick={() => abrirRegistro()}>+ Novo registro</button>
       </div>
     </div>
 
-    {aviso && <div role="status" className="rounded border border-bw-dourado bg-bw-white p-3 text-xs text-bw-madeira">{aviso} <button className="ml-2 underline" onClick={() => setAviso("")}>Dispensar</button></div>}
+    {aviso && <div role="status" className="rounded border border-bw-dourado bg-bw-white p-3 text-sm text-bw-madeira">{aviso} <button className="ml-2 underline" onClick={() => setAviso("")}>Dispensar</button></div>}
     {erroAcao && !modalRegistro && !modalImportacao && !excluindo && <p role="alert" className="text-sm text-red-700">{erroAcao}</p>}
     {erroPainel && <div role="alert" className="text-sm text-red-700">{erroPainel} <button className="underline" onClick={() => void carregarPainel()}>Tentar novamente</button></div>}
     <div className="grid gap-4 sm:grid-cols-3">
@@ -239,13 +239,13 @@ export default function FinanceiroView() {
     <p className="rounded-lg border border-bw-border-sub bg-bw-white/70 px-4 py-3 text-sm leading-relaxed text-bw-madeira"><strong>Como ler:</strong> recebido é a soma do valor recebido final; frete é o único custo considerado. Os números usam a data do pedido. O saldo não representa o lucro total.</p>
     <div className="flex flex-wrap gap-2" role="tablist" aria-label="Seções financeiras">
       {([ ["resumo", "Resumo"], ["registros", "Registros"], ["metricas", "Métricas"] ] as const).map(([valor, texto]) =>
-        <button key={valor} role="tab" aria-selected={aba === valor} className={`rounded border px-3 py-1.5 text-xs ${aba === valor ? "border-bw-dourado bg-bw-dourado text-white" : "border-bw-border text-bw-madeira hover:bg-bw-white"}`} onClick={() => setAba(valor)}>{texto}</button>
+        <button key={valor} role="tab" aria-selected={aba === valor} className={`rounded border px-3 py-1.5 text-sm ${aba === valor ? "border-bw-dourado bg-bw-dourado text-white" : "border-bw-border text-bw-madeira hover:bg-bw-white"}`} onClick={() => setAba(valor)}>{texto}</button>
       )}
     </div>
 
     {aba === "resumo" && <section className="rounded-xl border border-bw-border bg-bw-white p-5 shadow-sm sm:p-7" aria-label="Comparativo financeiro mensal">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div><h2 className="font-display text-2xl font-semibold text-bw-preto">Evolução dos recebimentos</h2>
+        <div><h2 className="font-semibold tracking-tight text-2xl font-semibold text-bw-preto">Evolução dos recebimentos</h2>
           <p className="mt-1 text-sm text-bw-madeira">Comparativo com frete nos últimos seis meses</p></div>
         <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium text-bw-preto">
           <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm bg-bw-dourado" />Recebido</span>
@@ -254,7 +254,7 @@ export default function FinanceiroView() {
       </div>
       {carregandoPainel && !comparativo ? <p className="text-sm text-bw-muted">Carregando gráfico...</p> : comparativo?.length ? <>
         <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)] gap-2 sm:grid-cols-[76px_minmax(0,1fr)] sm:gap-3">
-            <div className="flex h-52 flex-col justify-between pb-1 text-right text-[10px] text-bw-madeira sm:h-72 sm:text-xs" aria-hidden="true">
+            <div className="flex h-52 flex-col justify-between pb-1 text-right text-sm text-bw-madeira sm:h-72 sm:text-sm" aria-hidden="true">
               {ticks.map((tick, indice) => <span key={indice}>{new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(tick)}</span>)}
             </div>
             <div className="relative h-52 min-w-0 border-b border-bw-border sm:h-72">
@@ -264,13 +264,13 @@ export default function FinanceiroView() {
               <div className="relative z-10 flex h-full items-end">
                 {comparativo.map(mes => <div key={mes.mes} className="flex h-full min-w-0 flex-1 items-end justify-center gap-0.5 px-0.5 sm:gap-2 sm:px-3">
                   {([ ["receitas", "bg-bw-dourado", "Recebido"], ["despesas", "bg-bw-madeira", "Frete"] ] as const).map(([chave, cor, nome]) => <div key={chave} tabIndex={0} role="img" aria-label={`${nome} em ${mes.mes}: ${moeda(mes[chave])}`} title={`${nome}: ${moeda(mes[chave])}`} className={`group relative w-full max-w-12 rounded-t-md ${cor} outline-offset-2 hover:brightness-90 focus:outline-2 focus:outline-bw-preto`} style={{ height: `${Math.max(Number(mes[chave]) > 0 ? 2 : 0, Math.min(100, Number(mes[chave]) / maximo * 100))}%` }}>
-                    <span aria-hidden="true" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-bw-preto px-2 py-1 text-xs text-white shadow-lg group-hover:block group-focus:block">{nome}: {moeda(mes[chave])}</span>
+                    <span aria-hidden="true" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-bw-preto px-2 py-1 text-sm text-white shadow-lg group-hover:block group-focus:block">{nome}: {moeda(mes[chave])}</span>
                   </div>)}
                 </div>)}
               </div>
             </div>
             <div />
-            <div className="flex">{comparativo.map(mes => <span key={mes.mes} className="min-w-0 flex-1 text-center text-[10px] font-medium capitalize text-bw-madeira sm:text-xs">{new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(new Date(`${mes.mes}-01T12:00:00`)).replace(".", "")}</span>)}</div>
+            <div className="flex">{comparativo.map(mes => <span key={mes.mes} className="min-w-0 flex-1 text-center text-sm font-medium capitalize text-bw-madeira sm:text-sm">{new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(new Date(`${mes.mes}-01T12:00:00`)).replace(".", "")}</span>)}</div>
         </div>
         <div className="mt-5 grid gap-3 border-t border-bw-border-sub pt-5 sm:grid-cols-3">
           <div><p className="text-sm text-bw-madeira">Recebido no período</p><p className="mt-1 text-xl font-semibold tabular-nums text-bw-preto">{moeda(soma("receitas"))}</p></div>
@@ -288,10 +288,10 @@ export default function FinanceiroView() {
     </div>}
 
     {aba === "registros" && <section className="rounded-lg border border-bw-border bg-bw-white" aria-label="Registros financeiros">
-      <div className="flex flex-wrap justify-between gap-2 p-4"><h2 className="font-display text-lg font-semibold">Pedidos financeiros</h2><span className="font-mono text-xs text-bw-muted">{pagina?.totalElements ?? 0} registros</span></div>
+      <div className="flex flex-wrap justify-between gap-2 p-4"><h2 className="font-semibold tracking-tight text-lg font-semibold">Pedidos financeiros</h2><span className="font-medium tabular-nums text-sm text-bw-muted">{pagina?.totalElements ?? 0} registros</span></div>
       {erroLista && <p role="alert" className="px-4 pb-3 text-sm text-red-700">{erroLista} <button className="underline" onClick={() => void carregarLista(paginaAtual)}>Tentar novamente</button></p>}
-      {carregando ? <p className="p-4 text-sm text-bw-muted">Carregando registros...</p> : pagina?.content.length ? <div className="overflow-x-auto"><table className="w-full min-w-[750px] text-left text-xs">
-        <thead className="bg-bw-areia font-mono uppercase tracking-wider text-bw-muted"><tr>{["Descrição / cliente", "Pedido", "Qtd.", "Valor total", "Recebido", "Frete", "Ações"].map(t => <th key={t} className="px-3 py-3">{t}</th>)}</tr></thead>
+      {carregando ? <p className="p-4 text-sm text-bw-muted">Carregando registros...</p> : pagina?.content.length ? <div className="overflow-x-auto"><table className="w-full min-w-[750px] text-left text-sm">
+        <thead className="bg-bw-areia font-medium tabular-nums uppercase tracking-wider text-bw-muted"><tr>{["Descrição / cliente", "Pedido", "Qtd.", "Valor total", "Recebido", "Frete", "Ações"].map(t => <th key={t} className="px-3 py-3">{t}</th>)}</tr></thead>
         <tbody>{pagina.content.map(registro => <tr key={registro.id} className="border-t border-bw-border hover:bg-bw-areia/50">
           <td className="px-3 py-3"><strong className="font-medium text-bw-preto">{registro.descricao || "Sem descrição"}</strong><span className="block text-bw-muted">{registro.contatoCliente || "Cliente não informado"}</span></td>
           <td className="px-3 py-3 font-mono">{dataLocal(registro.dataPedido)}</td><td className="px-3 py-3 font-mono">{registro.quantidade}</td>
@@ -299,7 +299,7 @@ export default function FinanceiroView() {
           <td className="whitespace-nowrap px-3 py-3"><div className="flex items-center gap-2"><button type="button" className="text-bw-madeira underline disabled:opacity-40" disabled={ocupado} onClick={() => abrirRegistro(registro)}>Editar</button><DeleteButton onClick={() => { setErroAcao(""); setExcluindo(registro); }} disabled={ocupado} title="Excluir registro" aria-label={`Excluir ${registro.descricao || `registro #${registro.id}`}`} /></div></td>
         </tr>)}</tbody>
       </table></div> : !erroLista && <p className="p-4 text-sm text-bw-muted">Nenhum registro encontrado. Cadastre um pedido ou importe uma planilha.</p>}
-      {pagina && pagina.totalPages > 1 && <div className="flex items-center justify-between gap-3 border-t border-bw-border p-4 font-mono text-xs text-bw-madeira">
+      {pagina && pagina.totalPages > 1 && <div className="flex items-center justify-between gap-3 border-t border-bw-border p-4 font-medium tabular-nums text-sm text-bw-madeira">
         <button className="underline disabled:opacity-40" disabled={carregando || paginaAtual === 0} onClick={() => setPaginaAtual(p => p - 1)}>Anterior</button>
         <span>Página {pagina.number + 1} de {pagina.totalPages}</span>
         <button className="underline disabled:opacity-40" disabled={carregando || paginaAtual >= pagina.totalPages - 1} onClick={() => setPaginaAtual(p => p + 1)}>Próxima</button>
@@ -307,7 +307,7 @@ export default function FinanceiroView() {
     </section>}
 
     {modalRegistro && <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/70 p-4"><div role="dialog" aria-modal="true" aria-labelledby="titulo-registro" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto border border-bw-dourado/30 bg-bw-preto p-6 shadow-2xl">
-      <div className="mb-5 flex items-start justify-between"><div><h2 id="titulo-registro" className="font-display text-2xl text-bw-white">{editando !== null ? "Editar pedido" : "Novo pedido financeiro"}</h2><p className="font-mono text-xs text-bw-areia">Valores de pedidos e recebimentos</p></div><button className="text-xs text-bw-areia underline" disabled={ocupado} onClick={() => setModalRegistro(false)}>Fechar</button></div>
+      <div className="mb-5 flex items-start justify-between"><div><h2 id="titulo-registro" className="font-semibold tracking-tight text-2xl text-bw-white">{editando !== null ? "Editar pedido" : "Novo pedido financeiro"}</h2><p className="font-medium tabular-nums text-sm text-bw-areia">Valores de pedidos e recebimentos</p></div><button className="text-sm text-bw-areia underline" disabled={ocupado} onClick={() => setModalRegistro(false)}>Fechar</button></div>
       <form onSubmit={e => void salvar(e)} className="grid gap-5 sm:grid-cols-2">
         <label className={`${label} sm:col-span-2`}>Descrição<input className={input} value={formulario.descricao ?? ""} onChange={e => alterar("descricao", e.target.value)} placeholder="Ex.: Projeto cozinha planejada" /></label>
         <CampoNumero titulo="Quantidade *" inteiro obrigatorio valor={formulario.quantidade} onChange={v => alterar("quantidade", v ?? 0)} />
@@ -323,19 +323,19 @@ export default function FinanceiroView() {
         <label className={label}>Data da entrega<input type="date" className={input} value={formulario.dataEntrega ?? ""} onChange={e => alterar("dataEntrega", e.target.value || null)} /></label>
         <label className={label}>Contato do cliente<input maxLength={100} className={input} value={formulario.contatoCliente ?? ""} onChange={e => alterar("contatoCliente", e.target.value)} /></label>
         <label className={label}>Região da venda<input maxLength={100} className={input} value={formulario.regiaoVenda ?? ""} onChange={e => alterar("regiaoVenda", e.target.value)} /></label>
-        <p className="text-xs text-bw-areia sm:col-span-2">* Campos obrigatórios. Os totais não são calculados automaticamente pelo backend. Apenas pedidos com data e valor recebido final entram na receita dos indicadores.</p>
+        <p className="text-sm text-bw-areia sm:col-span-2">* Campos obrigatórios. Os totais não são calculados automaticamente pelo backend. Apenas pedidos com data e valor recebido final entram na receita dos indicadores.</p>
         {erroAcao && <p role="alert" className="text-sm text-red-300 sm:col-span-2">{erroAcao}</p>}
-        <button className="bg-bw-dourado px-4 py-3 text-xs font-semibold uppercase text-bw-preto disabled:opacity-50 sm:col-span-2" disabled={ocupado} type="submit">{ocupado ? "Salvando..." : "Salvar registro"}</button>
+        <button className="bg-bw-dourado px-4 py-3 text-sm font-semibold uppercase text-bw-preto disabled:opacity-50 sm:col-span-2" disabled={ocupado} type="submit">{ocupado ? "Salvando..." : "Salvar registro"}</button>
       </form>
     </div></div>}
 
     {modalImportacao && <div className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/70 p-4"><div role="dialog" aria-modal="true" aria-labelledby="titulo-importar" className="max-h-[90vh] w-full max-w-lg overflow-y-auto border border-bw-dourado/30 bg-bw-preto p-6 shadow-2xl">
-      <div className="flex justify-between"><h2 id="titulo-importar" className="font-display text-2xl text-bw-white">Importar Excel</h2><button className="text-xs text-bw-areia underline" disabled={ocupado} onClick={() => setModalImportacao(false)}>Fechar</button></div>
-      <p className="my-4 text-xs text-bw-areia">Selecione uma planilha .xlsx no formato da exportação financeira. Obrigatórios por linha: Quantidade, Valor, Frete e Valor Total. A importação cria novos registros; linhas inválidas são informadas abaixo.</p>
+      <div className="flex justify-between"><h2 id="titulo-importar" className="font-semibold tracking-tight text-2xl text-bw-white">Importar Excel</h2><button className="text-sm text-bw-areia underline" disabled={ocupado} onClick={() => setModalImportacao(false)}>Fechar</button></div>
+      <p className="my-4 text-sm text-bw-areia">Selecione uma planilha .xlsx no formato da exportação financeira. Obrigatórios por linha: Quantidade, Valor, Frete e Valor Total. A importação cria novos registros; linhas inválidas são informadas abaixo.</p>
       <form onSubmit={e => void importar(e)} className="flex flex-col gap-4"><label className={label}>Planilha Excel<input className={`${input} file:mr-3 file:border-0 file:bg-bw-areia file:p-2 file:text-bw-preto`} type="file" accept=".xlsx" required onChange={(e: ChangeEvent<HTMLInputElement>) => { setArquivo(e.target.files?.[0] ?? null); setResultadoImportacao(null); }} /></label>
         {erroAcao && <p role="alert" className="text-sm text-red-300">{erroAcao}</p>}
-        <button type="submit" disabled={ocupado || !arquivo} className="bg-bw-dourado px-4 py-3 text-xs font-semibold uppercase text-bw-preto disabled:opacity-50">{ocupado ? "Importando..." : "Iniciar importação"}</button></form>
-      {resultadoImportacao && <div role="status" className="mt-4 border-t border-bw-dourado/30 pt-3 text-xs text-bw-white"><p>{resultadoImportacao.totalImportado} de {resultadoImportacao.totalLinhasProcessadas} linhas importadas.</p>{resultadoImportacao.erros.length > 0 && <><p className="mt-2 text-bw-areia">Erros por linha:</p><ul className="list-inside list-disc">{resultadoImportacao.erros.map((erro, indice) => <li key={indice}>{erro}</li>)}</ul></>}</div>}
+        <button type="submit" disabled={ocupado || !arquivo} className="bg-bw-dourado px-4 py-3 text-sm font-semibold uppercase text-bw-preto disabled:opacity-50">{ocupado ? "Importando..." : "Iniciar importação"}</button></form>
+      {resultadoImportacao && <div role="status" className="mt-4 border-t border-bw-dourado/30 pt-3 text-sm text-bw-white"><p>{resultadoImportacao.totalImportado} de {resultadoImportacao.totalLinhasProcessadas} linhas importadas.</p>{resultadoImportacao.erros.length > 0 && <><p className="mt-2 text-bw-areia">Erros por linha:</p><ul className="list-inside list-disc">{resultadoImportacao.erros.map((erro, indice) => <li key={indice}>{erro}</li>)}</ul></>}</div>}
     </div></div>}
 
     {excluindo && <ConfirmDeleteModal

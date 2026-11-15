@@ -3,7 +3,9 @@ import bwLogo from "@/assets/brand/logo-bw-arquitetura-marcenaria.png";
 import sobrePhoto from "@/assets/team/fundadores-bianca-walmir.jpeg";
 import bwProject1 from "@/assets/portfolio/casa-aroeira-estante-residencial.png";
 import bwProject2 from "@/assets/portfolio/apartamento-jardins-estante-adega.png";
+import bwHeroBg from "@/assets/backgrounds/hero-sala-marcenaria.png";
 import bwProject3 from "@/assets/portfolio/estudio-oliva-estante-comercial.png";
+import bwProject4 from "@/assets/portfolio/atelier-botanico-estante-plantas.png";
 import bwLoginBg from "@/assets/backgrounds/login-estante-plantas.png";
 import RastreabilidadeView, { type RascunhoRastreabilidade } from "@/views/rastreabilidade/RastreabilidadeView";
 import CalendarioView from "@/views/calendario/CalendarioView";
@@ -31,8 +33,28 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
+import { flushSync } from "react-dom";
+import { SwarmCursor, ShinyText, SpotlightCard, CountUpMetric, ReactBitsCarousel } from "@/components/ReactBits";
 
 gsap.registerPlugin(ScrollTrigger, SplitText, useGSAP);
+
+function runViewTransition(update: () => void) {
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+  const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  if (!doc.startViewTransition || reduce) {
+    update();
+    return;
+  }
+  try {
+    doc.startViewTransition(() => {
+      flushSync(() => {
+        update();
+      });
+    });
+  } catch {
+    update();
+  }
+}
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Screen =
@@ -141,9 +163,9 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 // ─── SCREEN: Site Institucional ───────────────────────────────────────────────
 const depoimentos = [
   { nome: "Erick Sampaio", sub: "Projeto de cozinha planejada", texto: "Recebi o contrato e fiquei impressionado com o nível de detalhamento. Todo o atendimento foi incrível  nos sentimos muito acolhidos desde o primeiro contato. Escolhemos a BW por grande culpa do atendimento da equipe. Continue assim!" },
-  { nome: "Verônica Lima", sub: "Dormitório e closet sob medida", texto: "Buscando uma empresa séria e com facilidade no pagamento, achei a BW no Instagram. Logo entrei em contato, marquei minha visita, fiquei muito satisfeita com o projeto — material de ótima qualidade e atendimento muito atencioso." },
+  { nome: "Verônica Lima", sub: "Dormitório e closet sob medida", texto: "Buscando uma empresa séria e com facilidade no pagamento, achei a BW no Instagram. Logo entrei em contato, marquei minha visita, fiquei muito satisfeita com o projeto, material de ótima qualidade e atendimento muito atencioso." },
   { nome: "Rafael Mendes", sub: "Escritório planejado", texto: "Projeto entregue no prazo e dentro do orçamento combinado. A equipe da BW acompanhou cada detalhe da instalação. O resultado ficou muito acima do esperado. Recomendo sem hesitar para quem busca qualidade de verdade." },
-  { nome: "Juliana Costa", sub: "Sala de estar e home office", texto: "Tudo que foi prometido foi cumprido. Fiquei surpresa com a atenção ao detalhe na marcenaria. A Bianca e o Walmir são muito presentes durante todo o processo — isso faz toda a diferença na hora de confiar o seu projeto." },
+  { nome: "Juliana Costa", sub: "Sala de estar e home office", texto: "Tudo que foi prometido foi cumprido. Fiquei surpresa com a atenção ao detalhe na marcenaria. A Bianca e o Walmir são muito presentes durante todo o processo, isso faz toda a diferença na hora de confiar o seu projeto." },
 ];
 
 function StarRow() {
@@ -311,9 +333,18 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
   const [dep, setDep] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [activeProject, setActiveProject] = useState<number | null>(null);
+  const [activeNav, setActiveNav] = useState<string>("inicio");
+  const [hoveredNav, setHoveredNav] = useState<string | null>(null);
+  const navLockRef = useRef(false);
+  const scrolledRef = useRef(false);
+  const scrollTweenRef = useRef<gsap.core.Tween | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
-  const navHiddenRef = useRef(false);
+  const navLinksWrapRef = useRef<HTMLDivElement>(null);
+  const navBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const navPillRef = useRef<HTMLSpanElement>(null);
+  const navLineRef = useRef<HTMLSpanElement>(null);
   const menuOpenRef = useRef(false);
   const quoteRefs = useRef<(HTMLParagraphElement | null)[]>([]);
   const authorRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -326,28 +357,150 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
     { title: "Casa Aroeira", type: "Estante residencial", image: bwProject1 },
     { title: "Apartamento Jardins", type: "Estante com adega", image: bwProject2 },
     { title: "Estúdio Oliva", type: "Estante comercial", image: bwProject3 },
+    { title: "Atelier Botânico", type: "Estante expositora", image: bwProject4 },
   ];
+
+  const syncNavIndicator = (targetId: string | null, immediate = false) => {
+    const pill = navPillRef.current;
+    const line = navLineRef.current;
+    if (!pill || !line) return;
+    const btn = targetId ? navBtnRefs.current[targetId] : null;
+    if (!btn) {
+      gsap.to([pill, line], { autoAlpha: 0, duration: immediate ? 0 : 0.35, ease: "power2.out", overwrite: "auto" });
+      return;
+    }
+    const x = btn.offsetLeft;
+    const w = btn.offsetWidth;
+    gsap.to(pill, {
+      x,
+      width: w,
+      autoAlpha: 1,
+      duration: immediate ? 0 : 0.52,
+      ease: "power3.out",
+      overwrite: "auto",
+    });
+    gsap.to(line, {
+      x: x + 14,
+      width: Math.max(16, w - 28),
+      autoAlpha: 1,
+      duration: immediate ? 0 : 0.52,
+      ease: "power3.out",
+      overwrite: "auto",
+    });
+  };
+
+  useEffect(() => {
+    syncNavIndicator(hoveredNav ?? (activeNav === "inicio" ? null : activeNav));
+  }, [hoveredNav, activeNav]);
+
   const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    const target = document.getElementById(id);
     setMenuOpen(false);
+    setActiveNav(id);
+    if (!target) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      target.scrollIntoView({ behavior: "auto" });
+      return;
+    }
+    scrollTweenRef.current?.kill();
+    navLockRef.current = true;
+    const startY = window.scrollY;
+    const destY = Math.max(0, target.getBoundingClientRect().top + startY - 64);
+    const distance = Math.abs(destY - startY);
+    const duration = Math.min(1.05, Math.max(0.55, distance / 1800));
+    const proxy = { y: startY };
+    const cancelOnUserInput = () => {
+      scrollTweenRef.current?.kill();
+      navLockRef.current = false;
+      window.removeEventListener("wheel", cancelOnUserInput);
+      window.removeEventListener("touchstart", cancelOnUserInput);
+    };
+    window.addEventListener("wheel", cancelOnUserInput, { passive: true });
+    window.addEventListener("touchstart", cancelOnUserInput, { passive: true });
+    scrollTweenRef.current = gsap.to(proxy, {
+      y: destY,
+      duration,
+      ease: "power3.inOut",
+      onUpdate: () => window.scrollTo(0, proxy.y),
+      onComplete: () => {
+        navLockRef.current = false;
+        window.removeEventListener("wheel", cancelOnUserInput);
+        window.removeEventListener("touchstart", cancelOnUserInput);
+      },
+    });
   };
   const pauseDep = () => { depPaused.current = true; progressTween.current?.pause(); };
   const resumeDep = () => { depPaused.current = false; progressTween.current?.resume(); };
+  const sobreCardRef = useRef<HTMLDivElement>(null);
+  const sobreSpinDeg = useRef(0);
+  const sobreSpinning = useRef(false);
+
+  const girarSobre360 = (graus = 360) => {
+    if (!sobreCardRef.current || sobreSpinning.current) return;
+    sobreSpinning.current = true;
+    sobreSpinDeg.current += graus;
+    gsap.to(sobreCardRef.current, {
+      rotateY: sobreSpinDeg.current,
+      rotateX: 0,
+      duration: graus === 360 ? 1.35 : 0.95,
+      onComplete: () => { sobreSpinning.current = false; },
+      ease: "expo.inOut",
+      overwrite: "auto",
+    });
+  };
+
+  const handleSobreMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!sobreCardRef.current || sobreSpinning.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width - 0.5;
+    const ny = (e.clientY - rect.top) / rect.height - 0.5;
+    gsap.to(sobreCardRef.current, {
+      rotateY: sobreSpinDeg.current + nx * 16,
+      rotateX: -ny * 12,
+      duration: 0.45,
+      ease: "power2.out",
+      overwrite: "auto",
+    });
+  };
+
+  const handleSobreLeave = () => {
+    if (!sobreCardRef.current || sobreSpinning.current) return;
+    gsap.to(sobreCardRef.current, {
+      rotateY: sobreSpinDeg.current,
+      rotateX: 0,
+      duration: 0.7,
+      ease: "power3.out",
+      overwrite: "auto",
+    });
+  };
 
   // ── Animações de entrada e de scroll ──────────────────────────────────────
   useGSAP(() => {
-    // Nav: fundo sólido após rolar, esconde ao descer e volta ao subir
+    // Nav: transição contínua e sedosa ao rolar (sem pulos de esconder/mostrar)
     ScrollTrigger.create({
       start: 0,
       end: "max",
-      onRefresh: self => setScrolled(self.scroll() > 40),
+      onRefresh: self => {
+        const isScrolled = self.scroll() > 36;
+        scrolledRef.current = isScrolled;
+        setScrolled(isScrolled);
+      },
       onUpdate: self => {
         const y = self.scroll();
-        setScrolled(y > 40);
-        const hide = self.direction === 1 && y > window.innerHeight * 0.8 && !menuOpenRef.current;
-        if (hide !== navHiddenRef.current) {
-          navHiddenRef.current = hide;
-          gsap.to(navRef.current, { yPercent: hide ? -100 : 0, duration: 0.5, ease: "power3.out", overwrite: "auto" });
+        const isScrolled = y > 36;
+        if (scrolledRef.current !== isScrolled) {
+          scrolledRef.current = isScrolled;
+          setScrolled(isScrolled);
+        }
+        if (!navLockRef.current) {
+          for (const secId of ["contato", "projetos", "metodo", "sobre", "inicio"]) {
+            const el = document.getElementById(secId);
+            if (el && el.getBoundingClientRect().top <= 240) {
+              setActiveNav(prev => (prev === secId ? prev : secId));
+              break;
+            }
+          }
         }
       },
     });
@@ -368,8 +521,8 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
         onSplit: self => gsap.from(self.lines, { yPercent: 70, autoAlpha: 0, duration: 1.5, stagger: 0.14, ease: "expo.out", delay: 0.5 }),
       });
 
-      // HERO — parallax
-      const heroScroll = { trigger: "#inicio", start: "top top", end: "bottom top", scrub: true };
+      // HERO — parallax suavizado
+      const heroScroll = { trigger: "#inicio", start: "top top", end: "bottom top", scrub: 0.65 };
       gsap.to("[data-hero-bg]", { yPercent: 18, ease: "none", scrollTrigger: heroScroll });
       gsap.to("[data-hero-copy]", { yPercent: -14, opacity: 0.25, ease: "none", scrollTrigger: heroScroll });
       gsap.to("[data-hero-card]", { yPercent: -6, ease: "none", scrollTrigger: heroScroll });
@@ -415,7 +568,25 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
       });
 
       // Foto dos fundadores — parallax suave
-      gsap.fromTo("[data-parallax-photo]", { yPercent: 6 }, {
+      gsap.fromTo("[data-sobre-3d-card]", { rotateY: -360, scale: 0.9, autoAlpha: 0 }, {
+        rotateY: 0, scale: 1, autoAlpha: 1, duration: 1.75, ease: "expo.out",
+        scrollTrigger: { trigger: "#sobre", start: "top 75%", once: true },
+      });
+      gsap.to("[data-sobre-seal]", { rotation: 360, duration: 18, repeat: -1, ease: "none" });
+      gsap.to("[data-scroll-progress]", { scaleX: 1, ease: "none", scrollTrigger: { start: 0, end: "max", scrub: 0.15 } });
+      gsap.utils.toArray<HTMLElement>("[data-magnetic]").forEach(btn => {
+        const xTo = gsap.quickTo(btn, "x", { duration: 0.45, ease: "power3.out" });
+        const yTo = gsap.quickTo(btn, "y", { duration: 0.45, ease: "power3.out" });
+        const onMove = (e: MouseEvent) => {
+          const r = btn.getBoundingClientRect();
+          xTo(((e.clientX - (r.left + r.width / 2)) / r.width) * 14);
+          yTo(((e.clientY - (r.top + r.height / 2)) / r.height) * 14);
+        };
+        const onLeave = () => { xTo(0); yTo(0); };
+        btn.addEventListener("mousemove", onMove);
+        btn.addEventListener("mouseleave", onLeave);
+      });
+      if (false) gsap.fromTo("[data-parallax-photo]", { yPercent: 6 }, {
         yPercent: -6, ease: "none",
         scrollTrigger: { trigger: "[data-parallax-photo]", start: "top bottom", end: "bottom top", scrub: true },
       });
@@ -481,35 +652,83 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
   }, { dependencies: [menuOpen], scope: rootRef });
 
   return <div ref={rootRef} className="min-h-full bg-bw-white selection:bg-bw-dourado selection:text-bw-white">
-    <section id="inicio" className="relative min-h-[100svh] overflow-hidden bg-bw-preto text-bw-white">
-      <img data-hero-bg src={bwProject3} alt="Projeto de marcenaria BW — estante comercial" className="absolute inset-0 h-full w-full object-cover opacity-60 will-change-transform" />
+    <SwarmCursor />
+    <main id="conteudo-principal"><section id="inicio" className="relative min-h-[100svh] overflow-hidden bg-bw-preto text-bw-white">
+      <img data-hero-bg src={bwHeroBg} alt="Projeto de marcenaria BW — sala de estar sob medida" className="absolute inset-0 h-full w-full object-cover opacity-65 will-change-transform" />
       <div className="absolute inset-0 bg-gradient-to-r from-bw-preto via-bw-preto/70 to-bw-preto/15" />
-      {/* NAV integrada ao hero */}
-      <nav ref={navRef} className="fixed top-0 left-0 right-0 z-50 isolate bg-gradient-to-b from-bw-preto/75 to-transparent">
-        <div aria-hidden className={`absolute inset-0 -z-10 border-b border-bw-white/10 bg-bw-preto/85 backdrop-blur-md transition-opacity duration-500 ${scrolled || menuOpen ? "opacity-100" : "opacity-0"}`} />
-        <div className="mx-auto flex h-[74px] max-w-[1600px] items-center justify-between px-5 sm:px-8 lg:px-12">
-          <button data-nav-item onClick={() => scrollTo("inicio")} className="text-left leading-none group flex flex-col items-start"><img src={bwLogo} alt="BW" className="object-contain" style={{ height: "44px", width: "auto", mixBlendMode: "screen" }} /><span className="mt-[3px] block font-mono text-[8px] uppercase tracking-[.22em] text-bw-areia/60 group-hover:text-bw-dourado transition-colors">Arquitetura &amp; Marcenaria</span></button>
-          <div className="hidden lg:flex items-center gap-9 text-[12px] font-medium uppercase tracking-wider text-bw-areia">
-            {[["SOBRE", "sobre"], ["MÉTODO", "metodo"], ["PROJETOS", "projetos"], ["CONTATO", "contato"]].map(([label, id]) => (
-              <button data-nav-item key={id} onClick={() => scrollTo(id)} className="group relative py-1 hover:text-bw-dourado transition-colors">
-                {label}
-                <span aria-hidden className="absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-bw-dourado transition-transform duration-500 ease-out group-hover:scale-x-100" />
-              </button>
-            ))}
+      {/* NAV integrada ao hero com indicador deslizante GSAP */}
+      <nav ref={navRef} className="fixed top-0 left-0 right-0 z-50 isolate bg-gradient-to-b from-bw-preto/75 via-bw-preto/25 to-transparent">
+        <div
+          aria-hidden
+          className={`absolute inset-0 -z-10 border-b border-bw-white/10 bg-bw-preto/82 backdrop-blur-xl transition-[opacity,box-shadow,background-color] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${scrolled || menuOpen ? "opacity-100 shadow-[0_14px_40px_rgba(0,0,0,0.32)]" : "opacity-0"}`}
+        />
+        <span data-scroll-progress aria-hidden className="pointer-events-none absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-0 bg-bw-dourado/90" />
+        <div className={`mx-auto flex max-w-[1600px] items-center justify-between px-5 transition-[height,padding] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] sm:px-8 lg:px-12 ${scrolled ? "h-[64px]" : "h-[82px]"}`}>
+          <button data-nav-item onClick={() => scrollTo("inicio")} className="text-left leading-none group flex flex-col items-start">
+            <img src={bwLogo} alt="BW" className="object-contain transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.03]" style={{ height: scrolled ? "39px" : "44px", width: "auto", mixBlendMode: "screen", transition: "height 700ms cubic-bezier(0.16,1,0.3,1)" }} />
+            <span className="mt-[3px] block font-mono text-[8px] uppercase tracking-[.22em] text-bw-areia/60 group-hover:text-bw-dourado transition-colors duration-500">Arquitetura &amp; Marcenaria</span>
+          </button>
+          <div
+            ref={navLinksWrapRef}
+            onMouseLeave={() => setHoveredNav(null)}
+            className="relative hidden lg:flex items-center gap-2 rounded-full border border-white/[0.06] bg-white/[0.025] px-2 py-1 text-[11px] font-medium uppercase tracking-[.14em] text-bw-areia backdrop-blur-md"
+          >
+            <span
+              ref={navPillRef}
+              aria-hidden
+              className="pointer-events-none absolute top-1 bottom-1 left-0 rounded-full border border-bw-dourado/25 bg-bw-dourado/12 opacity-0"
+              style={{ width: 0 }}
+            />
+            <span
+              ref={navLineRef}
+              aria-hidden
+              className="pointer-events-none absolute bottom-[3px] left-0 h-[1.5px] rounded-full bg-bw-dourado opacity-0 shadow-[0_0_10px_rgba(176,141,87,0.75)]"
+              style={{ width: 0 }}
+            />
+            {[["SOBRE", "sobre"], ["MÉTODO", "metodo"], ["PROJETOS", "projetos"], ["CONTATO", "contato"]].map(([label, id]) => {
+              const isHighlighted = (hoveredNav ?? activeNav) === id;
+              return (
+                <button
+                  data-nav-item
+                  key={id}
+                  ref={el => { navBtnRefs.current[id] = el; }}
+                  onMouseEnter={() => setHoveredNav(id)}
+                  onFocus={() => setHoveredNav(id)}
+                  onBlur={() => setHoveredNav(null)}
+                  onClick={() => scrollTo(id)}
+                  className={`relative z-10 px-4 py-2 transition-colors duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isHighlighted ? "text-bw-white" : "text-bw-areia/80 hover:text-bw-white"}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
           <div data-nav-item className="flex items-center gap-2 sm:gap-4">
-            <button onClick={() => onNav("login")} className="hidden sm:block px-4 py-2.5 text-sm font-medium text-bw-areia hover:text-bw-white transition-colors">Área do cliente</button>
-            <button onClick={() => scrollTo("contato")} className="hidden bg-bw-dourado px-5 py-3 text-[12px] font-medium uppercase tracking-wider text-white hover:bg-[#c19d65] transition-colors sm:block sm:px-6">Começar projeto</button>
-            <button onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} aria-expanded={menuOpen} className="grid h-10 w-10 place-items-center border border-bw-white/30 bg-bw-preto/20 text-bw-areia lg:hidden">{menuOpen ? <Icon.X /> : <Icon.Menu />}</button>
+            <button onClick={() => onNav("login")} className="hidden sm:block px-4 py-2.5 text-sm font-medium text-bw-areia/85 hover:text-bw-white transition-colors duration-500">Área do cliente</button>
+            <button data-magnetic onClick={() => scrollTo("contato")} className="hidden bg-bw-dourado px-5 py-3 text-[12px] font-medium uppercase tracking-wider text-white hover:bg-[#c19d65] transition-colors duration-500 sm:block sm:px-6">Começar projeto</button>
+            <button onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} aria-expanded={menuOpen} className="grid h-10 w-10 place-items-center border border-bw-white/30 bg-bw-preto/20 text-bw-areia transition-colors duration-300 hover:border-bw-dourado lg:hidden">{menuOpen ? <Icon.X /> : <Icon.Menu />}</button>
           </div>
         </div>
-        {menuOpen && <div className="grid gap-5 border-t border-bw-white/10 bg-bw-preto/80 backdrop-blur-md px-5 py-6 font-mono text-[13px] uppercase tracking-widest text-bw-areia lg:hidden">{[["Sobre", "sobre"], ["Método", "metodo"], ["Projetos", "projetos"], ["Contato", "contato"]].map(([label, id]) => <button data-menu-item key={id} onClick={() => scrollTo(id)} className="text-left hover:text-bw-dourado transition-colors">{label}</button>)}</div>}
+        <div
+          aria-hidden={!menuOpen}
+          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] lg:hidden ${menuOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0 pointer-events-none"}`}
+        >
+          <div className="overflow-hidden">
+            <div className="grid gap-5 border-t border-bw-white/10 bg-bw-preto/90 backdrop-blur-xl px-5 py-6 font-mono text-[13px] uppercase tracking-widest text-bw-areia">
+              {[["Sobre", "sobre"], ["Método", "metodo"], ["Projetos", "projetos"], ["Contato", "contato"]].map(([label, id]) => (
+                <button data-menu-item key={id} onClick={() => scrollTo(id)} className={`text-left transition-colors duration-300 ${activeNav === id ? "text-bw-dourado" : "hover:text-bw-dourado"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </nav>
       <div className="relative z-10 mx-auto grid min-h-[100svh] max-w-[1600px] items-end gap-10 px-5 pb-10 pt-28 sm:px-8 sm:py-16 lg:grid-cols-[1.15fr_.85fr] lg:px-12">
         <div data-hero-copy className="max-w-4xl lg:pb-5">
           <h1 data-hero-title className="font-display text-[clamp(2.65rem,12vw,8.6rem)] font-medium leading-[.86] tracking-[-.045em] text-bw-white sm:leading-[.78] sm:tracking-[-.055em]">Transformamos ideias<br /><span className="font-normal text-bw-areia fg-inline-italic">em ambientes que</span><br />inspiram.</h1>
           <div className="mt-8 flex flex-col gap-5 sm:mt-10 sm:flex-row sm:items-center sm:gap-6">
-            <button data-hero-fade onClick={() => scrollTo("contato")} className="group w-full bg-bw-dourado px-7 py-3.5 text-[11px] font-medium uppercase tracking-[.14em] text-white hover:bg-[#c19d65] transition-colors sm:w-fit">Agendar conversa <span className="ml-4 inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></button>
+            <button data-hero-fade data-magnetic onClick={() => scrollTo("contato")} className="group w-full bg-bw-dourado px-7 py-3.5 text-[11px] font-medium uppercase tracking-[.14em] text-white hover:bg-[#c19d65] transition-colors sm:w-fit">Agendar conversa <span className="ml-4 inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></button>
             <p data-hero-fade className="max-w-xs text-sm leading-relaxed text-bw-areia/80">Projetamos espaços singulares, feitos para viver bem hoje e continuar fazendo sentido amanhã.</p>
           </div>
         </div>
@@ -522,9 +741,10 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
           onMouseLeave={resumeDep}
           onFocus={pauseDep}
           onBlur={resumeDep}
-          className="hidden w-full border border-bw-white/20 bg-bw-preto/35 p-6 backdrop-blur-sm sm:block sm:p-7 lg:max-w-md lg:justify-self-end"
+          className="hidden w-full sm:block lg:max-w-md lg:justify-self-end"
         >
-          <div className="mb-9 flex items-start justify-between gap-5"><div className="font-mono text-[10px] uppercase tracking-[.18em] text-bw-dourado">Palavras de quem vive BW</div><StarRow /></div>
+          <SpotlightCard spotlightColor="rgba(176, 141, 87, 0.22)" className="border border-bw-white/20 bg-bw-preto/40 p-6 backdrop-blur-md sm:p-7">
+          <div className="mb-9 flex items-start justify-between gap-5"><div className="font-mono text-[10px] uppercase tracking-[.18em] text-bw-dourado"><ShinyText>Palavras de quem vive BW</ShinyText></div><StarRow /></div>
           <div className="grid">
             {depoimentos.map((d, i) => (
               <p key={d.nome} ref={el => { quoteRefs.current[i] = el; }} aria-hidden={dep !== i} className="[grid-area:1/1] font-display text-[25px] leading-[1.08] text-bw-white sm:text-[29px]">“{d.texto}”</p>
@@ -539,7 +759,7 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
                 </div>
               ))}
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               {depoimentos.map((_, i) => (
                 <button aria-label={`Depoimento ${i + 1}`} aria-current={dep === i} key={i} onClick={() => setDep(i)} className={`group relative flex h-4 items-center transition-all duration-500 ${dep === i ? "w-8" : "w-3"}`}>
                   <span className="relative block h-px w-full overflow-hidden bg-bw-white/40 transition-colors group-hover:bg-bw-white/70">
@@ -547,8 +767,13 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
                   </span>
                 </button>
               ))}
+              <div className="ml-1 flex items-center gap-1">
+                <button type="button" aria-label="Depoimento anterior" onClick={() => setDep(d => (d - 1 + depoimentos.length) % depoimentos.length)} className="grid h-6 w-6 place-items-center border border-bw-white/20 text-[11px] text-bw-areia transition-colors hover:border-bw-dourado hover:text-bw-dourado">‹</button>
+                <button type="button" aria-label="Próximo depoimento" onClick={() => setDep(d => (d + 1) % depoimentos.length)} className="grid h-6 w-6 place-items-center border border-bw-white/20 text-[11px] text-bw-areia transition-colors hover:border-bw-dourado hover:text-bw-dourado">›</button>
+              </div>
             </div>
           </div>
+          </SpotlightCard>
         </div>
       </div>
       {/* Indicador de rolagem */}
@@ -561,17 +786,98 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
     <section id="sobre" className="bg-bw-white">
       <div className="mx-auto grid max-w-[1600px] items-start gap-y-12 px-5 py-24 sm:px-8 lg:grid-cols-12 lg:gap-x-12 lg:px-12 lg:py-36">
         <div className="lg:sticky lg:top-28 lg:col-span-5">
-          <div data-reveal className="mb-6 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">01 — Nossa assinatura</div>
+          <div data-reveal className="mb-6 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado"><ShinyText>01 — Nossa assinatura</ShinyText></div>
           <h2 data-split className="font-display text-5xl leading-[.87] tracking-[-.045em] sm:text-6xl lg:text-7xl">A beleza mora na forma como um espaço acolhe.</h2>
-        </div>
-        <div className="lg:col-span-6 lg:col-start-7">
-          <div data-clip className="mx-auto w-full max-w-[500px] overflow-hidden">
-            <img data-parallax-photo src={sobrePhoto} alt="Bianca e Walmir, fundadores da BW" className="w-full max-w-[500px] h-auto mx-auto scale-[1.08]" />
+          <div data-reveal="0.15" className="mt-10 grid grid-cols-3 gap-4 border-t border-bw-border pt-6">
+            <div>
+              <div className="font-display text-2xl font-semibold text-bw-preto sm:text-3xl"><CountUpMetric target={100} suffix="%" /></div>
+              <div className="mt-1 font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted">Madeira certificada</div>
+            </div>
+            <div>
+              <div className="font-display text-2xl font-semibold text-bw-preto sm:text-3xl"><CountUpMetric target={360} suffix="°" /></div>
+              <div className="mt-1 font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted">Projeto &amp; execução</div>
+            </div>
+            <div>
+              <div className="font-display text-2xl font-semibold text-bw-preto sm:text-3xl"><CountUpMetric target={12} prefix="+" suffix=" anos" /></div>
+              <div className="mt-1 font-mono text-[9px] uppercase tracking-[.14em] text-bw-muted">De ofício autoral</div>
+            </div>
           </div>
-          <div data-reveal className="mt-4 mb-8 font-mono text-[10px] uppercase leading-relaxed tracking-[.16em] text-bw-muted">Bianca &amp; Walmir<br />Fundadores da BW</div>
-          <div>
-            <p data-reveal className="text-[17px] leading-relaxed text-bw-madeira">A BW nasce do encontro entre olhar arquitetônico e ofício. Somos Bianca e Walmir, parceiros na vida e na criação de interiores que têm presença, propósito e permanência.</p>
-            <p data-reveal="0.1" className="mt-5 text-[15px] leading-relaxed text-bw-madeira">Do desenho à última regulagem da porta, cada decisão é nossa. É assim que o projeto ganha verdade — e vira parte da sua história.</p>
+        </div>
+        <div className="lg:col-span-7 lg:col-start-6">
+          <div className="grid items-center gap-10 md:grid-cols-[340px_1fr] xl:grid-cols-[360px_1fr]">
+            <div className="relative mx-auto w-full max-w-[360px]" style={{ perspective: "1400px" }} onMouseEnter={() => girarSobre360(360)} onMouseMove={handleSobreMove} onMouseLeave={handleSobreLeave}>
+              <div aria-hidden className="pointer-events-none absolute inset-0 translate-x-3.5 translate-y-3.5 border border-bw-dourado/45 bg-bw-areia/65" />
+              <div data-sobre-seal aria-hidden className="pointer-events-none absolute -right-6 -top-6 z-20 hidden h-24 w-24 sm:block">
+                <svg viewBox="0 0 120 120" className="h-full w-full">
+                  <defs>
+                    <path id="bw-seal-circle" d="M 60,60 m -44,0 a 44,44 0 1,1 88,0 a 44,44 0 1,1 -88,0" />
+                  </defs>
+                  <circle cx="60" cy="60" r="54" fill="#16130F" stroke="#B08D57" strokeWidth="1" />
+                  <circle cx="60" cy="60" r="32" fill="none" stroke="#B08D57" strokeWidth="0.6" strokeDasharray="2 3" />
+                  <text fill="#E8E1D5" fontSize="7.4" fontFamily="DM Mono, monospace" letterSpacing="2.3">
+                    <textPath href="#bw-seal-circle">BW ARQUITETURA &amp; MARCENARIA • 360° •</textPath>
+                  </text>
+                  <text x="60" y="63" textAnchor="middle" fill="#B08D57" fontSize="13" fontFamily="Cormorant Garamond, serif" fontWeight="600">BW</text>
+                </svg>
+              </div>
+              <div
+                ref={sobreCardRef}
+                data-sobre-3d-card
+                onClick={() => girarSobre360(360)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); girarSobre360(360); } }}
+                aria-label="Girar foto dos fundadores em 360 graus"
+                className="group relative aspect-[4/5] w-full cursor-pointer select-none shadow-[0_24px_50px_rgba(22,19,15,0.16)]"
+                style={{ transformStyle: "preserve-3d" }}
+              >
+                <div className="absolute inset-0 overflow-hidden border border-bw-border bg-bw-preto" style={{ backfaceVisibility: "hidden" }}>
+                  <img
+                    src={sobrePhoto}
+                    alt="Bianca e Walmir, fundadores da BW"
+                    className="h-full w-full object-cover object-[50%_18%] contrast-[1.03] saturate-[0.96] transition-transform duration-700 group-hover:scale-[1.03]"
+                  />
+                  <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bw-preto/80 via-bw-preto/10 to-transparent" />
+                  <div aria-hidden className="pointer-events-none absolute inset-3 border border-bw-white/25" />
+                  <div className="absolute inset-x-5 bottom-5 flex items-end justify-between gap-3 text-bw-white">
+                    <div>
+                      <div className="font-mono text-[9px] uppercase tracking-[.2em] text-bw-dourado">Fundadores da BW</div>
+                      <div className="mt-0.5 font-display text-2xl leading-none">Bianca &amp; Walmir</div>
+                    </div>
+                    <span className="inline-flex items-center gap-1 border border-bw-dourado/50 bg-bw-preto/75 px-2.5 py-1 text-xs font-medium text-bw-areia backdrop-blur-sm">
+                      360° ↻
+                    </span>
+                  </div>
+                </div>
+                <div
+                  className="absolute inset-0 flex flex-col justify-between border border-bw-dourado/50 bg-bw-preto p-7 text-bw-white"
+                  style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+                >
+                  <div className="flex items-center justify-between border-b border-bw-white/15 pb-4">
+                    <img src={bwLogo} alt="BW" className="h-9 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
+                    <span className="font-mono text-[9px] uppercase tracking-[.2em] text-bw-dourado">Assinatura Autoral</span>
+                  </div>
+                  <div className="my-auto py-4">
+                    <div className="mb-3 font-mono text-[9px] uppercase tracking-[.2em] text-bw-dourado">Nosso compromisso</div>
+                    <p className="font-display text-2xl leading-snug text-bw-areia">
+                      “Cada móvel e cada ambiente carregam o nosso nome, o nosso traço e a nossa presença em obra.”
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-bw-white/15 pt-4 font-mono text-[9px] uppercase tracking-[.16em] text-bw-areia/70">
+                    <span>Bianca &amp; Walmir</span>
+                    <span className="text-bw-dourado">Voltar ↻</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div data-reveal className="mb-4 font-mono text-[10px] uppercase leading-relaxed tracking-[.18em] text-bw-dourado">Arquitetura &amp; Marcenaria Autoral</div>
+              <p data-reveal className="text-[17px] leading-relaxed text-bw-madeira">A BW nasce do encontro entre olhar arquitetônico e ofício. Somos Bianca e Walmir, parceiros na vida e na criação de interiores que têm presença, propósito e permanência.</p>
+              <p data-reveal="0.1" className="mt-5 text-[15px] leading-relaxed text-bw-madeira">Do desenho à última regulagem da porta, cada decisão é nossa. É assim que o projeto ganha verdade — e vira parte da sua história.</p>
+              <div data-reveal="0.2" className="mt-7 border-l-2 border-bw-dourado pl-4 font-display text-xl italic text-bw-preto">
+                “Projetamos e fabricamos sob medida para que o resultado final seja fiel ao primeiro traço.”
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -581,50 +887,102 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
       <div className="mx-auto max-w-[1600px] px-5 py-24 sm:px-8 lg:px-12 lg:py-32">
         <div className="mb-16 grid gap-10 lg:grid-cols-12">
           <div className="lg:col-span-4">
-            <div data-reveal className="mb-5 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">02 — Da conversa à casa</div>
+            <div data-reveal className="mb-5 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado"><ShinyText>02 — Da conversa à casa</ShinyText></div>
             <h2 data-split className="font-display text-5xl leading-[.88] tracking-[-.04em]">Um processo<br />sem ruído.</h2>
           </div>
           <p data-reveal="0.15" className="self-end text-[15px] leading-relaxed text-bw-madeira lg:col-span-4 lg:col-start-8">Clareza, proximidade e domínio técnico em cada etapa. Você acompanha o que importa — sem precisar administrar a obra.</p>
         </div>
         <div data-stagger className="grid border-t border-bw-border md:grid-cols-3">
           {[["01", "Escuta e estratégia", "Começamos pela sua rotina, referências e desejos. O briefing vira direção, não formulário."], ["02", "Projeto com matéria", "Arquitetura, detalhamento e escolha de materiais em um só desenho, pensado até o milímetro."], ["03", "Execução presente", "Produção, entrega e montagem com equipe própria acompanhando cada acabamento."]].map(([n, t, d]) => (
-            <div key={n} className="group relative border-b border-bw-border py-12 md:border-b-0 md:border-r md:py-14 md:px-12 last:border-0">
+            <SpotlightCard key={n} spotlightColor="rgba(176, 141, 87, 0.22)" className="group relative border-b border-bw-border py-12 md:border-b-0 md:border-r md:py-14 md:px-12 last:border-0">
               <span data-line aria-hidden className="absolute -top-px left-0 h-px w-full origin-left bg-bw-dourado/70" />
               <div data-stagger-item className="mb-12 font-mono text-[22px] font-medium text-bw-dourado">{n}</div>
               <h3 data-stagger-item className="mb-4 font-display text-3xl leading-none">{t}</h3>
               <p data-stagger-item className="max-w-xs text-sm leading-relaxed text-bw-madeira">{d}</p>
-            </div>
+            </SpotlightCard>
           ))}
         </div>
       </div>
     </section>
+
+    <div aria-hidden className="overflow-hidden border-b border-bw-border-sub bg-bw-preto py-3.5 text-bw-areia/75">
+      <div className="bw-marquee-track items-center gap-10 font-mono text-[10px] uppercase tracking-[.24em]">
+        {Array.from({ length: 2 }).flatMap((_, r) =>
+          ["Madeira certificada", "Projeto autoral", "Execução própria", "São Paulo · SP", "Marcenaria sob medida", "Precisão milimétrica"].map((item, idx) => (
+            <span key={`${r}-${idx}`} className="inline-flex items-center gap-10 whitespace-nowrap">
+              <span>{item}</span>
+              <span className="h-1 w-1 rounded-full bg-bw-dourado" />
+            </span>
+          ))
+        )}
+      </div>
+    </div>
 
     <section id="projetos" className="bg-bw-white">
       <div className="mx-auto max-w-[1600px] px-5 py-24 sm:px-8 lg:px-12 lg:py-36">
         <div className="mb-12 flex flex-col justify-between gap-7 sm:flex-row sm:items-end">
           <div>
-            <div data-reveal className="mb-5 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">03 — Projetos selecionados</div>
+            <div data-reveal className="mb-5 font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado"><ShinyText>03 — Projetos selecionados</ShinyText></div>
             <h2 data-split className="font-display text-5xl leading-none tracking-[-.045em] sm:text-6xl">Espaços que pedem<br /><em className="font-normal">para ser vividos.</em></h2>
           </div>
-          <button data-reveal="0.2" onClick={() => scrollTo("contato")} className="group w-fit border-b border-bw-dourado pb-2 text-left font-mono text-[11px] uppercase tracking-[.14em] text-bw-madeira hover:text-bw-preto transition-colors">Ver portfólio completo <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></button>
+          <a data-reveal="0.2" href="https://www.instagram.com/bw.arquiteturaemarcenaria/" target="_blank" rel="noopener noreferrer" className="group w-fit border-b border-bw-dourado pb-2 text-left font-mono text-[11px] uppercase tracking-[.14em] text-bw-madeira hover:text-bw-preto transition-colors">Ver mais no Instagram <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></a>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-12">
-          {projects.map((p, i) => (
-            <article key={p.title} className={`${i === 0 ? "col-span-2 lg:col-span-6" : "lg:col-span-3"} group cursor-pointer`}>
-              <div data-clip={i * 0.15} className={`${i === 0 ? "aspect-[16/10]" : "aspect-[3/4]"} relative overflow-hidden bg-bw-areia`}>
-                <img src={p.image} alt={`${p.title}, ${p.type}`} className="h-full w-full object-cover transition-transform duration-[1.2s] ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-105" />
-                <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bw-preto/30 to-transparent opacity-0 transition-opacity duration-700 group-hover:opacity-100" />
-              </div>
-              <div data-reveal={0.25 + i * 0.12} className="flex justify-between gap-3 pt-3">
-                <div><h3 className="font-display text-2xl leading-none">{p.title}</h3><p className="mt-2 font-mono text-[10px] uppercase tracking-[.12em] text-bw-muted">{p.type}</p></div>
-                <span className="text-xl text-bw-dourado opacity-0 -translate-x-1 translate-y-1 transition-all duration-500 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0">↗</span>
-              </div>
-            </article>
-          ))}
-        </div>
+        <ReactBitsCarousel
+          items={projects}
+          onSelectProject={idx => runViewTransition(() => setActiveProject(idx))}
+        />
       </div>
     </section>
 
+    {activeProject !== null && projects[activeProject] && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={projects[activeProject].title}
+        onClick={() => runViewTransition(() => setActiveProject(null))}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/80 p-4 backdrop-blur-md sm:p-8"
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{ viewTransitionName: "bw-project-hero" }}
+          className="grid max-h-[90svh] w-full max-w-4xl overflow-hidden border border-bw-dourado/35 bg-bw-preto text-bw-white shadow-2xl md:grid-cols-[1.05fr_.95fr]"
+        >
+          <div className="relative aspect-[3/4] max-h-[60svh] w-full bg-bw-sidebar md:max-h-[82svh]">
+            <img src={projects[activeProject].image} alt={projects[activeProject].title} className="h-full w-full object-cover" />
+          </div>
+          <div className="flex flex-col justify-between p-6 sm:p-9">
+            <div>
+              <div className="flex items-center justify-between border-b border-bw-white/15 pb-4">
+                <span className="font-mono text-[10px] uppercase tracking-[.2em] text-bw-dourado">0{activeProject + 1} / 0{projects.length} · Acervo Real BW</span>
+                <button type="button" onClick={() => runViewTransition(() => setActiveProject(null))} className="font-mono text-[10px] uppercase tracking-[.16em] text-bw-areia/70 hover:text-bw-dourado">Fechar ✕</button>
+              </div>
+              <h3 className="mt-6 font-display text-4xl leading-none text-bw-white sm:text-5xl">{projects[activeProject].title}</h3>
+              <p className="mt-2 font-mono text-[11px] uppercase tracking-[.16em] text-bw-dourado">{projects[activeProject].type}</p>
+              <p className="mt-6 text-sm leading-relaxed text-bw-areia/80">
+                Projeto autoral executado sob medida pela equipe BW Arquitetura &amp; Marcenaria, unindo estrutura precisa, acabamento artesanal e integração ao espaço do cliente.
+              </p>
+            </div>
+            <div className="mt-8 flex flex-col gap-3 border-t border-bw-white/15 pt-6">
+              <button
+                type="button"
+                onClick={() => { runViewTransition(() => setActiveProject(null)); scrollTo("contato"); }}
+                className="w-full bg-bw-dourado py-3 text-[11px] font-medium uppercase tracking-[.16em] text-white transition-colors hover:bg-[#c19d65]"
+              >
+                Solicitar projeto neste estilo ↗
+              </button>
+              <a
+                href="https://www.instagram.com/bw.arquiteturaemarcenaria/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full border border-bw-white/20 py-3 text-center font-mono text-[10px] uppercase tracking-[.16em] text-bw-areia transition-colors hover:border-bw-dourado hover:text-bw-dourado"
+              >
+                Ver no Instagram @bw.arquiteturaemarcenaria
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
     <section id="contato" className="relative overflow-hidden bg-bw-preto text-bw-white">
       <div className="pointer-events-none absolute -right-20 -top-24 select-none opacity-[.06]"><img data-watermark src={bwLogo} alt="" className="w-[520px] object-contain" /></div>
       <div className="relative mx-auto grid max-w-[1600px] items-end gap-12 px-5 py-28 sm:px-8 lg:grid-cols-12 lg:px-12 lg:py-40">
@@ -634,15 +992,15 @@ function SiteInstitucionalPremium({ onNav }: { onNav: (s: Screen) => void }) {
         </div>
         <div className="lg:col-span-3 lg:col-start-10">
           <p data-reveal="0.2" className="mb-7 text-sm leading-relaxed text-bw-areia/75">Conte um pouco sobre o que você imagina. Nós cuidamos do primeiro traço.</p>
-          <button data-reveal="0.35" onClick={() => onNav("cadastro")} className="group w-full bg-bw-dourado py-4 text-[11px] font-medium uppercase tracking-[.14em] text-white hover:bg-[#c19d65] transition-colors">Iniciar projeto <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></button>
+          <button data-reveal="0.35" data-magnetic onClick={() => onNav("cadastro")} className="group w-full bg-bw-dourado py-4 text-[11px] font-medium uppercase tracking-[.14em] text-white hover:bg-[#c19d65] transition-colors">Iniciar projeto <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span></button>
         </div>
       </div>
     </section>
-    <footer className="border-t border-bw-sidebar-b bg-bw-preto">
+    </main><footer role="contentinfo" className="border-t border-bw-sidebar-b bg-bw-preto">
       <div data-reveal className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-5 px-5 py-8 font-mono text-[10px] uppercase tracking-[.1em] text-bw-muted sm:flex-row sm:items-center sm:px-8 lg:px-12">
         <div><div>© 2026 · São Paulo, Brasil</div></div>
         <div className="flex flex-col items-center"><img src={bwLogo} alt="BW" className="object-contain" style={{ height: "44px", width: "auto", mixBlendMode: "screen" }} /><span className="mt-[3px] block font-mono text-[8px] uppercase tracking-[.22em] text-bw-muted">Arquitetura &amp; Marcenaria</span></div>
-        <div className="flex gap-6"><a href="#" className="hover:text-bw-areia transition-colors">Instagram</a><a href="#" className="hover:text-bw-areia transition-colors">Pinterest</a></div>
+        <div className="flex gap-6"><a href="https://www.instagram.com/bw.arquiteturaemarcenaria/" target="_blank" rel="noopener noreferrer" className="hover:text-bw-areia transition-colors">Instagram</a><a href="#" className="hover:text-bw-areia transition-colors">Pinterest</a></div>
       </div>
     </footer>
   </div>;

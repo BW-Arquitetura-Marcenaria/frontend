@@ -324,10 +324,10 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
       <div className="flex flex-col gap-2.5 shrink-0 border-b border-bw-border pb-2.5">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-semibold text-bw-preto font-display leading-tight">
+            <h1 className="text-xl sm:text-2xl font-semibold text-bw-preto font-semibold tracking-tight leading-tight">
               Calendário de Entregas e Agendamentos
             </h1>
-            <p className="text-[10px] font-mono text-bw-muted">
+            <p className="text-sm font-medium tabular-nums text-bw-muted">
               Integrado ao Google Calendar — aprove solicitações de clientes ou crie agendamentos diretamente
             </p>
           </div>
@@ -336,21 +336,21 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
               type="button"
               onClick={() => void refreshAll()}
               disabled={loading}
-              className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-sm hover:bg-bw-hover transition-colors disabled:opacity-50"
             >
               {loading ? "Sincronizando..." : "↻ Atualizar"}
             </button>
             <button
               type="button"
               onClick={() => openNew(undefined, "CLIENTE")}
-              className="px-3 py-1.5 border border-bw-dourado/50 text-bw-madeira rounded-md text-xs hover:bg-bw-areia transition-colors"
+              className="px-3 py-1.5 border border-bw-dourado/50 text-bw-madeira rounded-md text-sm hover:bg-bw-areia transition-colors"
             >
               + Solicitação de Cliente
             </button>
             <button
               type="button"
               onClick={() => openNew(undefined, "ADMIN")}
-              className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors"
+              className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-sm hover:bg-bw-madeira transition-colors"
             >
               + Agendar (Admin)
             </button>
@@ -363,7 +363,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
             <button
               type="button"
               onClick={() => setSubPagina("agenda")}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-2 ${
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-2 ${
                 subPagina === "agenda"
                   ? "bg-bw-preto text-bw-white"
                   : "text-bw-madeira hover:bg-bw-hover"
@@ -371,7 +371,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
             >
               <span>Agenda Mensal</span>
               <span
-                className={`rounded px-1.5 py-0.2 text-[9px] font-mono ${
+                className={`rounded px-1.5 py-0.2 text-xs font-medium tabular-nums ${
                   subPagina === "agenda"
                     ? "bg-white/15 text-bw-areia"
                     : "bg-bw-areia text-bw-madeira"
@@ -384,7 +384,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
             <button
               type="button"
               onClick={() => setSubPagina("solicitacoes")}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-2 ${
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-2 ${
                 subPagina === "solicitacoes"
                   ? "bg-bw-preto text-bw-white"
                   : "text-bw-madeira hover:bg-bw-hover"
@@ -392,7 +392,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
             >
               <span>Solicitações Pendentes</span>
               <span
-                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.2 text-[9px] font-mono ${
+                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.2 text-xs font-medium tabular-nums ${
                   pendentes.length > 0
                     ? "bg-amber-500 text-white font-semibold"
                     : subPagina === "solicitacoes"
@@ -410,7 +410,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
             <button
               type="button"
               onClick={() => setSubPagina("integracao")}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-2 ${
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-2 ${
                 subPagina === "integracao"
                   ? "bg-bw-preto text-bw-white"
                   : "text-bw-madeira hover:bg-bw-hover"
@@ -423,7 +423,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
               />
               <span>Google Calendar</span>
               <span
-                className={`hidden sm:inline rounded px-1.5 py-0.2 text-[9px] font-mono uppercase ${
+                className={`hidden sm:inline rounded px-1.5 py-0.2 text-xs font-medium tabular-nums uppercase ${
                   subPagina === "integracao"
                     ? "bg-white/15 text-bw-areia"
                     : googleConectado
@@ -444,7 +444,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
             <button
               type="button"
               onClick={() => setSubPagina("solicitacoes")}
-              className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-50 px-2.5 py-1 text-[11px] font-mono text-amber-900 hover:bg-amber-100 transition-colors"
+              className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-50 px-2.5 py-1 text-sm font-medium tabular-nums text-amber-900 hover:bg-amber-100 transition-colors"
             >
               <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
               <span>
@@ -457,12 +457,12 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
 
       {/* Mensagens de Feedback / Erro */}
       {feedbackMsg && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-emerald-500/40 bg-emerald-50 px-3.5 py-2 text-xs text-emerald-900 shrink-0">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-emerald-500/40 bg-emerald-50 px-3.5 py-2 text-sm text-emerald-900 shrink-0">
           <span>{feedbackMsg}</span>
           <button
             type="button"
             onClick={() => setFeedbackMsg(null)}
-            className="text-[10px] font-mono uppercase text-emerald-700 hover:underline"
+            className="text-sm font-medium tabular-nums uppercase text-emerald-700 hover:underline"
           >
             Fechar
           </button>
@@ -470,12 +470,12 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
       )}
 
       {error && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-3.5 py-2 text-xs text-red-700 shrink-0">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-3.5 py-2 text-sm text-red-700 shrink-0">
           <span>{error.message}</span>
           <button
             type="button"
             onClick={clearError}
-            className="text-[10px] font-mono uppercase text-red-700 hover:underline"
+            className="text-sm font-medium tabular-nums uppercase text-red-700 hover:underline"
           >
             Fechar
           </button>
@@ -491,7 +491,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
               <button
                 type="button"
                 onClick={goToday}
-                className="px-2.5 py-1 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors"
+                className="px-2.5 py-1 border border-bw-border text-bw-madeira rounded-md text-sm hover:bg-bw-hover transition-colors"
               >
                 Hoje
               </button>
@@ -552,7 +552,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                   key={key}
                   type="button"
                   onClick={() => setFiltroStatus(key)}
-                  className={`px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider border transition-colors ${
+                  className={`px-2 py-1 rounded text-sm font-medium tabular-nums uppercase tracking-wider border transition-colors ${
                     filtroStatus === key
                       ? "border-bw-dourado bg-bw-dourado text-white"
                       : "border-bw-border bg-bw-white text-bw-madeira hover:bg-bw-hover"
@@ -571,7 +571,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                 {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
                   <div
                     key={d}
-                    className="py-1.5 text-center text-[10px] font-mono text-bw-muted uppercase"
+                    className="py-1.5 text-center text-sm font-medium tabular-nums text-bw-muted uppercase"
                   >
                     {d}
                   </div>
@@ -600,7 +600,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                       }`}
                     >
                       <div
-                        className={`text-[10px] font-mono mb-0.5 flex items-center justify-between ${
+                        className={`text-sm font-medium tabular-nums mb-0.5 flex items-center justify-between ${
                           isHoje ? "font-bold text-bw-preto" : "text-bw-muted"
                         }`}
                       >
@@ -609,7 +609,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                           {isHoje && " · Hoje"}
                         </span>
                         {doDia.length > 0 && (
-                          <span className="text-[9px] text-bw-madeira">{doDia.length}</span>
+                          <span className="text-xs text-bw-madeira">{doDia.length}</span>
                         )}
                       </div>
                       {doDia.map((ev) => {
@@ -623,7 +623,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                               e.stopPropagation();
                               openDetails(ev);
                             }}
-                            className={`block w-full text-left text-[9px] rounded px-1.5 py-0.5 truncate font-mono mb-0.5 border transition-colors ${meta.cellCls}`}
+                            className={`block w-full text-left text-xs rounded px-1.5 py-0.5 truncate font-medium tabular-nums mb-0.5 border transition-colors ${meta.cellCls}`}
                             title={`${hIni} - ${extractTimeHHMM(ev.fim)} · ${ev.titulo} (${meta.label})`}
                           >
                             {ev.status === "PENDENTE" ? "⏳ " : ev.googleEventId ? "G · " : ""}
@@ -656,11 +656,11 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                   pendentes.length > 0 ? "bg-amber-500 animate-pulse" : "bg-emerald-600"
                 }`}
               />
-              <h2 className="text-xs font-semibold uppercase tracking-wider font-mono text-bw-preto">
+              <h2 className="text-sm font-semibold uppercase tracking-wider font-medium tabular-nums text-bw-preto">
                 Solicitações de Clientes Aguardando Aprovação ({pendentes.length})
               </h2>
             </div>
-            <span className="text-[10px] font-mono text-bw-madeira">
+            <span className="text-sm font-medium tabular-nums text-bw-madeira">
               Ao aceitar, o evento vai para o nosso calendário e para o Google Calendar
             </span>
           </div>
@@ -671,7 +671,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                 <div className="text-sm font-medium text-bw-preto">
                   Nenhuma solicitação pendente no momento
                 </div>
-                <p className="text-xs text-bw-muted max-w-md">
+                <p className="text-sm text-bw-muted max-w-md">
                   Todas as solicitações enviadas pelos clientes já foram avaliadas. Você pode
                   registrar uma nova solicitação ou voltar para a visualização da agenda mensal.
                 </p>
@@ -679,14 +679,14 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                   <button
                     type="button"
                     onClick={() => openNew(undefined, "CLIENTE")}
-                    className="px-3.5 py-1.5 border border-bw-dourado text-bw-madeira rounded-md text-xs hover:bg-bw-areia transition-colors"
+                    className="px-3.5 py-1.5 border border-bw-dourado text-bw-madeira rounded-md text-sm hover:bg-bw-areia transition-colors"
                   >
                     + Nova Solicitação de Cliente
                   </button>
                   <button
                     type="button"
                     onClick={() => setSubPagina("agenda")}
-                    className="px-3.5 py-1.5 bg-bw-preto text-bw-white rounded-md text-xs hover:bg-bw-madeira transition-colors"
+                    className="px-3.5 py-1.5 bg-bw-preto text-bw-white rounded-md text-sm hover:bg-bw-madeira transition-colors"
                   >
                     Ver Agenda Mensal
                   </button>
@@ -707,15 +707,15 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                         <span className="text-sm font-semibold text-bw-preto">
                           {sol.titulo}
                         </span>
-                        <span className="rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-mono uppercase text-amber-900">
+                        <span className="rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium tabular-nums uppercase text-amber-900">
                           PENDENTE
                         </span>
                       </div>
-                      <div className="text-xs font-mono text-bw-madeira mt-0.5">
+                      <div className="text-sm font-medium tabular-nums text-bw-madeira mt-0.5">
                         {fmtLongDate(dataISO)} · {hInicio} às {hFim}
                       </div>
                       {sol.descricao && (
-                        <p className="text-xs text-bw-muted mt-1 line-clamp-2">
+                        <p className="text-sm text-bw-muted mt-1 line-clamp-2">
                           {sol.descricao}
                         </p>
                       )}
@@ -725,7 +725,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                         type="button"
                         disabled={saving}
                         onClick={() => openDetails(sol)}
-                        className="px-2.5 py-1.5 border border-bw-border text-bw-madeira rounded text-[11px] hover:bg-bw-areia transition-colors"
+                        className="px-2.5 py-1.5 border border-bw-border text-bw-madeira rounded text-sm hover:bg-bw-areia transition-colors"
                       >
                         Avaliar / Obs.
                       </button>
@@ -735,7 +735,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                         onClick={() =>
                           void handleRecusar(sol, "Solicitação recusada pelo administrador.")
                         }
-                        className="px-2.5 py-1.5 border border-red-500/40 text-red-700 rounded text-[11px] hover:bg-red-50 transition-colors disabled:opacity-50"
+                        className="px-2.5 py-1.5 border border-red-500/40 text-red-700 rounded text-sm hover:bg-red-50 transition-colors disabled:opacity-50"
                       >
                         Recusar
                       </button>
@@ -745,7 +745,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                         onClick={() =>
                           void handleAprovar(sol, "Solicitação aprovada pelo administrador.")
                         }
-                        className="px-3 py-1.5 bg-emerald-700 text-white rounded text-[11px] font-medium hover:bg-emerald-800 transition-colors disabled:opacity-50"
+                        className="px-3 py-1.5 bg-emerald-700 text-white rounded text-sm font-medium hover:bg-emerald-800 transition-colors disabled:opacity-50"
                       >
                         ✓ Aceitar e Agendar
                       </button>
@@ -771,7 +771,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3.5">
                 <div
-                  className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-mono font-bold ${
+                  className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-medium tabular-nums font-bold ${
                     googleConectado
                       ? "border-emerald-600/40 bg-emerald-500/15 text-emerald-800"
                       : "border-bw-dourado/50 bg-bw-dourado/15 text-bw-madeira"
@@ -785,7 +785,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                       Integração Google Calendar
                     </span>
                     <span
-                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider border ${
+                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium tabular-nums uppercase tracking-wider border ${
                         googleConectado === null
                           ? "border-bw-border bg-bw-white text-bw-muted"
                           : googleConectado
@@ -807,24 +807,24 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                   </div>
 
                   {googleConectado && calendarioPrincipal ? (
-                    <p className="text-xs text-bw-madeira mt-1.5">
+                    <p className="text-sm text-bw-madeira mt-1.5">
                       Agenda vinculada:{" "}
-                      <strong className="font-mono">{calendarioPrincipal.nome}</strong>{" "}
-                      <span className="text-bw-muted font-mono">
+                      <strong className="font-medium tabular-nums">{calendarioPrincipal.nome}</strong>{" "}
+                      <span className="text-bw-muted font-medium tabular-nums">
                         ({calendarioPrincipal.id} · {calendarioPrincipal.fusoHorario})
                       </span>
                     </p>
                   ) : (
-                    <p className="text-xs text-bw-madeira mt-1.5 max-w-2xl">
+                    <p className="text-sm text-bw-madeira mt-1.5 max-w-2xl">
                       Conecte a conta Google oficial (
-                      <strong className="font-mono">bwtestes.automacao@gmail.com</strong>) para
+                      <strong className="font-medium tabular-nums">bwtestes.automacao@gmail.com</strong>) para
                       que agendamentos aprovados ou criados pelo admin sejam enviados
                       automaticamente ao Google Calendar.
                     </p>
                   )}
 
                   {googleError && (
-                    <p className="text-xs text-red-600 mt-1.5">{googleError.message}</p>
+                    <p className="text-sm text-red-600 mt-1.5">{googleError.message}</p>
                   )}
                 </div>
               </div>
@@ -834,7 +834,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                   <button
                     type="button"
                     onClick={() => void verificarConexaoGoogle()}
-                    className="px-3.5 py-2 border border-emerald-600 text-emerald-800 bg-white rounded-md text-xs font-medium hover:bg-emerald-50 transition-colors"
+                    className="px-3.5 py-2 border border-emerald-600 text-emerald-800 bg-white rounded-md text-sm font-medium hover:bg-emerald-50 transition-colors"
                   >
                     Já autorizei · Verificar
                   </button>
@@ -843,7 +843,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                   type="button"
                   onClick={() => void conectarGoogle()}
                   disabled={connectingGoogle}
-                  className={`px-3.5 py-2 rounded-md text-xs font-medium transition-colors disabled:opacity-50 ${
+                  className={`px-3.5 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
                     googleConectado
                       ? "border border-bw-border bg-bw-white text-bw-madeira hover:bg-bw-hover"
                       : "bg-bw-preto text-bw-white hover:bg-bw-madeira"
@@ -861,35 +861,35 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-bw-border bg-bw-white p-4">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-bw-muted">
+              <div className="text-sm font-medium tabular-nums uppercase tracking-wider text-bw-muted">
                 Eventos Aprovados / Sincronizados
               </div>
-              <div className="text-2xl font-semibold text-bw-preto font-display mt-1">
+              <div className="text-2xl font-semibold text-bw-preto font-semibold tracking-tight mt-1">
                 {contagens.APROVADO}
               </div>
-              <div className="text-[11px] text-bw-madeira mt-1">
+              <div className="text-sm text-bw-madeira mt-1">
                 Ativos no calendário da equipe
               </div>
             </div>
             <div className="rounded-lg border border-bw-border bg-bw-white p-4">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-bw-muted">
+              <div className="text-sm font-medium tabular-nums uppercase tracking-wider text-bw-muted">
                 Aguardando Decisão
               </div>
-              <div className="text-2xl font-semibold text-bw-preto font-display mt-1">
+              <div className="text-2xl font-semibold text-bw-preto font-semibold tracking-tight mt-1">
                 {contagens.PENDENTE}
               </div>
-              <div className="text-[11px] text-bw-madeira mt-1">
+              <div className="text-sm text-bw-madeira mt-1">
                 Solicitações pendentes de aprovação
               </div>
             </div>
             <div className="rounded-lg border border-bw-border bg-bw-white p-4">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-bw-muted">
+              <div className="text-sm font-medium tabular-nums uppercase tracking-wider text-bw-muted">
                 Agendas Encontradas
               </div>
-              <div className="text-2xl font-semibold text-bw-preto font-display mt-1">
+              <div className="text-2xl font-semibold text-bw-preto font-semibold tracking-tight mt-1">
                 {calendariosGoogle.length}
               </div>
-              <div className="text-[11px] text-bw-madeira mt-1">
+              <div className="text-sm text-bw-madeira mt-1">
                 {calendarioPrincipal ? calendarioPrincipal.fusoHorario : "Conta Google OAuth"}
               </div>
             </div>
@@ -909,11 +909,11 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
           >
             <div className="flex items-center justify-between border-b border-bw-border bg-bw-areia px-4 py-3">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-bw-madeira">
+                <span className="text-sm font-medium tabular-nums uppercase tracking-wider text-bw-madeira">
                   Agendamento #{selected.id}
                 </span>
                 <span
-                  className={`rounded border px-2 py-0.5 text-[9px] font-mono uppercase ${
+                  className={`rounded border px-2 py-0.5 text-xs font-medium tabular-nums uppercase ${
                     STATUS_META[selected.status].badgeCls
                   }`}
                 >
@@ -935,22 +935,22 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
 
             <div className="flex flex-col gap-3.5 p-5">
               <div>
-                <div className="text-lg font-semibold text-bw-preto font-display">
+                <div className="text-lg font-semibold text-bw-preto font-semibold tracking-tight">
                   {selected.titulo}
                 </div>
-                <div className="text-xs text-bw-madeira font-mono mt-1">
+                <div className="text-sm text-bw-madeira font-medium tabular-nums mt-1">
                   {fmtLongDate(extractDateISO(selected.inicio))} ·{" "}
                   {extractTimeHHMM(selected.inicio)} às {extractTimeHHMM(selected.fim)}
                 </div>
               </div>
 
               {selected.descricao && (
-                <div className="rounded border border-bw-border-sub bg-bw-areia/35 p-3 text-xs text-bw-preto leading-relaxed">
+                <div className="rounded border border-bw-border-sub bg-bw-areia/35 p-3 text-sm text-bw-preto leading-relaxed">
                   {selected.descricao}
                 </div>
               )}
 
-              <div className="flex flex-col gap-1 text-[11px] font-mono text-bw-muted border-t border-bw-border-sub pt-3">
+              <div className="flex flex-col gap-1 text-sm font-medium tabular-nums text-bw-muted border-t border-bw-border-sub pt-3">
                 <div>
                   Google Calendar:{" "}
                   {selected.googleEventId ? (
@@ -976,7 +976,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
               {selected.status === "PENDENTE" && (
                 <div className="border-t border-bw-border pt-4 mt-1 flex flex-col gap-3">
                   <label className="flex flex-col gap-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-bw-madeira">
+                    <span className="text-sm font-medium tabular-nums uppercase tracking-wider text-bw-madeira">
                       Observação da Decisão (Opcional)
                     </span>
                     <textarea
@@ -985,7 +985,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                       value={observacaoDecisao}
                       onChange={(e) => setObservacaoDecisao(e.target.value)}
                       placeholder="Ex: Confirmado com o arquiteto responsável..."
-                      className="w-full rounded border border-bw-border bg-bw-areia/20 p-2 text-xs text-bw-preto outline-none focus:border-bw-dourado"
+                      className="w-full rounded border border-bw-border bg-bw-areia/20 p-2 text-sm text-bw-preto outline-none focus:border-bw-dourado"
                     />
                   </label>
                   <div className="flex items-center gap-2">
@@ -993,7 +993,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                       type="button"
                       disabled={saving}
                       onClick={() => void handleRecusar(selected)}
-                      className="flex-1 border border-red-500/50 text-red-700 py-2.5 rounded text-xs font-medium uppercase tracking-wider hover:bg-red-50 transition-colors disabled:opacity-50"
+                      className="flex-1 border border-red-500/50 text-red-700 py-2.5 rounded text-sm font-medium uppercase tracking-wider hover:bg-red-50 transition-colors disabled:opacity-50"
                     >
                       {saving ? "Processando..." : "Recusar"}
                     </button>
@@ -1001,7 +1001,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                       type="button"
                       disabled={saving}
                       onClick={() => void handleAprovar(selected)}
-                      className="flex-1 bg-emerald-700 text-white py-2.5 rounded text-xs font-medium uppercase tracking-wider hover:bg-emerald-800 transition-colors disabled:opacity-50"
+                      className="flex-1 bg-emerald-700 text-white py-2.5 rounded text-sm font-medium uppercase tracking-wider hover:bg-emerald-800 transition-colors disabled:opacity-50"
                     >
                       {saving ? "Sincronizando..." : "Aceitar e Agendar"}
                     </button>
@@ -1022,16 +1022,16 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
               onClick={() => setForm(null)}
               className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors"
             >
-              <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
+              <span className="font-medium tabular-nums text-sm uppercase tracking-wider">Fechar</span>
             </button>
 
             <div className="mb-6">
-              <h2 className="font-display text-2xl text-bw-white">
+              <h2 className="font-semibold tracking-tight text-2xl text-bw-white">
                 {form.modo === "ADMIN"
                   ? "Novo Agendamento (Admin)"
                   : "Nova Solicitação de Cliente"}
               </h2>
-              <p className="font-mono text-[10px] text-bw-dourado uppercase tracking-widest mt-1">
+              <p className="font-medium tabular-nums text-sm text-bw-dourado uppercase tracking-wide mt-1">
                 {form.modo === "ADMIN"
                   ? "Criado como APROVADO e sincronizado direto no Google Calendar"
                   : "Criado como PENDENTE (valida conflito de horário)"}
@@ -1043,7 +1043,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
               <button
                 type="button"
                 onClick={() => setForm({ ...form, modo: "ADMIN" })}
-                className={`py-2 text-[10px] font-mono uppercase tracking-wider transition-colors ${
+                className={`py-2 text-sm font-medium tabular-nums uppercase tracking-wider transition-colors ${
                   form.modo === "ADMIN"
                     ? "bg-bw-dourado text-bw-preto font-semibold"
                     : "text-bw-areia/70 hover:text-white"
@@ -1054,7 +1054,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
               <button
                 type="button"
                 onClick={() => setForm({ ...form, modo: "CLIENTE" })}
-                className={`py-2 text-[10px] font-mono uppercase tracking-wider transition-colors ${
+                className={`py-2 text-sm font-medium tabular-nums uppercase tracking-wider transition-colors ${
                   form.modo === "CLIENTE"
                     ? "bg-bw-dourado text-bw-preto font-semibold"
                     : "text-bw-areia/70 hover:text-white"
@@ -1066,7 +1066,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
 
             <form className="flex flex-col gap-5" onSubmit={(e) => void handleSalvarNovo(e)}>
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">
                   Título do Agendamento *
                 </label>
                 <input
@@ -1082,7 +1082,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">
+                  <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">
                     Tipo de Evento (Opcional)
                   </label>
                   <select
@@ -1102,7 +1102,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">
+                  <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">
                     Vincular Lead (Opcional)
                   </label>
                   <select
@@ -1134,7 +1134,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">
+                  <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">
                     Data *
                   </label>
                   <input
@@ -1146,7 +1146,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">
+                  <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">
                     Início *
                   </label>
                   <input
@@ -1158,7 +1158,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">
+                  <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">
                     Término *
                   </label>
                   <input
@@ -1172,7 +1172,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="font-mono text-[9px] uppercase tracking-wider text-bw-areia">
+                <label className="font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia">
                   Descrição / Observações
                 </label>
                 <textarea
@@ -1186,7 +1186,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
               </div>
 
               {(formLocalError || error) && (
-                <div className="border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-300 font-mono">
+                <div className="border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-300 font-medium tabular-nums">
                   {formLocalError ?? error?.message}
                 </div>
               )}
@@ -1195,7 +1195,7 @@ export default function CalendarioView({ leads = [] }: { leads?: LeadOption[] })
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-50"
+                  className="flex-1 bg-bw-dourado text-bw-preto font-semibold py-3 text-sm uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-50"
                 >
                   {saving
                     ? "Salvando..."

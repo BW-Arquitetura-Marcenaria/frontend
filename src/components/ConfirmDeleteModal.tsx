@@ -42,7 +42,7 @@ export default function ConfirmDeleteModal({
           type="button"
           onClick={onCancel}
           disabled={loading}
-          className="absolute right-5 top-4 font-mono text-[10px] uppercase tracking-wider text-bw-areia/60 transition-colors hover:text-white disabled:opacity-40"
+          className="absolute right-5 top-4 font-medium tabular-nums text-sm uppercase tracking-wider text-bw-areia/60 transition-colors hover:text-white disabled:opacity-40"
         >
           Fechar
         </button>
@@ -54,20 +54,19 @@ export default function ConfirmDeleteModal({
         </div>
 
         <div className="mb-7">
-          <p className="mb-2 font-mono text-[9px] uppercase tracking-[.2em] text-bw-dourado">Ação irreversível</p>
-          <h2 id="delete-modal-title" className="font-display text-3xl leading-none text-bw-white">{title}</h2>
+          <h2 id="delete-modal-title" className="font-semibold tracking-tight text-3xl leading-none text-bw-white">{title}</h2>
           <p className="mt-4 text-sm leading-relaxed text-bw-areia/65">{description}</p>
           <div className="mt-4 border-l-2 border-bw-dourado bg-bw-areia/5 px-4 py-3 text-sm font-medium text-bw-white">{itemName}</div>
         </div>
 
-        {error && <div className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-200">{error}</div>}
+        {error && <div className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{error}</div>}
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row">
           <button
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="flex-1 border border-bw-dourado/30 py-3 text-xs font-semibold uppercase tracking-wider text-bw-areia transition-colors hover:bg-bw-dourado/10 disabled:opacity-40"
+            className="flex-1 border border-bw-dourado/30 py-3 text-sm font-semibold uppercase tracking-wider text-bw-areia transition-colors hover:bg-bw-dourado/10 disabled:opacity-40"
           >
             Cancelar
           </button>
@@ -75,7 +74,7 @@ export default function ConfirmDeleteModal({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="flex-1 border border-red-400/50 bg-red-400/10 py-3 text-xs font-semibold uppercase tracking-wider text-red-200 transition-colors hover:bg-red-400/20 disabled:cursor-wait disabled:opacity-60"
+            className="flex-1 border border-red-400/50 bg-red-400/10 py-3 text-sm font-semibold uppercase tracking-wider text-red-200 transition-colors hover:bg-red-400/20 disabled:cursor-wait disabled:opacity-60"
           >
             {loading ? "Excluindo..." : "Excluir definitivamente"}
           </button>

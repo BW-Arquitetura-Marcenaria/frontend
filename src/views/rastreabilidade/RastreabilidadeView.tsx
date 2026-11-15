@@ -30,7 +30,7 @@ const emptyForm = (projetoId: number | ""): FormState => ({
 const fmtData = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("pt-BR") : "—");
 
 const inputCls = "bg-transparent border-b border-bw-dourado/30 focus:border-bw-dourado text-bw-white text-sm py-1.5 outline-none transition-colors";
-const labelCls = "font-mono text-[9px] uppercase tracking-wider text-bw-areia";
+const labelCls = "font-medium tabular-nums text-xs uppercase tracking-wider text-bw-areia";
 
 export default function RastreabilidadeView({
   projetos,
@@ -118,14 +118,14 @@ export default function RastreabilidadeView({
     <div className="flex flex-col gap-5 max-w-5xl mx-auto w-full relative">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-bw-preto font-display">Rastreabilidade de Materiais</h1>
-          <p className="text-[10px] font-mono text-bw-muted">Transparência da origem ao produto final</p>
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-[-.03em] text-bw-preto font-semibold tracking-tight">Rastreabilidade de Materiais</h1>
+          <p className="text-sm font-medium tabular-nums text-bw-muted">Transparência da origem ao produto final</p>
         </div>
-        <button onClick={() => { setMateriaisSimulacao([]); setForm(emptyForm(projetoId ?? "")); }} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-xs hover:bg-bw-madeira transition-colors">+ Registrar Uso</button>
+        <button onClick={() => { setMateriaisSimulacao([]); setForm(emptyForm(projetoId ?? "")); }} className="px-3 py-1.5 bg-bw-dourado text-white rounded-md text-sm hover:bg-bw-madeira transition-colors">+ Registrar Uso</button>
       </div>
 
       <div className="flex flex-col gap-2 rounded-lg border border-bw-border bg-bw-white p-3 sm:flex-row sm:items-center sm:gap-4">
-        <label className="text-[10px] font-mono uppercase tracking-wider text-bw-madeira whitespace-nowrap">Filtrar por Projeto:</label>
+        <label className="text-sm font-medium tabular-nums uppercase tracking-wider text-bw-madeira whitespace-nowrap">Filtrar por Projeto:</label>
         <select
           value={projetoId ?? ""}
           onChange={e => { setSelIndex(0); void filterByProjeto(e.target.value ? Number(e.target.value) : null); }}
@@ -141,8 +141,8 @@ export default function RastreabilidadeView({
       <div className="grid md:grid-cols-5 gap-5 min-h-[400px]">
         <div className="md:col-span-2 bg-bw-white border border-bw-border rounded-lg overflow-hidden flex flex-col">
           <div className="px-4 py-3 border-b border-bw-border bg-bw-areia flex items-center justify-between">
-            <span className="text-xs font-semibold text-bw-madeira">Materiais Vinculados</span>
-            <span className="text-[10px] font-mono text-bw-muted">{data?.totalElements ?? 0} reg.</span>
+            <span className="text-sm font-semibold text-bw-madeira">Materiais Vinculados</span>
+            <span className="text-sm font-medium tabular-nums text-bw-muted">{data?.totalElements ?? 0} reg.</span>
           </div>
           <div className="flex-1 overflow-y-auto">
             {loading ? (
@@ -155,9 +155,9 @@ export default function RastreabilidadeView({
               lotes.map((l, i) => (
                 <div key={l.id} className="flex items-stretch border-b border-bw-border-sub last:border-0">
                   <button onClick={() => setSelIndex(i)} className={`flex-1 text-left px-4 py-3 hover:bg-bw-hover transition-colors ${selIndex === i ? "border-l-2 border-l-bw-dourado pl-3.5 bg-bw-areia/30" : ""}`}>
-                    <div className="font-mono text-[10px] text-bw-muted">{l.lote}</div>
-                    <div className="text-xs font-medium text-bw-preto mt-0.5">{l.tipoMadeira}</div>
-                    <div className="text-[10px] text-bw-muted">{l.fornecedor}</div>
+                    <div className="font-medium tabular-nums text-sm text-bw-muted">{l.lote}</div>
+                    <div className="text-sm font-medium text-bw-preto mt-0.5">{l.tipoMadeira}</div>
+                    <div className="text-sm text-bw-muted">{l.fornecedor}</div>
                   </button>
                   <DeleteButton onClick={() => setDeleteTarget(l)} disabled={saving} title="Excluir material" aria-label={`Excluir ${l.lote}`} className="mx-2 self-center" />
                 </div>
@@ -165,7 +165,7 @@ export default function RastreabilidadeView({
             )}
           </div>
           {data && data.totalPages > 1 && (
-            <nav aria-label="Páginas de rastreabilidade" className="flex items-center justify-between border-t border-bw-border px-4 py-3 text-xs text-bw-madeira">
+            <nav aria-label="Páginas de rastreabilidade" className="flex items-center justify-between border-t border-bw-border px-4 py-3 text-sm text-bw-madeira">
               <button type="button" disabled={loading || data.number === 0} onClick={() => mudarPagina(data.number - 1)} className="underline disabled:opacity-40">Anterior</button>
               <span>Página {data.number + 1} de {data.totalPages}</span>
               <button type="button" disabled={loading || data.number >= data.totalPages - 1} onClick={() => mudarPagina(data.number + 1)} className="underline disabled:opacity-40">Próxima</button>
@@ -178,17 +178,17 @@ export default function RastreabilidadeView({
             <>
               <div className="flex items-start justify-between pb-4 border-b border-bw-border">
                 <div>
-                  <div className="font-mono text-[10px] text-bw-muted mb-1">{s.lote}</div>
-                  <div className="text-lg font-semibold text-bw-preto font-display">{s.tipoMadeira}</div>
-                  <div className="text-xs text-bw-madeira mt-1">Vinculado a: <strong>{s.projeto?.nome ?? projetos.find(p => p.id === s.projeto?.id)?.nome ?? "Não vinculado"}</strong></div>
+                  <div className="font-medium tabular-nums text-sm text-bw-muted mb-1">{s.lote}</div>
+                  <div className="text-lg font-semibold text-bw-preto font-semibold tracking-tight">{s.tipoMadeira}</div>
+                  <div className="text-sm text-bw-madeira mt-1">Vinculado a: <strong>{s.projeto?.nome ?? projetos.find(p => p.id === s.projeto?.id)?.nome ?? "Não vinculado"}</strong></div>
                 </div>
-                <button onClick={() => openEdit(s)} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-xs hover:bg-bw-hover transition-colors">Editar</button>
+                <button onClick={() => openEdit(s)} className="px-3 py-1.5 border border-bw-border text-bw-madeira rounded-md text-sm hover:bg-bw-hover transition-colors">Editar</button>
               </div>
               <div className="grid gap-x-6 gap-y-4 pt-2 sm:grid-cols-2">
                 {[["Origem", s.origem], ["Fornecedor", s.fornecedor], ["Certificação", s.certificacoes], ["Volume Utilizado", s.volume], ["Data de Registro", fmtData(s.dataRegistro)]].map(([l, v]) => (
                   <div key={l} className="flex flex-col gap-1">
-                    <div className="text-[9px] font-mono text-bw-muted uppercase tracking-wider">{l}</div>
-                    <div className="text-xs text-bw-preto font-medium">{v}</div>
+                    <div className="text-xs font-medium tabular-nums text-bw-muted uppercase tracking-wider">{l}</div>
+                    <div className="text-sm text-bw-preto font-medium">{v}</div>
                   </div>
                 ))}
               </div>
@@ -203,11 +203,11 @@ export default function RastreabilidadeView({
         <div role="dialog" aria-modal="true" aria-label={form.id === null ? "Registrar uso de material" : "Editar material"} className="fixed inset-0 z-50 flex items-center justify-center bg-bw-preto/60 backdrop-blur-sm p-4">
           <div className="relative max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto border border-bw-dourado/20 bg-bw-preto/90 p-5 shadow-2xl backdrop-blur-md sm:p-8">
             <button onClick={() => setForm(null)} className="absolute top-4 right-5 text-bw-areia hover:text-white transition-colors">
-              <span className="font-mono text-[10px] uppercase tracking-wider">Fechar</span>
+              <span className="font-medium tabular-nums text-sm uppercase tracking-wider">Fechar</span>
             </button>
             <div className="mb-8">
-              <h2 className="font-display text-2xl text-bw-white">{form.id === null ? "Registrar Uso de Material" : "Editar Material"}</h2>
-              <p className="font-mono text-[10px] text-bw-dourado uppercase tracking-widest mt-1">Vincular lote a um projeto</p>
+              <h2 className="font-semibold tracking-tight text-2xl text-bw-white">{form.id === null ? "Registrar Uso de Material" : "Editar Material"}</h2>
+              <p className="font-medium tabular-nums text-sm text-bw-dourado uppercase tracking-wide mt-1">Vincular lote a um projeto</p>
             </div>
 
             <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
@@ -272,7 +272,7 @@ export default function RastreabilidadeView({
               {error && <FeedbackMessage message={error.message} className="!border-red-400/30 !bg-red-400/10 !text-red-200" />}
 
               <div className="mt-4">
-                <button type="submit" disabled={saving} className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-xs uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-60">
+                <button type="submit" disabled={saving} className="w-full bg-bw-dourado text-bw-preto font-semibold py-3 text-sm uppercase tracking-wider hover:bg-bw-areia transition-colors disabled:opacity-60">
                   {saving ? "Salvando..." : form.id === null ? "Vincular Material" : "Salvar Alterações"}
                 </button>
               </div>
