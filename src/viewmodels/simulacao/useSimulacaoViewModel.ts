@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getRastreabilidadesByProjeto } from "@/api/rastreabilidades";
+import { gerarSimulacaoFlux } from "@/api/simulacao";
+import type { FluxAspectRatio } from "@/models/SimulacaoIa";
+import { montarPromptSimulacao } from "@/utils/promptSimulacao";
 import type { Rastreabilidade } from "@/models/Rastreabilidade";
 import type { Linha, Modulo, ProjetoParams, ProjetoSimulacao, TipoModulo } from "@/models/Simulacao";
 import {
@@ -40,7 +43,7 @@ export function useSimulacaoViewModel() {
   const [personalizado, setPersonalizado] = useState(false);
   const [selecionado, setSelecionado] = useState<ElementoSelecionado | null>(null);
   const [foto, setFoto] = useState<string | null>(null);
-  const [modoVisualizacao, setModoVisualizacao] = useState<"3d" | "tecnico" | "foto">("3d");
+  const [modoVisualizacao, setModoVisualizacao] = useState<"3d" | "tecnico" | "foto" | "ia">("3d");
   const [projetoAtualId, setProjetoAtualId] = useState<string | null>(null);
   const [historico, setHistorico] = useState<ProjetoSimulacao[]>([]);
   const [lotesProjeto, setLotesProjeto] = useState<Rastreabilidade[]>([]);
@@ -48,6 +51,13 @@ export function useSimulacaoViewModel() {
   const [exportando, setExportando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  // Simulação por IA (FLUX.2 [flex]) — camada aditiva, opcional.
+  const [descricaoIa, setDescricaoIa] = useState("");
+  const [aspectRatioIa, setAspectRatioIa] = useState<FluxAspectRatio>("16:9");
+  const [gerandoIa, setGerandoIa] = useState(false);
+  const [imagemIa, setImagemIa] = useState<string | null>(null);
+  const [erroIa, setErroIa] = useState<string | null>(null);
 
   useEffect(() => {
     listarProjetos()
@@ -572,6 +582,37 @@ export function useSimulacaoViewModel() {
     setModoVisualizacao((m) => (m === "foto" ? "3d" : m));
   }, []);
 
+  const gerarSimulacaoIa = useCallback(async () => {
+    if (!foto) {
+      setErroIa("Anexe uma foto do ambiente antes de gerar a simulação por IA.");
+      return;
+    }
+    setGerandoIa(true);
+    setErroIa(null);
+    try {
+      const prompt = montarPromptSimulacao(params, descricaoIa);
+      const resp = await gerarSimulacaoFlux({
+        imagemBase64: foto,
+        prompt,
+        aspectRatio: aspectRatioIa,
+      });
+      setImagemIa(resp.imagemUrl);
+      setModoVisualizacao("ia");
+    } catch (err) {
+      setErroIa(
+        err instanceof Error ? err.message : "Não foi possível gerar a simulação por IA."
+      );
+    } finally {
+      setGerandoIa(false);
+    }
+  }, [aspectRatioIa, descricaoIa, foto, params]);
+
+  const limparSimulacaoIa = useCallback(() => {
+    setImagemIa(null);
+    setErroIa(null);
+    setModoVisualizacao((m) => (m === "ia" ? "3d" : m));
+  }, []);
+
   const construirProjetoAtual = useCallback(
     (): ProjetoSimulacao => ({
       id: projetoAtualId ?? crypto.randomUUID?.() ?? `${Date.now()}`,
@@ -668,10 +709,18 @@ export function useSimulacaoViewModel() {
     exportando,
     erro,
     feedback,
+    descricaoIa,
+    aspectRatioIa,
+    gerandoIa,
+    imagemIa,
+    erroIa,
     setSelecionado,
     setModoVisualizacao,
     setErro,
     setFeedback,
+    setDescricaoIa,
+    setAspectRatioIa,
+    setErroIa,
     updateParams,
     atualizarDimensoes,
     selecionarModelo,
@@ -692,6 +741,8 @@ export function useSimulacaoViewModel() {
     moverModulo,
     handleUploadFoto,
     removerFoto,
+    gerarSimulacaoIa,
+    limparSimulacaoIa,
     recarregarRastreabilidade,
     salvarNoHistorico,
     carregarDoHistorico,
