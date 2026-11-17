@@ -569,7 +569,7 @@ export function gerarSvgProjeto(p: ProjetoParams, o: OpcoesDesenho): string {
     : "";
   const cotasXml = o.interativo && cotas.length > 0 ? `<g pointer-events="none">${cotas.join("")}</g>` : cotas.join("");
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W.toFixed(1)} ${H.toFixed(1)}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" font-family="'DM Mono', ui-monospace, monospace"><defs>${estiloInterativo}${defs.join("")}</defs>${parede.join("")}${corpo.join("")}${cotasXml}${selecao.join("")}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 ${W.toFixed(1)} ${H.toFixed(1)}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" font-family="'DM Mono', ui-monospace, monospace"><defs>${estiloInterativo}${defs.join("")}</defs>${parede.join("")}${corpo.join("")}${cotasXml}${selecao.join("")}</svg>`;
 }
 
 /** Converte o SVG em PNG (dataURL) — usado para baixar a imagem. */

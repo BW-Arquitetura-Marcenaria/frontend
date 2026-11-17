@@ -21,12 +21,14 @@ const INPUT_CLS =
   "w-full rounded-lg border border-[#DDD6CA] bg-[#FAF8F4] px-2.5 py-2 text-xs text-[#1B1A18] focus:border-[#B08D57] focus:bg-white focus:outline-none";
 
 function CampoMedida({
+  id,
   label,
   value,
   min,
   max,
   onCommit,
 }: {
+  id: string;
   label: string;
   value: number;
   min: number;
@@ -52,9 +54,10 @@ function CampoMedida({
 
   return (
     <div>
-      <label className={LABEL_CLS}>{label}</label>
+      <label htmlFor={id} className={LABEL_CLS}>{label}</label>
       <div className="flex items-center rounded-lg border border-[#DDD6CA] bg-[#FAF8F4] px-2.5 focus-within:border-[#B08D57] focus-within:bg-white">
         <input
+          id={id}
           type="number"
           min={min}
           max={max}
@@ -71,9 +74,10 @@ function CampoMedida({
           onKeyDown={(e) => {
             if (e.key === "Enter") confirmar();
           }}
+          aria-describedby={`${id}-unidade`}
           className="w-full bg-transparent py-2 text-xs font-medium text-[#1B1A18] focus:outline-none"
         />
-        <span className="text-[11px] text-[#8C8275] ml-1">cm</span>
+        <span id={`${id}-unidade`} className="text-[11px] text-[#8C8275] ml-1">cm</span>
       </div>
     </div>
   );
@@ -343,6 +347,13 @@ export default function SimulacaoView({
   const modelosLivres = MODELOS.filter((m) => m.grupo === "livre");
   const modelosComerciais = MODELOS.filter((m) => m.grupo === "comercial");
   const modelosResidenciais = MODELOS.filter((m) => m.grupo === "residencial");
+  const pecas = vm.params.linhas.flatMap((linha, linhaIdx) =>
+    linha.modulos.map((modulo, modIdx) => ({
+      linhaIdx,
+      modIdx,
+      label: `${linha.nome}: ${modulo.tipo} (${modulo.larguraCm} cm)`,
+    }))
+  );
 
   return (
     <div className="flex flex-col gap-3 sm:h-full sm:min-h-0">
@@ -357,9 +368,30 @@ export default function SimulacaoView({
           </p>
         </div>
 
-        <div className="flex items-center gap-1 rounded-xl border border-[#DDD6CA] bg-[#F4F0E8] p-1">
+        <div
+          role="tablist"
+          aria-label="Seções da simulação"
+          onKeyDown={(e) => {
+            const proximaAba =
+              e.key === "ArrowRight" || e.key === "End"
+                ? "salvos"
+                : e.key === "ArrowLeft" || e.key === "Home"
+                  ? "projeto"
+                  : null;
+            if (!proximaAba) return;
+            e.preventDefault();
+            setAba(proximaAba);
+            document.getElementById(`simulacao-aba-${proximaAba}`)?.focus();
+          }}
+          className="flex items-center gap-1 rounded-xl border border-[#DDD6CA] bg-[#F4F0E8] p-1"
+        >
           <button
             type="button"
+            id="simulacao-aba-projeto"
+            role="tab"
+            aria-selected={aba === "projeto"}
+            aria-controls="simulacao-painel-projeto"
+            tabIndex={aba === "projeto" ? 0 : -1}
             onClick={() => setAba("projeto")}
             className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition ${
               aba === "projeto"
@@ -371,6 +403,11 @@ export default function SimulacaoView({
           </button>
           <button
             type="button"
+            id="simulacao-aba-salvos"
+            role="tab"
+            aria-selected={aba === "salvos"}
+            aria-controls="simulacao-painel-salvos"
+            tabIndex={aba === "salvos" ? 0 : -1}
             onClick={() => setAba("salvos")}
             className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition ${
               aba === "salvos"
@@ -386,6 +423,7 @@ export default function SimulacaoView({
       {/* Aviso discreto */}
       {(vm.erro || vm.feedback) && (
         <div
+          role={vm.erro ? "alert" : "status"}
           className={`flex items-center justify-between rounded-lg border px-3 py-1.5 text-xs shrink-0 ${
             vm.erro
               ? "border-red-200 bg-red-50 text-red-800"
@@ -395,11 +433,12 @@ export default function SimulacaoView({
           <span>{vm.erro ?? vm.feedback}</span>
           <button
             type="button"
+            aria-label="Fechar mensagem"
             onClick={() => {
               vm.setErro(null);
               vm.setFeedback(null);
             }}
-            className="ml-3 text-[11px] font-semibold opacity-70 hover:opacity-100"
+            className="ml-3 text-xs font-semibold opacity-70 hover:opacity-100"
           >
             Fechar
           </button>
@@ -407,14 +446,15 @@ export default function SimulacaoView({
       )}
 
       {aba === "projeto" ? (
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-3">
+        <div id="simulacao-painel-projeto" role="tabpanel" aria-labelledby="simulacao-aba-projeto" className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-3">
           {/* Painel de configuração */}
           <aside className="rounded-xl border border-[#E5DEC9] bg-white p-4 overflow-y-auto space-y-3.5 sm:min-h-0">
             {/* Cliente */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className={LABEL_CLS}>Cliente do funil</label>
+                <label htmlFor="simulacao-cliente-funil" className={LABEL_CLS}>Cliente do funil</label>
                 <select
+                  id="simulacao-cliente-funil"
                   className={INPUT_CLS}
                   value={vm.params.leadId}
                   onChange={(e) => {
@@ -440,8 +480,9 @@ export default function SimulacaoView({
                 </select>
               </div>
               <div>
-                <label className={LABEL_CLS}>Nome do cliente</label>
+                <label htmlFor="simulacao-cliente-nome" className={LABEL_CLS}>Nome do cliente</label>
                 <input
+                  id="simulacao-cliente-nome"
                   type="text"
                   placeholder="Ex.: Vinícola Serra"
                   className={INPUT_CLS}
@@ -455,8 +496,9 @@ export default function SimulacaoView({
 
             {/* Modelo comercial ou residencial */}
             <div>
-              <label className={LABEL_CLS}>Tipo de móvel</label>
+              <label htmlFor="simulacao-modelo" className={LABEL_CLS}>Tipo de móvel</label>
               <select
+                id="simulacao-modelo"
                 className={INPUT_CLS}
                 value={vm.params.modelo}
                 onChange={(e) => vm.selecionarModelo(e.target.value)}
@@ -488,6 +530,7 @@ export default function SimulacaoView({
             {/* Medidas */}
             <div className="grid grid-cols-2 gap-2">
               <CampoMedida
+                id="simulacao-largura-parede"
                 label="Largura da parede"
                 value={vm.params.larguraParedeCm}
                 min={80}
@@ -495,6 +538,7 @@ export default function SimulacaoView({
                 onCommit={(v) => vm.atualizarDimensoes(v, vm.params.peDireitoCm)}
               />
               <CampoMedida
+                id="simulacao-pe-direito"
                 label="Altura (pé-direito)"
                 value={vm.params.peDireitoCm}
                 min={180}
@@ -508,12 +552,12 @@ export default function SimulacaoView({
             {/* Cor principal visual */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className={LABEL_CLS + " mb-0"}>Acabamento principal</label>
+                <span id="simulacao-acabamento-principal" className={LABEL_CLS + " mb-0"}>Acabamento principal</span>
                 <span className="text-[11px] font-medium text-[#1B1A18]">
                   {frenteAtual?.label}
                 </span>
               </div>
-              <div className="grid grid-cols-9 gap-1.5">
+              <div role="group" aria-labelledby="simulacao-acabamento-principal" className="grid grid-cols-9 gap-1.5">
                 {MATERIAIS.map((m) => {
                   const ativo = vm.params.materialFrente === m.id;
                   return (
@@ -521,6 +565,8 @@ export default function SimulacaoView({
                       key={m.id}
                       type="button"
                       title={m.label}
+                      aria-label={`Selecionar acabamento ${m.label}`}
+                      aria-pressed={ativo}
                       onClick={() => vm.updateParams({ materialFrente: m.id })}
                       className={`h-7 w-full rounded-md border transition ${
                         ativo
@@ -536,8 +582,9 @@ export default function SimulacaoView({
 
             {/* Cor superior / contraste */}
             <div>
-              <label className={LABEL_CLS}>Cor superior / detalhe</label>
+              <label htmlFor="simulacao-acabamento-superior" className={LABEL_CLS}>Cor superior / detalhe</label>
               <select
+                id="simulacao-acabamento-superior"
                 className={INPUT_CLS}
                 value={vm.params.materialFrenteSuperior}
                 onChange={(e) =>
@@ -556,8 +603,9 @@ export default function SimulacaoView({
             {/* Puxador e Tampo */}
             <div className={`grid gap-2 ${temTampo ? "grid-cols-2" : "grid-cols-1"}`}>
               <div>
-                <label className={LABEL_CLS}>Puxador</label>
+                <label htmlFor="simulacao-puxador" className={LABEL_CLS}>Puxador</label>
                 <select
+                  id="simulacao-puxador"
                   className={INPUT_CLS}
                   value={vm.params.puxador}
                   onChange={(e) => vm.updateParams({ puxador: e.target.value })}
@@ -571,8 +619,9 @@ export default function SimulacaoView({
               </div>
               {temTampo && (
                 <div>
-                  <label className={LABEL_CLS}>Tampo / Bancada</label>
+                  <label htmlFor="simulacao-tampo" className={LABEL_CLS}>Tampo / Bancada</label>
                   <select
+                    id="simulacao-tampo"
                     className={INPUT_CLS}
                     value={vm.params.tampo}
                     onChange={(e) => vm.updateParams({ tampo: e.target.value })}
@@ -591,6 +640,7 @@ export default function SimulacaoView({
             <div className="flex flex-wrap gap-3 pt-0.5">
               <label className="flex items-center gap-1.5 text-xs text-[#3D3831] cursor-pointer">
                 <input
+                  id="simulacao-led"
                   type="checkbox"
                   checked={temLed}
                   onChange={() => vm.toggleExtra("led")}
@@ -601,6 +651,7 @@ export default function SimulacaoView({
               {temPainel && (
                 <label className="flex items-center gap-1.5 text-xs text-[#3D3831] cursor-pointer">
                   <input
+                    id="simulacao-ripado"
                     type="checkbox"
                     checked={temRipado}
                     onChange={() => vm.toggleExtra("ripado")}
@@ -627,7 +678,7 @@ export default function SimulacaoView({
                     <button
                       type="button"
                       onClick={vm.removerFoto}
-                      className="text-[11px] font-semibold text-red-700 hover:underline"
+                      className="text-xs font-semibold text-red-700 hover:underline"
                     >
                       Remover imagem
                     </button>
@@ -637,9 +688,10 @@ export default function SimulacaoView({
                 <label className="flex items-center justify-center rounded-lg border border-dashed border-[#CFC6B8] bg-[#FAF8F4] py-2 px-3 text-xs font-medium text-[#5C5449] cursor-pointer hover:border-[#B08D57] hover:text-[#1B1A18] transition">
                   + Foto do local ou esboço (opcional)
                   <input
+                    aria-label="Anexar foto do local ou esboço"
                     type="file"
                     accept="image/*"
-                    className="hidden"
+                    className="sr-only"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       if (f) void vm.handleUploadFoto(f);
@@ -658,8 +710,9 @@ export default function SimulacaoView({
               <div className="mt-2.5 space-y-2">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className={LABEL_CLS}>Prazo (dias úteis)</label>
+                    <label htmlFor="simulacao-prazo" className={LABEL_CLS}>Prazo (dias úteis)</label>
                     <input
+                      id="simulacao-prazo"
                       type="number"
                       min={1}
                       className={INPUT_CLS}
@@ -672,8 +725,9 @@ export default function SimulacaoView({
                     />
                   </div>
                   <div>
-                    <label className={LABEL_CLS}>Validade (dias)</label>
+                    <label htmlFor="simulacao-validade" className={LABEL_CLS}>Validade (dias)</label>
                     <input
+                      id="simulacao-validade"
                       type="number"
                       min={1}
                       className={INPUT_CLS}
@@ -687,8 +741,9 @@ export default function SimulacaoView({
                   </div>
                 </div>
                 <div>
-                  <label className={LABEL_CLS}>Observações</label>
+                  <label htmlFor="simulacao-observacoes" className={LABEL_CLS}>Observações</label>
                   <textarea
+                    id="simulacao-observacoes"
                     rows={2}
                     placeholder="Detalhes adicionais para o PDF..."
                     className={INPUT_CLS + " resize-none"}
@@ -703,12 +758,13 @@ export default function SimulacaoView({
           </aside>
 
           {/* Palco visual + barra de ações */}
-          <section className="flex flex-col gap-2.5 sm:min-h-0">
+          <section aria-label="Editor visual do ambiente" className="flex flex-col gap-2.5 sm:min-h-0">
             <div className="flex-1 min-h-[340px] sm:min-h-0 flex flex-col rounded-xl border border-[#E5DEC9] bg-white overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#EFEAE0] bg-[#FAF8F4] px-3.5 py-2 shrink-0">
-                <div className="flex items-center gap-1.5">
+                <div role="group" aria-label="Modo de visualização" className="flex items-center gap-1.5">
                   <button
                     type="button"
+                    aria-pressed={vm.modoVisualizacao === "3d"}
                     onClick={() => vm.setModoVisualizacao("3d")}
                     className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
                       vm.modoVisualizacao === "3d"
@@ -720,6 +776,7 @@ export default function SimulacaoView({
                   </button>
                   <button
                     type="button"
+                    aria-pressed={vm.modoVisualizacao === "tecnico"}
                     onClick={() => vm.setModoVisualizacao("tecnico")}
                     className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
                       vm.modoVisualizacao === "tecnico"
@@ -732,6 +789,7 @@ export default function SimulacaoView({
                   {vm.foto && (
                     <button
                       type="button"
+                      aria-pressed={vm.modoVisualizacao === "foto"}
                       onClick={() => vm.setModoVisualizacao("foto")}
                       className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
                         vm.modoVisualizacao === "foto"
@@ -744,25 +802,50 @@ export default function SimulacaoView({
                   )}
                 </div>
 
+                {pecas.length > 0 && (
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-[#4A443B]">
+                    Selecionar peça
+                    <select
+                      value={sel ? `${sel.linhaIdx}:${sel.modIdx}` : ""}
+                      onChange={(e) => {
+                        if (!e.target.value) {
+                          vm.setSelecionado(null);
+                          return;
+                        }
+                        const [linhaIdx, modIdx] = e.target.value.split(":").map(Number);
+                        vm.setSelecionado({ linhaIdx, modIdx });
+                      }}
+                      className="rounded-md border border-[#DDD6CA] bg-white px-2 py-1 text-xs text-[#1B1A18] focus:border-[#B08D57] focus:outline-none"
+                    >
+                      <option value="">Nenhuma</option>
+                      {pecas.map((peca) => (
+                        <option key={`${peca.linhaIdx}-${peca.modIdx}`} value={`${peca.linhaIdx}:${peca.modIdx}`}>
+                          {peca.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
                 <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => vm.adicionarBloco("superior")}
-                    className="rounded-md border border-[#DDD6CA] bg-white px-2 py-1 text-[11px] font-medium text-[#4A443B] hover:border-[#B08D57] hover:text-[#1B1A18] transition"
+                    className="rounded-md border border-[#DDD6CA] bg-white px-2 py-1 text-xs font-medium text-[#4A443B] hover:border-[#B08D57] hover:text-[#1B1A18] transition"
                   >
                     + Aéreo
                   </button>
                   <button
                     type="button"
                     onClick={() => vm.adicionarBloco("balcao")}
-                    className="rounded-md border border-[#DDD6CA] bg-white px-2 py-1 text-[11px] font-medium text-[#4A443B] hover:border-[#B08D57] hover:text-[#1B1A18] transition"
+                    className="rounded-md border border-[#DDD6CA] bg-white px-2 py-1 text-xs font-medium text-[#4A443B] hover:border-[#B08D57] hover:text-[#1B1A18] transition"
                   >
                     + Balcão
                   </button>
                   <button
                     type="button"
                     onClick={() => vm.adicionarBloco("torre")}
-                    className="rounded-md border border-[#DDD6CA] bg-white px-2 py-1 text-[11px] font-medium text-[#4A443B] hover:border-[#B08D57] hover:text-[#1B1A18] transition"
+                    className="rounded-md border border-[#DDD6CA] bg-white px-2 py-1 text-xs font-medium text-[#4A443B] hover:border-[#B08D57] hover:text-[#1B1A18] transition"
                   >
                     + Torre
                   </button>
@@ -770,7 +853,7 @@ export default function SimulacaoView({
                     <button
                       type="button"
                       onClick={() => vm.adicionarBloco("painel")}
-                      className="rounded-md border border-[#DDD6CA] bg-white px-2 py-1 text-[11px] font-medium text-[#4A443B] hover:border-[#B08D57] hover:text-[#1B1A18] transition"
+                      className="rounded-md border border-[#DDD6CA] bg-white px-2 py-1 text-xs font-medium text-[#4A443B] hover:border-[#B08D57] hover:text-[#1B1A18] transition"
                     >
                       + Painel
                     </button>
@@ -780,7 +863,7 @@ export default function SimulacaoView({
                     <button
                       type="button"
                       onClick={vm.restaurarLayoutModelo}
-                      className="rounded-md border border-[#E5DEC9] bg-[#FAF8F4] px-2 py-1 text-[11px] font-semibold text-[#8A6B3E] hover:border-[#B08D57] transition"
+                      className="rounded-md border border-[#E5DEC9] bg-[#FAF8F4] px-2 py-1 text-xs font-semibold text-[#8A6B3E] hover:border-[#B08D57] transition"
                     >
                       {vm.params.modelo === "sob-medida"
                         ? "Limpar parede"
@@ -794,6 +877,9 @@ export default function SimulacaoView({
               </div>
 
               <div className="relative flex-1 min-h-0 bg-[#FBFAF7] p-3 flex items-center justify-center overflow-hidden select-none">
+                <p id="simulacao-instrucoes-desenho" className="sr-only">
+                  Selecione uma peça no campo acima para editá-la com o teclado. Também é possível selecionar, mover e redimensionar peças diretamente no desenho com o ponteiro.
+                </p>
                 {vm.modoVisualizacao === "foto" && vm.foto ? (
                   <img
                     src={vm.foto}
@@ -805,6 +891,9 @@ export default function SimulacaoView({
                     <div
                       ref={palcoRef}
                       onPointerDown={iniciarInteracaoSvg}
+                      role="region"
+                      aria-label="Prévia interativa do ambiente"
+                      aria-describedby="simulacao-instrucoes-desenho"
                       className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full touch-none"
                       dangerouslySetInnerHTML={{ __html: vm.svgInterativo }}
                     />
@@ -817,7 +906,7 @@ export default function SimulacaoView({
                               Monte o ambiente livremente do zero
                             </h3>
                             <p className="mt-1 text-xs text-[#7C7367]">
-                              Adicione blocos abaixo e arraste na parede pela alça dourada, ou anexe um esboço para formatos especiais.
+                              Adicione blocos abaixo ou anexe um esboço para formatos especiais.
                             </p>
                           </div>
                           <div className="flex flex-wrap items-center justify-center gap-1.5">
@@ -854,9 +943,10 @@ export default function SimulacaoView({
                             <label className="inline-flex items-center gap-1.5 text-xs font-medium text-[#8A6B3E] hover:underline cursor-pointer">
                               + Anexar esboço ou foto de referência
                               <input
+                                aria-label="Anexar esboço ou foto de referência"
                                 type="file"
                                 accept="image/*"
-                                className="hidden"
+                                className="sr-only"
                                 onChange={(e) => {
                                   const f = e.target.files?.[0];
                                   if (f) {
@@ -874,7 +964,7 @@ export default function SimulacaoView({
                     )}
 
                     {indicadorArrasto && (
-                      <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#1B1A18] px-3 py-1 text-[11px] font-medium text-[#FAF8F4] shadow-md">
+                      <div role="status" aria-live="polite" className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#1B1A18] px-3 py-1 text-xs font-medium text-[#FAF8F4] shadow-md">
                         {indicadorArrasto}
                       </div>
                     )}
@@ -891,8 +981,9 @@ export default function SimulacaoView({
                             </span>
                             <button
                               type="button"
+                              aria-pressed={temRipado}
                               onClick={() => vm.toggleExtra("ripado")}
-                              className={`rounded-md border px-2 py-1 text-[11px] font-medium transition ${
+                              className={`rounded-md border px-2 py-1 text-xs font-medium transition ${
                                 temRipado
                                   ? "border-[#1B1A18] bg-[#1B1A18] text-white"
                                   : "border-[#DDD6CA] bg-[#FAF8F4] text-[#4A443B] hover:border-[#B08D57]"
@@ -909,7 +1000,7 @@ export default function SimulacaoView({
                                     larguraCm: vm.params.larguraParedeCm,
                                   });
                                 }}
-                                className="rounded-md border border-[#E5DEC9] bg-[#FAF8F4] px-2 py-1 text-[11px] font-semibold text-[#8A6B3E] hover:border-[#B08D57]"
+                                className="rounded-md border border-[#E5DEC9] bg-[#FAF8F4] px-2 py-1 text-xs font-semibold text-[#8A6B3E] hover:border-[#B08D57]"
                               >
                                 Ajustar ({vm.params.larguraParedeCm}cm)
                               </button>
@@ -917,7 +1008,7 @@ export default function SimulacaoView({
                             <button
                               type="button"
                               onClick={() => vm.removerLinha(sel.linhaIdx)}
-                              className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100"
+                              className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
                             >
                               Remover
                             </button>
@@ -928,13 +1019,14 @@ export default function SimulacaoView({
                               {linhaSel.nome}:
                             </span>
                             <select
+                              aria-label="Tipo da peça selecionada"
                               value={modSel.tipo}
                               onChange={(e) =>
                                 vm.atualizarModulo(sel.linhaIdx, sel.modIdx, {
                                   tipo: e.target.value as TipoModulo,
                                 })
                               }
-                              className="rounded-md border border-[#DDD6CA] bg-[#FAF8F4] px-2 py-1 text-[11px] font-medium text-[#1B1A18] focus:border-[#B08D57] focus:outline-none"
+                              className="rounded-md border border-[#DDD6CA] bg-[#FAF8F4] px-2 py-1 text-xs font-medium text-[#1B1A18] focus:border-[#B08D57] focus:outline-none"
                             >
                               {TIPOS_MODULO.map((t) => (
                                 <option key={t.id} value={t.id}>
@@ -952,7 +1044,8 @@ export default function SimulacaoView({
                                 vm.moverModulo(sel.linhaIdx, sel.modIdx, -1)
                               }
                               title="Mover à esquerda"
-                              className="rounded border border-[#DDD6CA] bg-[#FAF8F4] px-1.5 py-0.5 text-[11px] text-[#3D3831] disabled:opacity-30 hover:border-[#B08D57]"
+                              aria-label="Mover peça para a esquerda"
+                              className="rounded border border-[#DDD6CA] bg-[#FAF8F4] px-1.5 py-0.5 text-xs text-[#3D3831] disabled:opacity-30 hover:border-[#B08D57]"
                             >
                               ←
                             </button>
@@ -963,7 +1056,8 @@ export default function SimulacaoView({
                                 vm.moverModulo(sel.linhaIdx, sel.modIdx, 1)
                               }
                               title="Mover à direita"
-                              className="rounded border border-[#DDD6CA] bg-[#FAF8F4] px-1.5 py-0.5 text-[11px] text-[#3D3831] disabled:opacity-30 hover:border-[#B08D57]"
+                              aria-label="Mover peça para a direita"
+                              className="rounded border border-[#DDD6CA] bg-[#FAF8F4] px-1.5 py-0.5 text-xs text-[#3D3831] disabled:opacity-30 hover:border-[#B08D57]"
                             >
                               →
                             </button>
@@ -979,7 +1073,7 @@ export default function SimulacaoView({
                                 )
                               }
                               title="Adicionar peça ao lado"
-                              className="rounded-md border border-[#E5DEC9] bg-[#FAF8F4] px-2 py-1 text-[11px] font-semibold text-[#8A6B3E] hover:border-[#B08D57]"
+                              className="rounded-md border border-[#E5DEC9] bg-[#FAF8F4] px-2 py-1 text-xs font-semibold text-[#8A6B3E] hover:border-[#B08D57]"
                             >
                               + Peça
                             </button>
@@ -987,7 +1081,8 @@ export default function SimulacaoView({
                               type="button"
                               onClick={() => vm.alternarTampoLinha(sel.linhaIdx)}
                               title="Ativar/remover tampo neste bloco"
-                              className={`rounded-md border px-2 py-1 text-[11px] font-medium transition ${
+                              aria-pressed={linhaSel.tampo}
+                              className={`rounded-md border px-2 py-1 text-xs font-medium transition ${
                                 linhaSel.tampo
                                   ? "border-[#1B1A18] bg-[#1B1A18] text-white"
                                   : "border-[#DDD6CA] bg-[#FAF8F4] text-[#4A443B] hover:border-[#B08D57]"
@@ -999,7 +1094,7 @@ export default function SimulacaoView({
                               type="button"
                               onClick={() => vm.alternarProfundidadeLinha(sel.linhaIdx)}
                               title="Alternar profundidade do bloco (35 / 45 / 58 cm)"
-                              className="rounded-md border border-[#DDD6CA] bg-[#FAF8F4] px-2 py-1 text-[11px] font-medium text-[#4A443B] hover:border-[#B08D57]"
+                              className="rounded-md border border-[#DDD6CA] bg-[#FAF8F4] px-2 py-1 text-xs font-medium text-[#4A443B] hover:border-[#B08D57]"
                             >
                               Prof. {linhaSel.profundidadeCm}cm
                             </button>
@@ -1007,7 +1102,7 @@ export default function SimulacaoView({
                               type="button"
                               onClick={() => vm.duplicarBloco(sel.linhaIdx)}
                               title="Duplicar este bloco"
-                              className="rounded-md border border-[#DDD6CA] bg-[#FAF8F4] px-2 py-1 text-[11px] font-medium text-[#4A443B] hover:border-[#B08D57]"
+                              className="rounded-md border border-[#DDD6CA] bg-[#FAF8F4] px-2 py-1 text-xs font-medium text-[#4A443B] hover:border-[#B08D57]"
                             >
                               Duplicar
                             </button>
@@ -1016,7 +1111,7 @@ export default function SimulacaoView({
                               <button
                                 type="button"
                                 onClick={() => vm.ajustarLinhaNaParede(sel.linhaIdx)}
-                                className="rounded-md border border-[#E5DEC9] bg-[#FAF8F4] px-2 py-1 text-[11px] font-medium text-[#5C5449] hover:border-[#B08D57]"
+                                className="rounded-md border border-[#E5DEC9] bg-[#FAF8F4] px-2 py-1 text-xs font-medium text-[#5C5449] hover:border-[#B08D57]"
                               >
                                 Fechar parede
                               </button>
@@ -1026,7 +1121,7 @@ export default function SimulacaoView({
                               onClick={() =>
                                 vm.removerModulo(sel.linhaIdx, sel.modIdx)
                               }
-                              className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100"
+                              className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
                             >
                               Remover
                             </button>
@@ -1035,7 +1130,7 @@ export default function SimulacaoView({
                                 type="button"
                                 onClick={() => vm.removerLinha(sel.linhaIdx)}
                                 title="Remover este bloco inteiro"
-                                className="text-[11px] font-medium text-red-700 hover:underline px-1"
+                                className="text-xs font-medium text-red-700 hover:underline px-1"
                               >
                                 Bloco ×
                               </button>
@@ -1046,14 +1141,11 @@ export default function SimulacaoView({
                           type="button"
                           onClick={() => vm.setSelecionado(null)}
                           title="Fechar seleção"
+                          aria-label="Fechar seleção da peça"
                           className="ml-0.5 rounded px-1.5 py-0.5 text-xs font-semibold text-[#7C7367] hover:bg-[#FAF8F4] hover:text-[#1B1A18]"
                         >
                           ×
                         </button>
-                      </div>
-                    ) : !indicadorArrasto && vm.params.linhas.length > 0 ? (
-                      <div className="pointer-events-none absolute bottom-2.5 left-1/2 -translate-x-1/2 rounded-full bg-white/85 border border-[#E5DEC9] px-3 py-1 text-[11px] text-[#7C7367]">
-                        Clique em qualquer peça para alterar, arrastar medidas ou mover na parede
                       </div>
                     ) : null}
                   </>
@@ -1068,6 +1160,7 @@ export default function SimulacaoView({
                   <input
                     type="text"
                     autoFocus
+                    aria-label="Nome do ambiente"
                     value={nomeTemp}
                     onChange={(e) => setNomeTemp(e.target.value)}
                     onBlur={() => {
@@ -1114,7 +1207,7 @@ export default function SimulacaoView({
                         materiais: vm.sugestoesRastreabilidade,
                       })
                     }
-                    className={`ml-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition ${
+                    className={`ml-1 rounded-md border px-2 py-0.5 text-xs font-medium transition ${
                       vm.lotesProjeto.length > 0
                         ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
                         : "border-[#DDD6CA] bg-[#FAF8F4] text-[#8A6B3E] hover:border-[#B08D57]"
@@ -1162,7 +1255,7 @@ export default function SimulacaoView({
           </section>
         </div>
       ) : (
-        <div className="flex-1 min-h-0 rounded-xl border border-[#E5DEC9] bg-white p-4 overflow-y-auto">
+        <div id="simulacao-painel-salvos" role="tabpanel" aria-labelledby="simulacao-aba-salvos" className="flex-1 min-h-0 rounded-xl border border-[#E5DEC9] bg-white p-4 overflow-y-auto">
           {vm.historico.length === 0 ? (
             <div className="flex h-full min-h-[260px] flex-col items-center justify-center text-center text-xs text-[#7C7367]">
               <p className="text-sm font-semibold text-[#1B1A18]">
@@ -1185,6 +1278,7 @@ export default function SimulacaoView({
                     className="flex flex-col rounded-xl border border-[#E5DEC9] bg-[#FAF8F4] overflow-hidden"
                   >
                     <div
+                      aria-hidden="true"
                       className="h-44 bg-[#FBFAF7] border-b border-[#EFEAE0] p-2 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
                       dangerouslySetInnerHTML={{ __html: thumb }}
                     />
