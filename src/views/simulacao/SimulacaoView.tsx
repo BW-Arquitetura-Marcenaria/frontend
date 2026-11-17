@@ -9,7 +9,9 @@ import {
   larguraLinha,
 } from "@/models/Simulacao";
 import type { TipoModulo } from "@/models/Simulacao";
+import { FLUX_ASPECT_RATIOS } from "@/models/SimulacaoIa";
 import { gerarSvgProjeto } from "@/utils/desenhoMarcenaria";
+import { baixarImagem } from "@/utils/imagem";
 import { useSimulacaoViewModel } from "@/viewmodels/simulacao/useSimulacaoViewModel";
 import type { RascunhoRastreabilidade } from "@/views/rastreabilidade/RastreabilidadeView";
 
@@ -702,6 +704,71 @@ export default function SimulacaoView({
               )}
             </div>
 
+            {/* Simulação por IA (FLUX.2 [flex]) */}
+            <details className="border-t border-[#EFEAE0] pt-2.5 text-xs">
+              <summary className="cursor-pointer font-medium text-[#7C7367] hover:text-[#1B1A18] select-none">
+                Simulação por IA (Flux)
+              </summary>
+              <div className="mt-2.5 space-y-2.5">
+                <p className="text-[11px] leading-relaxed text-[#7C7367]">
+                  Descreva o que o cliente gostaria. A IA usa a foto anexada e as
+                  configurações acima para redesenhar o ambiente.
+                </p>
+                <div>
+                  <label className={LABEL_CLS}>Descreva o que você gostaria</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Ex.: deixar a cozinha mais clara, com madeira freijó e bancada de quartzo branco"
+                    className={INPUT_CLS + " resize-none"}
+                    value={vm.descricaoIa}
+                    onChange={(e) => vm.setDescricaoIa(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Formato da imagem</label>
+                  <select
+                    className={INPUT_CLS}
+                    value={vm.aspectRatioIa}
+                    onChange={(e) =>
+                      vm.setAspectRatioIa(e.target.value as typeof vm.aspectRatioIa)
+                    }
+                  >
+                    {FLUX_ASPECT_RATIOS.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {vm.erroIa && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] text-red-800">
+                    {vm.erroIa}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void vm.gerarSimulacaoIa()}
+                  disabled={vm.gerandoIa || !vm.foto}
+                  className={`w-full rounded-lg py-2.5 text-xs font-semibold transition ${
+                    !vm.foto || vm.gerandoIa
+                      ? "cursor-not-allowed bg-[#E5DEC9] text-[#A79E8F]"
+                      : "bg-[#8A6B3E] text-white hover:bg-[#74592F]"
+                  }`}
+                >
+                  {vm.gerandoIa
+                    ? "Gerando com IA..."
+                    : vm.imagemIa
+                    ? "Gerar novamente"
+                    : "Gerar com IA (Flux)"}
+                </button>
+                {!vm.foto && (
+                  <p className="text-[11px] text-[#A79E8F]">
+                    Anexe uma foto do local para habilitar a geração.
+                  </p>
+                )}
+              </div>
+            </details>
+
             {/* Observações recolhidas por padrão */}
             <details className="border-t border-[#EFEAE0] pt-2.5 text-xs">
               <summary className="cursor-pointer font-medium text-[#7C7367] hover:text-[#1B1A18] select-none">
@@ -800,6 +867,19 @@ export default function SimulacaoView({
                       Foto / Esboço
                     </button>
                   )}
+                  {vm.imagemIa && (
+                    <button
+                      type="button"
+                      onClick={() => vm.setModoVisualizacao("ia")}
+                      className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
+                        vm.modoVisualizacao === "ia"
+                          ? "bg-[#8A6B3E] text-white"
+                          : "bg-white border border-[#DDD6CA] text-[#4A443B] hover:border-[#B08D57]"
+                      }`}
+                    >
+                      IA (Flux)
+                    </button>
+                  )}
                 </div>
 
                 {pecas.length > 0 && (
@@ -886,6 +966,22 @@ export default function SimulacaoView({
                     alt="Foto do local"
                     className="max-h-full max-w-full rounded-lg object-contain shadow-md"
                   />
+                ) : vm.modoVisualizacao === "ia" && vm.imagemIa ? (
+                  <div className="relative flex h-full w-full items-center justify-center">
+                    <img
+                      src={vm.imagemIa}
+                      alt="Simulação gerada por IA"
+                      className="max-h-full max-w-full rounded-lg object-contain shadow-md"
+                    />
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full bg-[#8A6B3E]/90 backdrop-blur px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-white">
+                      Gerado por IA · Flux
+                    </div>
+                    {vm.gerandoIa && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/60">
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#8A6B3E] border-t-transparent" />
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <>
                     <div
@@ -1221,6 +1317,15 @@ export default function SimulacaoView({
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
+                {vm.imagemIa && (
+                  <button
+                    type="button"
+                    onClick={() => void baixarImagem(vm.imagemIa!, "simulacao-ia-flux.png")}
+                    className="rounded-lg border border-[#E5DEC9] bg-[#FAF8F4] px-3 py-2 text-xs font-semibold text-[#8A6B3E] hover:border-[#B08D57] transition"
+                  >
+                    Baixar IA
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={vm.exportarPropostaPdf}
