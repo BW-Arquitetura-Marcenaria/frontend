@@ -36,6 +36,16 @@ export default defineConfig(({ mode }) => {
       port: parseInt(process.env.PORT || '8443'),
       strictPort: true,
       watch: { ignored: ['**/.figma/**'] },
+      proxy: {
+        // Encaminha a geração por IA (FLUX.2 [flex]) para um host que guarda a
+        // chave de API fora do cliente. Em dev aponta para o mock local
+        // (`npm run mock:api`); em produção defina VITE_FLUX_PROXY_TARGET para o
+        // backend real. Sem destino configurado, o proxy cai no mock local.
+        '/v1/simulacao': {
+          target: process.env.VITE_FLUX_PROXY_TARGET || 'http://localhost:4000',
+          changeOrigin: true,
+        },
+      },
     },
     preview: {
       host: '0.0.0.0',

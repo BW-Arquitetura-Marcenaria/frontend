@@ -125,5 +125,19 @@ server.put('/v1/minha-conta', (req, res) => {
   return res.json(db.v1['minha-conta']);
 });
 
+// Stub da geração por IA (FLUX.2 [flex]).
+// Não chama a Flux de verdade: devolve a própria imagem enviada para que o
+// fluxo do frontend funcione de ponta a ponta durante o desenvolvimento.
+server.post('/v1/simulacao/flux', (req, res) => {
+  const { imagemBase64 } = req.body ?? {};
+  if (!imagemBase64 || typeof imagemBase64 !== "string") {
+    return res.status(400).json({ message: 'Campo "imagemBase64" é obrigatório.' });
+  }
+  return res.json({
+    imagemUrl: imagemBase64,
+    modelo: "flux-2-flex-stub",
+  });
+});
+
 const port = Number(process.env.PORT || 4000);
 server.listen(port, () => console.log(`Mock server listening on http://localhost:${port}`));
