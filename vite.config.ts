@@ -1,4 +1,4 @@
-import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type HtmlTagDescriptor, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
@@ -8,6 +8,7 @@ import path from 'node:path'
 export default defineConfig(({ mode }) => {
   // .figma/make/deploy-preview passes `--mode development` for cached-preview builds.
   const emitSourcemaps = mode === 'development'
+  const env = loadEnv(mode, process.cwd(), '')
 
   return {
     base: process.env.FIGMA_PUBLIC_URL ? `${process.env.FIGMA_PUBLIC_URL}/` : '/',
@@ -25,6 +26,7 @@ export default defineConfig(({ mode }) => {
       figmaErrorOverlayReplay(),
       figmaReactRefreshBoundaryFallback(),
       figmaMakeKitPlugin({ storiesGlob: '/src/**/*.stories.{ts,tsx,js,jsx}' }),
+      fluxSimulacaoFoundry(env),
     ],
     resolve: {
       alias: {
@@ -36,16 +38,6 @@ export default defineConfig(({ mode }) => {
       port: parseInt(process.env.PORT || '8443'),
       strictPort: true,
       watch: { ignored: ['**/.figma/**'] },
-      proxy: {
-        // Encaminha a geração por IA (FLUX.2 [flex]) para um host que guarda a
-        // chave de API fora do cliente. Em dev aponta para o mock local
-        // (`npm run mock:api`); em produção defina VITE_FLUX_PROXY_TARGET para o
-        // backend real. Sem destino configurado, o proxy cai no mock local.
-        '/v1/simulacao': {
-          target: process.env.VITE_FLUX_PROXY_TARGET || 'http://localhost:4000',
-          changeOrigin: true,
-        },
-      },
     },
     preview: {
       host: '0.0.0.0',
@@ -388,6 +380,137 @@ function figmaMakeKitPlugin(options: { storiesGlob: string | string[] }): Plugin
           res.end(await server.transformIndexHtml(url, HTML_BOOTSTRAP))
         } catch (err) {
           next(err as Error)
+        }
+      })
+    },
+  }
+}
+
+/**
+ * Ponte de desenvolvimento para a geração por IA (FLUX.2 [flex] hospedado no
+ * Azure AI Foundry).
+ *
+ * O browser chama `POST /v1/simulacao/flux` com `{ imagemBase64, prompt,
+ * aspectRatio }`; este middleware traduz para o contrato do Foundry, injeta o
+ * Bearer token a partir do `.env` (a chave nunca chega ao cliente) e devolve a
+ * imagem gerada como data URL no formato `{ imagemUrl }`.
+ *
+ * Envs (defina em `.env`, fora do git):
+ *   VITE_FLUX_API_KEY  — chave de API do recurso Foundry (obrigatória para a API real)
+ *   VITE_FLUX_ENDPOINT — endpoint completo (opcional; há um padrão abaixo)
+ *   VITE_FLUX_MODEL    — nome do modelo (opcional; padrão "FLUX.2-flex")
+ *
+ * Sem `VITE_FLUX_API_KEY`, o middleware entra em modo mock e devolve a própria
+ * imagem enviada, permitindo validar o fluxo do frontend sem gastar API.
+ */
+function fluxSimulacaoFoundry(env: Record<string, string>): Plugin {
+  const ROUTE = '/v1/simulacao/flux'
+  const CHAVE = env.VITE_FLUX_API_KEY?.trim()
+  const ENDPOINT =
+    env.VITE_FLUX_ENDPOINT?.trim() ||
+    'https://FoundryGBAlvesm.services.ai.azure.com/providers/blackforestlabs/v1/flux-2-flex?api-version=preview'
+  const MODELO = env.VITE_FLUX_MODEL?.trim() || 'FLUX.2-flex'
+
+  const DIMENSOES: Record<string, { width: number; height: number }> = {
+    '1:1': { width: 1024, height: 1024 },
+    '16:9': { width: 1344, height: 768 },
+    '9:16': { width: 768, height: 1344 },
+    '4:3': { width: 1152, height: 864 },
+    '3:4': { width: 864, height: 1152 },
+    '3:2': { width: 1216, height: 832 },
+    '2:3': { width: 832, height: 1216 },
+  }
+
+  function lerCorpo(req: import('node:http').IncomingMessage): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const partes: Buffer[] = []
+      req.on('data', (c) => partes.push(c as Buffer))
+      req.on('end', () => {
+        try {
+          resolve(JSON.parse(Buffer.concat(partes).toString('utf8') || '{}'))
+        } catch (err) {
+          reject(err as Error)
+        }
+      })
+      req.on('error', reject)
+    })
+  }
+
+  function responder(res: import('node:http').ServerResponse, status: number, body: unknown) {
+    res.statusCode = status
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify(body))
+  }
+
+  return {
+    name: 'bw-flux-simulacao-foundry',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if ((req.url || '').split('?')[0] !== ROUTE) return next()
+        if (req.method !== 'POST') return responder(res, 405, { message: 'Use POST.' })
+
+        let corpo: any
+        try {
+          corpo = await lerCorpo(req)
+        } catch {
+          return responder(res, 400, { message: 'JSON inválido.' })
+        }
+
+        const { imagemBase64, prompt, aspectRatio } = corpo ?? {}
+        if (!prompt || typeof prompt !== 'string') {
+          return responder(res, 400, { message: 'Campo "prompt" é obrigatório.' })
+        }
+
+        // Modo mock: sem chave configurada, devolve a própria imagem enviada.
+        if (!CHAVE) {
+          if (!imagemBase64) {
+            return responder(res, 400, { message: 'Campo "imagemBase64" é obrigatório.' })
+          }
+          return responder(res, 200, { imagemUrl: imagemBase64, modelo: `${MODELO}-mock` })
+        }
+
+        const dim = DIMENSOES[aspectRatio as string] ?? DIMENSOES['1:1']
+        try {
+          const resp = await fetch(ENDPOINT, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${CHAVE}`,
+            },
+            body: JSON.stringify({
+              prompt,
+              model: MODELO,
+              width: dim.width,
+              height: dim.height,
+              n: 1,
+            }),
+          })
+
+          const texto = await resp.text()
+          if (!resp.ok) {
+            return responder(res, resp.status, {
+              message: `Foundry retornou ${resp.status}.`,
+              detalhe: texto.slice(0, 800),
+            })
+          }
+
+          const dados = JSON.parse(texto)
+          const b64 = dados?.data?.[0]?.b64_json
+          if (!b64) {
+            return responder(res, 502, {
+              message: 'Resposta do Foundry sem imagem (data[0].b64_json).',
+              detalhe: texto.slice(0, 800),
+            })
+          }
+          return responder(res, 200, {
+            imagemUrl: `data:image/png;base64,${b64}`,
+            modelo: MODELO,
+          })
+        } catch (err) {
+          return responder(res, 502, {
+            message: `Falha ao chamar a Flux: ${(err as Error).message}`,
+          })
         }
       })
     },

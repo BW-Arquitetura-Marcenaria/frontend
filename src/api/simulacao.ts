@@ -1,4 +1,4 @@
-import axios from "@/api/axios";
+import axios from "axios";
 import type { SimulacaoFluxRequest, SimulacaoFluxResponse } from "@/models/SimulacaoIa";
 
 /**
