@@ -1,6 +1,7 @@
 import axios from "@/api/axios";
 
-export type EtapaFunil = "QUALIFICADO" | "ORCAMENTO_ENVIADO" | "EM_NEGOCIACAO" | "FECHADO";
+export type EtapaFunil = "NOVO_LEAD" | "EM_QUALIFICACAO" | "QUALIFICADO" | "ORCAMENTO_ENVIADO" | "EM_NEGOCIACAO" | "FECHADO";
+export type OrigemFunil = "Todos" | "Instagram" | "Plataforma";
 export type ValorOrcamento = number | string | null;
 
 export type CardFunil = {
@@ -31,8 +32,17 @@ export type QuadroFunil = {
 
 export type DetalheFunil = CardFunil & { etapa: EtapaFunil };
 
-export async function obterFunil(): Promise<QuadroFunil> {
-  const { data } = await axios.get<QuadroFunil>("/v1/admin/funil");
+export type ConviteClientePayload = {
+  nomeCompleto: string;
+  email: string;
+  tipoProjeto?: string;
+  valor?: number;
+};
+
+export async function obterFunil(origem: OrigemFunil = "Todos"): Promise<QuadroFunil> {
+  const { data } = await axios.get<QuadroFunil>("/v1/admin/funil", {
+    params: origem === "Todos" ? undefined : { origem },
+  });
   return data;
 }
 
@@ -44,4 +54,8 @@ export async function obterDetalheFunil(clienteId: number): Promise<DetalheFunil
 export async function atualizarEtapaFunil(clienteId: number, etapa: EtapaFunil): Promise<DetalheFunil> {
   const { data } = await axios.put<DetalheFunil>(`/v1/admin/funil/${clienteId}/etapa`, { etapa });
   return data;
+}
+
+export async function enviarConviteCliente(payload: ConviteClientePayload): Promise<void> {
+  await axios.post("/v1/admin/funil/convites", payload);
 }

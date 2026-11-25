@@ -29,6 +29,17 @@ export type ResumoAtendimento = {
   atendidoEm: string | null;
 };
 
+export type MensagemAssistente = {
+  autor: "CLIENTE" | "ASSISTENTE";
+  texto: string;
+  enviadoEm: string;
+};
+
+export type ConversaAssistente = {
+  concluido: boolean;
+  mensagens: MensagemAssistente[];
+};
+
 export async function listarConversas(): Promise<ConversaChat[]> {
   const { data } = await axios.get<ConversaChat[]>("/v1/admin/chat/conversas");
   return data;
@@ -75,4 +86,14 @@ export async function marcarMensagensClienteLidas(): Promise<void> {
 export async function obterNaoLidasCliente(): Promise<number> {
   const { data } = await axios.get<{ total: number }>("/v1/chat/nao-lidas");
   return data.total;
+}
+
+export async function obterConversaAssistente(): Promise<ConversaAssistente> {
+  const { data } = await axios.get<ConversaAssistente>("/v1/chat/assistente");
+  return data;
+}
+
+export async function enviarMensagemAssistente(mensagem: string): Promise<{ resposta: string; concluido: boolean }> {
+  const { data } = await axios.post<{ resposta: string; concluido: boolean }>("/v1/chat/assistente/mensagens", { mensagem }, { timeout: 100000 });
+  return data;
 }

@@ -1,7 +1,7 @@
 import axios from "@/api/axios";
 
 export type CadastroPayload = {
-  token: string;
+  token?: string;
   tipoCliente: "PESSOA_FISICA" | "PESSOA_JURIDICA";
   nome: string;
   sobrenome: string;
@@ -18,6 +18,7 @@ export type CadastroPayload = {
 
 export type CadastroValidacao = {
   nome: string;
+  email: string | null;
   ambiente: string | null;
   movel: string | null;
   cor: string | null;
@@ -45,5 +46,10 @@ export async function validarLinkCadastro(token: string): Promise<CadastroValida
 
 export async function cadastrarCliente(payload: CadastroPayload): Promise<CadastroResponse> {
   const { data } = await axios.post<CadastroResponse>("/v1/api/cadastro", payload);
+  return data;
+}
+
+export async function cadastrarClienteDireto(payload: Omit<CadastroPayload, "token">): Promise<CadastroResponse> {
+  const { data } = await axios.post<CadastroResponse>("/v1/api/cadastro/direto", payload);
   return data;
 }
