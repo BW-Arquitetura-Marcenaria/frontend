@@ -59,8 +59,36 @@ export async function validarLinkCadastro(token: string): Promise<CadastroValida
   return data;
 }
 
+function registrarLeadNoFunilMock(nome: string, sobrenome: string) {
+  try {
+    const key = "bw-mock-funil-oportunidades-v3";
+    const raw = sessionStorage.getItem(key);
+    const lista = raw ? JSON.parse(raw) : null;
+    const nomeCompleto = `${nome.trim()} ${sobrenome.trim()}`.trim();
+    const iniciais = `${nome.trim()[0] ?? "B"}${sobrenome.trim()[0] ?? "W"}`.toUpperCase();
+    const novoCard = {
+      clienteId: Date.now(),
+      nome: nomeCompleto,
+      iniciais,
+      origem: "Plataforma",
+      recebidoEm: new Date().toISOString(),
+      tipoProjeto: null,
+      orcamento: null,
+      score: null,
+      classificacao: null,
+      etapa: "NOVO_LEAD",
+    };
+    if (Array.isArray(lista)) {
+      sessionStorage.setItem(key, JSON.stringify([novoCard, ...lista]));
+    }
+  } catch {
+    // ignore
+  }
+}
+
 export async function cadastrarCliente(payload: CadastroPayload): Promise<CadastroResponse> {
   if (USE_MOCK) {
+    registrarLeadNoFunilMock(payload.nome, payload.sobrenome);
     return {
       id: Date.now(),
       tipoCliente: payload.tipoCliente,
@@ -78,6 +106,7 @@ export async function cadastrarCliente(payload: CadastroPayload): Promise<Cadast
 
 export async function cadastrarClienteDireto(payload: Omit<CadastroPayload, "token">): Promise<CadastroResponse> {
   if (USE_MOCK) {
+    registrarLeadNoFunilMock(payload.nome, payload.sobrenome);
     return {
       id: Date.now(),
       tipoCliente: payload.tipoCliente,
