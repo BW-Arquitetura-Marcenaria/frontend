@@ -18,7 +18,7 @@ import ClienteChatView from "@/views/chatbot/ClienteChatView";
 import ClienteAgendamentosView from "@/views/calendario/ClienteAgendamentosView";
 import { useMinhaContaViewModel } from "@/viewmodels/minhaConta/useMinhaContaViewModel";
 import { login as apiLogin, logout, getPerfilAtual } from "@/api/auth";
-import { cadastrarCliente, validarLinkCadastro, type CadastroPayload } from "@/api/cadastro";
+import { cadastrarCliente, cadastrarClienteDireto, validarLinkCadastro, type CadastroPayload } from "@/api/cadastro";
 import UsuariosAdminView from "@/views/administradores/UsuariosAdminView";
 import ConviteAdminView from "@/views/administradores/ConviteAdminView";
 import { getContaAdmin, putEmpresaAdmin, putEnderecoAdmin, putSegurancaAdmin, type ContaAdmin, type EmpresaAdminPayload, type EnderecoAdminPayload } from "@/api/contaAdmin";
@@ -1182,7 +1182,7 @@ export function Login({ onNav, onClientLogin }: { onNav: (s: Screen) => void; on
 
           <div className="mt-8 pt-6 border-t border-white/8 flex items-center justify-between">
             <p className="text-[10px] font-mono text-white/25">
-              Sem conta? <button onClick={() => onNav("cadastro")} className="text-white/50 hover:text-bw-dourado transition-colors underline">Criar agora</button>
+              Sem conta? <button onClick={() => onNav("cadastro")} className="text-white/50 hover:text-bw-dourado transition-colors underline">Criar conta</button>
             </p>
             <button onClick={() => onNav("institucional")} className="text-[10px] font-mono text-white/20 hover:text-white/40 transition-colors lg:hidden">← Site</button>
           </div>
@@ -1200,6 +1200,7 @@ type CadTab = "pf" | "pj";
 type CadStep = "dados" | "contato" | "confirmacao";
 
 const COMO_CONHECEU_OPTIONS = [
+  { value: "Site", label: "Site" },
   { value: "instagram", label: "Instagram" },
   { value: "indicacao", label: "Indicação de conhecido" },
   { value: "google", label: "Google / pesquisa" },
@@ -1254,7 +1255,8 @@ function ComoConheceuFields({ comoConheceu, setComoConheceu, instagramUser, setI
 
 export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void; onClientLogin: (tipo: ClienteTipo) => void }) {
   const token = new URLSearchParams(window.location.search).get("token") ?? "";
-  const [linkValido, setLinkValido] = useState(false);
+  const cadastroPorConvite = Boolean(token);
+  const [linkValido, setLinkValido] = useState(!cadastroPorConvite);
   const [validando, setValidando] = useState(Boolean(token));
   const [erroLink, setErroLink] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -1262,6 +1264,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
   const [nome, setNome] = useState("");
   const [sobrenome, setSobrenome] = useState("");
   const [email, setEmail] = useState("");
+  const [emailBloqueado, setEmailBloqueado] = useState(false);
   const [dataNascimento, setDataNascimento] = useState("");
   const [razaoSocial, setRazaoSocial] = useState("");
   const [nomeFantasia, setNomeFantasia] = useState("");
@@ -1275,7 +1278,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
   const [cnpj, setCnpj] = useState("");
   const [cpf, setCpf] = useState("");
   const [phone, setPhone] = useState("");
-  const [comoConheceu, setComoConheceu] = useState("");
+  const [comoConheceu, setComoConheceu] = useState(cadastroPorConvite ? "" : "Site");
   const [instagramUser, setInstagramUser] = useState("");
 
   function formatCNPJ(v: string) {
@@ -1295,7 +1298,14 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
     if (!token) return;
     let ativo = true;
     validarLinkCadastro(token).then(dados => {
-      if (ativo) { setLinkValido(true); if (dados.nome) setNome(dados.nome); }
+      if (ativo) {
+        setLinkValido(true);
+        if (dados.nome) setNome(dados.nome);
+        if (dados.email) {
+          setEmail(dados.email);
+          setEmailBloqueado(true);
+        }
+      }
     }).catch(() => { if (ativo) setErroLink("Este link de cadastro é inválido, expirou ou já foi utilizado. Solicite um novo link à equipe BW."); })
       .finally(() => { if (ativo) setValidando(false); });
     return () => { ativo = false; };
@@ -1312,7 +1322,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
     setEnviando(true);
     setErroCadastro("");
     const payload: CadastroPayload = {
-      token, tipoCliente: tab === "pf" ? "PESSOA_FISICA" : "PESSOA_JURIDICA",
+      token: token || undefined, tipoCliente: tab === "pf" ? "PESSOA_FISICA" : "PESSOA_JURIDICA",
       nome: nome.trim(), sobrenome: sobrenome.trim(), cpf: cpf.replace(/\D/g, ""),
       dataNascimento: dataNascimento || null, email: email.trim(), telefone: phone.replace(/\D/g, ""),
       origemContato: comoConheceu, senha, cnpj: tab === "pj" ? cnpj.replace(/\D/g, "") : null,
@@ -1320,7 +1330,14 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
     };
     try {
       if (!cadastroConcluido) {
-        await cadastrarCliente(payload);
+        if (cadastroPorConvite) {
+          await cadastrarCliente(payload);
+        } else {
+          const { token: _, ...payloadDireto } = payload;
+          await cadastrarClienteDireto(payloadDireto);
+          onNav("login");
+          return;
+        }
         setCadastroConcluido(true);
       }
       try {
@@ -1383,7 +1400,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
           </div>
 
           {validando && <p role="status" className="mb-5 text-sm text-white">Validando seu link de cadastro...</p>}
-          {!validando && !linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroLink || "Para criar uma conta, utilize o link de cadastro enviado pela equipe BW."}</p>}
+          {!validando && !linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroLink || "Este link de cadastro é inválido ou expirou."}</p>}
           {erroCadastro && linkValido && <p role="alert" className="mb-5 border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{erroCadastro}</p>}
           {/* STEP 1: Dados pessoais ou da empresa */}
           {linkValido && step === "dados" && (
@@ -1476,8 +1493,8 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className={glassLabel}>{tab === "pf" ? "E-mail" : "E-mail corporativo"}</label>
-                  <input type="email" maxLength={150} placeholder={tab === "pf" ? "seu@email.com" : "contato@empresa.com.br"} value={email} onChange={e => setEmail(e.target.value)} className={glassInput} />
-                  <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> Cadastro autorizado pelo link da equipe BW</p>
+                  <input type="email" maxLength={150} placeholder={tab === "pf" ? "seu@email.com" : "contato@empresa.com.br"} value={email} disabled={emailBloqueado} onChange={e => setEmail(e.target.value)} className={glassInput} />
+                  <p className="text-[9px] font-mono text-white/25 mt-1.5 flex items-center gap-1"><Icon.AlertCircle /> {emailBloqueado ? "E-mail vinculado ao convite" : cadastroPorConvite ? "Cadastro autorizado pelo link da equipe BW" : "Seu cadastro será enviado para a equipe BW"}</p>
                 </div>
                 <div><label className={glassLabel}>{tab === "pf" ? "Celular / WhatsApp" : "Telefone comercial"}</label><input type="tel" placeholder={tab === "pf" ? "(11) 99999-9999" : "(11) 3000-0000"} value={phone} onChange={e => setPhone(formatPhone(e.target.value))} className={glassInput + " font-mono"} /></div>
               </div>
@@ -1500,7 +1517,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
             <div className="flex flex-col gap-5">
               <div>
                 <div className="flex items-center gap-2 text-[10px] font-mono text-bw-dourado/70 border-b border-white/10 pb-4 mb-2">
-                  <Icon.Check /> Link de cadastro validado
+                  <Icon.Check /> {cadastroPorConvite ? "Link de cadastro validado" : "Dados de cadastro preenchidos"}
                 </div>
                 <h2 className="font-display text-3xl text-white leading-tight mt-4">Definir senha</h2>
                 <p className="text-[11px] font-mono text-white/35 mt-1">Etapa 3 de {steps.length} · mínimo 8 caracteres</p>
@@ -1530,7 +1547,7 @@ export function Cadastro({ onNav, onClientLogin }: { onNav: (s: Screen) => void;
                 <label className="text-[10px] font-mono text-white/35 leading-relaxed">Li e aceito os <a href="#" className="text-white/60 hover:text-bw-dourado transition-colors underline">Termos de Uso</a> e a <a href="#" className="text-white/60 hover:text-bw-dourado transition-colors underline">Política de Privacidade</a></label>
               </div>
               <button onClick={() => void concluirCadastro()} disabled={enviando} className="w-full py-3 border border-bw-dourado/60 bg-bw-dourado/10 text-bw-dourado text-[11px] font-mono uppercase tracking-[.18em] hover:bg-bw-dourado/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50">
-                {enviando ? "Criando conta..." : cadastroConcluido ? "Ir para o login" : "Criar conta e entrar"} <span className="text-base leading-none">›</span>
+                {enviando ? "Criando conta..." : cadastroConcluido ? "Ir para o login" : cadastroPorConvite ? "Criar conta e entrar" : "Criar conta"} <span className="text-base leading-none">›</span>
               </button>
               {!cadastroConcluido && <button onClick={() => { setErroCadastro(""); setStep("contato"); }} className="text-xs text-bw-areia underline">← Voltar ao contato</button>}
             </div>
@@ -2197,7 +2214,7 @@ function SimulacaoLegacy() {
             <div className="text-[10px] font-mono text-bw-muted uppercase tracking-wider mb-2">1. Foto do Cliente</div>
             {!photoUploaded ? (
               <label className="flex flex-col items-center justify-center h-28 border-2 border-dashed border-bw-dourado/30 rounded cursor-pointer hover:border-bw-dourado/60 hover:bg-bw-hover transition-colors bg-bw-white">
-                <Icon.Layers className="w-5 h-5 text-bw-madeira mb-2 opacity-50" />
+                <span className="mb-2 text-bw-madeira opacity-50"><Icon.Layers /></span>
                 <span className="text-[10px] uppercase font-semibold tracking-wider text-bw-preto">Fazer Upload</span>
                 <input type="file" className="hidden" accept="image/*" onChange={() => setPhotoUploaded(true)} />
               </label>
@@ -2258,7 +2275,7 @@ function SimulacaoLegacy() {
               </>
             ) : (
               <div className="text-center text-bw-muted p-8">
-                <Icon.Layers className="w-8 h-8 opacity-20 mx-auto mb-3" />
+                <span className="mb-3 block opacity-20"><Icon.Layers /></span>
                 <div className="text-sm font-semibold text-bw-preto">Nenhuma simulação gerada</div>
                 <div className="text-[10px] mt-1 max-w-[200px] mx-auto">Faça o upload da foto original, escolha o estilo e clique em gerar para ver o resultado.</div>
               </div>
@@ -2316,8 +2333,8 @@ function TabelaPrecos() {
 
   const formatCategoria = (categoria: string) => categoria
     .toLocaleLowerCase("pt-BR")
-    .replaceAll("_", " ")
-    .replace(/(^|\s)\S/g, letra => letra.toLocaleUpperCase("pt-BR"));
+    .replace(/_/g, " ")
+    .replace(/(^|\s)\S/g, (letra: string) => letra.toLocaleUpperCase("pt-BR"));
 
   const excluirItem = async () => {
     if (!deleteTarget) return;
@@ -3779,7 +3796,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>(() => {
     const params = new URLSearchParams(window.location.search);
     if (window.location.pathname === "/convite-admin" || params.get("acao") === "recusar") return "convite-admin";
-    if (window.location.pathname === "/cadastro" && params.has("token")) return "cadastro";
+    if (window.location.pathname === "/cadastro") return "cadastro";
     if (import.meta.env.VITE_USE_MOCK === "true") {
       const tela = sessionStorage.getItem("mockTelaAtual") as Screen | null;
       if (tela === "portal-cliente" || (tela !== null && platformScreens.includes(tela))) return tela;
@@ -3790,6 +3807,16 @@ export default function App() {
     return "institucional";
   });
   const [clienteTipo, setClienteTipo] = useState<ClienteTipo>(() => sessionStorage.getItem("authClienteTipo") === "pj" ? "pj" : "pf");
+
+  useEffect(() => {
+    const redirecionarParaLogin = () => {
+      logout();
+      setPerfil(null);
+      setScreen("login");
+    };
+    window.addEventListener("bw:unauthorized", redirecionarParaLogin);
+    return () => window.removeEventListener("bw:unauthorized", redirecionarParaLogin);
+  }, []);
 
   function navegar(destino: Screen) {
     if (destino === "institucional" && (screen === "portal-cliente" || platformScreens.includes(screen))) {

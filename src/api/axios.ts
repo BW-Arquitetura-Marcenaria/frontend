@@ -10,7 +10,7 @@ function getAuthToken(): string | null {
 }
 
 const axiosInstance = axios.create({
-  baseURL: (import.meta.env.VITE_API_BASE_URL as string) ?? "http://localhost:8080",
+  baseURL: (import.meta.env.VITE_API_BASE_URL as string) ?? "http://localhost:8081",
   withCredentials: true,
 });
 
@@ -24,6 +24,16 @@ axiosInstance.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+axiosInstance.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new Event("bw:unauthorized"));
+    }
+    return Promise.reject(error);
+  },
 );
 
 export default axiosInstance;

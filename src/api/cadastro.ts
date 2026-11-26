@@ -1,7 +1,7 @@
 import axios from "@/api/axios";
 
 export type CadastroPayload = {
-  token: string;
+  token?: string;
   tipoCliente: "PESSOA_FISICA" | "PESSOA_JURIDICA";
   nome: string;
   sobrenome: string;
@@ -18,6 +18,7 @@ export type CadastroPayload = {
 
 export type CadastroValidacao = {
   nome: string;
+  email: string | null;
   ambiente: string | null;
   movel: string | null;
   cor: string | null;
@@ -38,12 +39,85 @@ export type CadastroResponse = {
   dataCadastro: string;
 };
 
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
+
 export async function validarLinkCadastro(token: string): Promise<CadastroValidacao> {
+  if (USE_MOCK) {
+    return {
+      nome: "Maria Souza",
+      email: token.includes("admin") ? "maria.souza@email.com" : null,
+      ambiente: "Cozinha Gourmet",
+      movel: "Cozinha planejada",
+      cor: "Nogueira & Off-white",
+      material: "MDF Folheado Freijó",
+      orcamento: 25000,
+      situacaoProjeto: "Imóvel pronto para medição",
+      precisaVisitaTecnica: true,
+    };
+  }
   const { data } = await axios.get<CadastroValidacao>("/v1/api/cadastro/validar", { params: { token } });
   return data;
 }
 
+function registrarLeadNoFunilMock(nome: string, sobrenome: string) {
+  try {
+    const key = "bw-mock-funil-oportunidades-v3";
+    const raw = sessionStorage.getItem(key);
+    const lista = raw ? JSON.parse(raw) : null;
+    const nomeCompleto = `${nome.trim()} ${sobrenome.trim()}`.trim();
+    const iniciais = `${nome.trim()[0] ?? "B"}${sobrenome.trim()[0] ?? "W"}`.toUpperCase();
+    const novoCard = {
+      clienteId: Date.now(),
+      nome: nomeCompleto,
+      iniciais,
+      origem: "Plataforma",
+      recebidoEm: new Date().toISOString(),
+      tipoProjeto: null,
+      orcamento: null,
+      score: null,
+      classificacao: null,
+      etapa: "NOVO_LEAD",
+    };
+    if (Array.isArray(lista)) {
+      sessionStorage.setItem(key, JSON.stringify([novoCard, ...lista]));
+    }
+  } catch {
+    // ignore
+  }
+}
+
 export async function cadastrarCliente(payload: CadastroPayload): Promise<CadastroResponse> {
+  if (USE_MOCK) {
+    registrarLeadNoFunilMock(payload.nome, payload.sobrenome);
+    return {
+      id: Date.now(),
+      tipoCliente: payload.tipoCliente,
+      nome: payload.nome,
+      sobrenome: payload.sobrenome,
+      email: payload.email,
+      telefone: payload.telefone,
+      etapaFunil: "NOVO_LEAD",
+      dataCadastro: new Date().toISOString(),
+    };
+  }
   const { data } = await axios.post<CadastroResponse>("/v1/api/cadastro", payload);
+  return data;
+}
+
+export async function cadastrarClienteDireto(payload: Omit<CadastroPayload, "token">): Promise<CadastroResponse> {
+  if (USE_MOCK) {
+    registrarLeadNoFunilMock(payload.nome, payload.sobrenome);
+    return {
+      id: Date.now(),
+      tipoCliente: payload.tipoCliente,
+      nome: payload.nome,
+      sobrenome: payload.sobrenome,
+      email: payload.email,
+      telefone: payload.telefone,
+      etapaFunil: "NOVO_LEAD",
+      dataCadastro: new Date().toISOString(),
+    };
+  }
+  const { data } = await axios.post<CadastroResponse>("/v1/api/cadastro/direto", payload);
   return data;
 }
